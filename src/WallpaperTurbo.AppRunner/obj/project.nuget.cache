@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "ERwUqxH+ODI=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\arnab\\PROJECTS\\Wallpaper Turbo\\src\\WallpaperTurbo.AppRunner\\WallpaperTurbo.AppRunner.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\arnab\\.nuget\\packages\\libvlcsharp\\3.9.1\\libvlcsharp.3.9.1.nupkg.sha512",
+    "C:\\Users\\arnab\\.nuget\\packages\\system.codedom\\8.0.0\\system.codedom.8.0.0.nupkg.sha512",
+    "C:\\Users\\arnab\\.nuget\\packages\\system.management\\8.0.0\\system.management.8.0.0.nupkg.sha512",
+    "C:\\Users\\arnab\\.nuget\\packages\\videolan.libvlc.windows\\3.0.21\\videolan.libvlc.windows.3.0.21.nupkg.sha512",
+    "C:\\Users\\arnab\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.27\\microsoft.netcore.app.runtime.win-x64.8.0.27.nupkg.sha512",
+    "C:\\Users\\arnab\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.27\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.27.nupkg.sha512",
+    "C:\\Users\\arnab\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.27\\microsoft.aspnetcore.app.runtime.win-x64.8.0.27.nupkg.sha512"
+  ],
+  "logs": []
+}
