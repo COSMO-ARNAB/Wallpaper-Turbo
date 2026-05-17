@@ -9,6 +9,7 @@ using WallpaperTurbo.Core.Hardware;
 using WallpaperTurbo.Core.Hardware.Models;
 using WallpaperTurbo.Core.Interop;
 using WallpaperTurbo.Core.Media.Pipelines;
+using WallpaperTurbo.Core.Media;
 
 namespace WallpaperTurbo.AppRunner
 {
@@ -33,6 +34,8 @@ namespace WallpaperTurbo.AppRunner
 
                 // 3. Create a native canvas window to hold our video.
                 var hwnd = await NativeTestWindow.CreateAsync();
+                //wallpaperManager.AttachWindow(hwnd);
+                //Console.WriteLine("Attached render surface to WorkerW.");
                 Console.WriteLine($"\nVideo Canvas created: {PtrToString(hwnd)}");
 
                 /*try
@@ -67,7 +70,24 @@ namespace WallpaperTurbo.AppRunner
                 pipeline.Initialize(hwnd);
 
                 // 5. Load the video
-                string videoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "crimson-blind.mp4");
+                string manifestPath = Path.Combine(
+                    AppContext.BaseDirectory,
+                    "Assets",
+                    "WallpaperManifest.json"
+                );
+
+                var manifest = WallpaperLibrary.Load(manifestPath);
+
+                var wallpaper = manifest.Wallpapers.First();
+
+                string videoPath = Path.Combine(
+                    AppContext.BaseDirectory,
+                    wallpaper.Video
+                );
+
+                Console.WriteLine($"Loaded wallpaper: {wallpaper.Title}");
+                Console.WriteLine($"Author: {wallpaper.Author}");
+                Console.WriteLine($"Video Source: {videoPath}\n");
 
                 if (File.Exists(videoPath))
                 {

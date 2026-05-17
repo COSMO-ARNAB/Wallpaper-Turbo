@@ -1,0 +1,12 @@
+{
+  "wallpapers": [
+    {
+      "id": "crimson-blind",
+      "title": "Crimson Blind",
+      "video": "Assets/crimson-blind.mp4",
+      "thumbnail": "Assets/crimson-blind.jpg",
+      "author": "Arnab",
+      "tags": ["dark", "anime", "red"]
+    }
+  ]
+}
