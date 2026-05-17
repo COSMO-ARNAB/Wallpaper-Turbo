@@ -211,7 +211,7 @@ namespace WallpaperTurbo.AppRunner
 
                         // Start at 0,0 and make it 1920x1080 (VLC will auto-scale, but good to have a base size)
                         var hwnd = CreateWindowExW(
-                             0,
+                             0x00000080, // WS_EX_TOOLWINDOW to hide from alt-tab, but still show on desktop
                              ClassName,
                              "Wallpaper Turbo Video Canvas",
                              WS_POPUP | WS_VISIBLE,
@@ -233,6 +233,15 @@ namespace WallpaperTurbo.AppRunner
 
                         ShowWindow(hwnd, SW_SHOW);
                         UpdateWindow(hwnd);
+                        NativeMethods.SetWindowPos(
+                            hwnd,
+                            new IntPtr(1), // HWND_BOTTOM
+                            0,
+                            0,
+                            0,
+                            0,
+                            0x0002 | 0x0001 | 0x0010 // NOSIZE | NOMOVE | NOACTIVATE
+                        );
 
                         tcs.SetResult(hwnd);
 
