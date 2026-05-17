@@ -1,3 +1,4 @@
+// HardwareDecodePipeline.cs - Implements a media pipeline that uses LibVLC for hardware-accelerated video decoding and rendering to a native window.
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -66,6 +67,10 @@ namespace WallpaperTurbo.Core.Media.Pipelines
 
                 _media?.Dispose();
                 _media = new LibVLCSharp.Shared.Media(_libVLC, filePath, FromType.FromPath);
+
+                // FullScreen issues 
+                _media.AddOption(":no-fullscreen");
+                _media.AddOption(":embedded-video");
                 
                 // Force continuous loop
                 _media.AddOption(":input-repeat=65535");
