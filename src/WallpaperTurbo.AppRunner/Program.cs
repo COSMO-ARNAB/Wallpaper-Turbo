@@ -11,6 +11,7 @@ using WallpaperTurbo.Core.Interop;
 using WallpaperTurbo.Core.Wallpaper;
 using WallpaperTurbo.Core.Media.Pipelines;
 using WallpaperTurbo.Core.Media;
+using WallpaperTurbo.Core.Rendering;
 
 namespace WallpaperTurbo.AppRunner
 {
@@ -34,7 +35,7 @@ namespace WallpaperTurbo.AppRunner
                 wallpaperManager.InitializeDesktopHandle();
 
                 // 3. Create a native canvas window to hold our video.
-                var hwnd = await NativeTestWindow.CreateAsync();
+                var hwnd = await NativeRenderWindow.CreateAsync();
                 //wallpaperManager.AttachWindow(hwnd);
                 //Console.WriteLine("Attached render surface to WorkerW.");
                 Console.WriteLine($"\nVideo Canvas created: {PtrToString(hwnd)}");
@@ -153,7 +154,7 @@ namespace WallpaperTurbo.AppRunner
                 // 7. Clean Shutdown
                 Console.WriteLine("Releasing GPU resources...");
                 pipeline.Release();
-                NativeTestWindow.Shutdown(hwnd);
+                NativeRenderWindow.Shutdown(hwnd);
 
                 return 0;
             }
@@ -216,7 +217,7 @@ namespace WallpaperTurbo.AppRunner
         /// <summary>
         /// Minimal native test window helper that creates a basic colored window on a dedicated thread.
         /// </summary>
-        private static class NativeTestWindow
+        /*private static class NativeTestWindow
         {
             private const int CS_VREDRAW = 0x0001;
             private const int CS_HREDRAW = 0x0002;
@@ -439,6 +440,6 @@ namespace WallpaperTurbo.AppRunner
             private static uint RGB(byte r, byte g, byte b) => (uint)(r | (g << 8) | (b << 16));
 
             #endregion
-        }
+        }*/
     }
 }
