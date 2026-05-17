@@ -211,7 +211,7 @@ namespace WallpaperTurbo.AppRunner
 
                         // Start at 0,0 and make it 1920x1080 (VLC will auto-scale, but good to have a base size)
                         var hwnd = CreateWindowExW(
-                             0x00000080, // WS_EX_TOOLWINDOW to hide from alt-tab, but still show on desktop
+                             0x08000000 | 0x00000080, // WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOOLWINDOW (prevents showing in Alt-Tab)
                              ClassName,
                              "Wallpaper Turbo Video Canvas",
                              WS_POPUP | WS_VISIBLE,
