@@ -182,15 +182,31 @@ namespace WallpaperTurbo.Core.Interop
                 }
 
                 var previousParent = NativeMethods.SetParent(childWindowHandle, _workerW);
+
                 if (previousParent == IntPtr.Zero)
                 {
                     var err = Marshal.GetLastWin32Error();
-                    Log("SetParent.Failed", "SetParent returned zero; operation may have failed", ("child", PtrToString(childWindowHandle)), ("workerW", PtrToString(_workerW)), ("error", err.ToString()));
-                    throw new InvalidOperationException($"SetParent failed with Win32 error code {err}.");
+                
+                    Log(
+                        "SetParent.Failed",
+                        "SetParent returned zero; operation may have failed",
+                        ("child", PtrToString(childWindowHandle)),
+                        ("workerW", PtrToString(_workerW)),
+                        ("error", err.ToString())
+                    );
+                
+                    throw new InvalidOperationException(
+                        $"SetParent failed with Win32 error code {err}."
+                    );
                 }
-
-                Log("SetParent.Success", "Attached child window to WorkerW", ("child", PtrToString(childWindowHandle)), ("workerW", PtrToString(_workerW)), ("previousParent", PtrToString(previousParent)));
-
+                
+                Log(
+                    "SetParent.Success",
+                    "Attached child window to WorkerW",
+                    ("child", PtrToString(childWindowHandle)),
+                    ("workerW", PtrToString(_workerW)),
+                    ("previousParent", PtrToString(previousParent))
+                );
                 try
                 {
                     int width = NativeMethods.GetSystemMetrics(NativeMethods.SM_CXSCREEN);

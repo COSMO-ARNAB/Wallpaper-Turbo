@@ -35,17 +35,29 @@ namespace WallpaperTurbo.AppRunner
                 var hwnd = await NativeTestWindow.CreateAsync();
                 Console.WriteLine($"\nVideo Canvas created: {PtrToString(hwnd)}");
 
-                try
+                /*try
                 {
                     // Push the canvas behind the desktop icons
-                    // wallpaperManager.AttachWindow(hwnd);
-                    Console.WriteLine("Attached video canvas to desktop WorkerW.");
+                    //wallpaperManager.AttachWindow(hwnd);
+                    //Console.WriteLine("Attached video canvas to desktop WorkerW.");
+                    //await Task.Delay(500);
+
+                    NativeMethods.SetWindowPos(
+                        hwnd,
+                        new IntPtr(1), // HWND_BOTTOM
+                        0,
+                        0,
+                        0,
+                        0,
+                        0x0001 | 0x0002 | 0x0010 // NOSIZE | NOMOVE | NOACTIVATE
+                    );
+                    Console.WriteLine("Set video canvas to bottom of Z-order.");    
                 }
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"Failed to attach test window: {ex.Message}");
                     return 1;
-                }
+                }*/
 
                 // 4. Initialize Hardware-Accelerated Video Pipeline
                 Console.WriteLine("Initializing Hardware Decode Pipeline...");
@@ -62,6 +74,14 @@ namespace WallpaperTurbo.AppRunner
                     Console.WriteLine($"Loading media stream: {videoPath}");
                     pipeline.LoadMedia(videoPath);
                     pipeline.Play();
+                    // 4. Initialize Hardware-Accelerated Video Pipeline
+                     //Console.WriteLine("Initializing Hardware Decode Pipeline...");
+                     //var pipeline = new HardwareDecodePipeline();
+                     //await Task.Delay(1000);
+
+                    //wallpaperManager.AttachWindow(hwnd);
+                    //Console.WriteLine("Attached video canvas to desktop WorkerW.");
+                
                 }
                 else
                 {
@@ -153,6 +173,7 @@ namespace WallpaperTurbo.AppRunner
             private const int CS_VREDRAW = 0x0001;
             private const int CS_HREDRAW = 0x0002;
             private const int WS_POPUP = unchecked((int)0x80000000);
+            //private const int WS_OVERLAPPEDWINDOW = 0x00CF0000;
             private const int WS_VISIBLE = 0x10000000;
             private const int SW_SHOW = 5;
             private const uint WM_DESTROY = 0x0002;

@@ -39,7 +39,7 @@ namespace WallpaperTurbo.Core.Media.Pipelines
                 // 2. Use the CORRECT VLC hardware acceleration flag
                 var args = new[]
                 {
-                    "--avcodec-hw=none", // Disable hardware acceleration for maximum compatibility. Change to "dxva2" or "d3d11va" if you want to experiment with GPU decoding.
+                    "--avcodec-hw=d3d11va", // Disable hardware acceleration for maximum compatibility. Change to "dxva2" or "d3d11va" if you want to experiment with GPU decoding.
                     "--no-audio",
                     "--no-osd",
                     "--input-fast-seek",
