@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using WallpaperTurbo.Core.Hardware;
 using WallpaperTurbo.Core.Hardware.Models;
 using WallpaperTurbo.Core.Interop;
+using WallpaperTurbo.Core.Wallpaper;
 using WallpaperTurbo.Core.Media.Pipelines;
 using WallpaperTurbo.Core.Media;
 

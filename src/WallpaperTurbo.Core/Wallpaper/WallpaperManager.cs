@@ -3,9 +3,12 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using WallpaperTurbo.Core.Interop;
+using WallpaperTurbo.Core.Wallpaper;
+//using WallpaperTurbo.Core.Media;
 
-namespace WallpaperTurbo.Core.Interop
-{
+namespace WallpaperTurbo.Core.Wallpaper;
+
     /// <summary>
     /// Manages attaching windows into the desktop background (WorkerW) so content can render behind icons.
     /// </summary>
@@ -266,4 +269,3 @@ namespace WallpaperTurbo.Core.Interop
             return value?.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r") ?? string.Empty;
         }
     }
-}
