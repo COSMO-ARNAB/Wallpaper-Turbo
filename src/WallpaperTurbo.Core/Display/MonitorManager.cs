@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 
@@ -21,5 +22,17 @@ public static class MonitorManager
         }
 
         return monitors;
+    }
+
+    public static MonitorInfo GetPrimaryMonitor()
+    {
+        foreach (var monitor in GetMonitors())
+        {
+            if (monitor.IsPrimary)
+                return monitor;
+        }
+
+        throw new InvalidOperationException(
+            "Primary monitor not found.");
     }
 }

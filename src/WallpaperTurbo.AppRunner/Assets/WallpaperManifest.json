@@ -15,6 +15,39 @@
       "thumbnail": "Assets/red-leaves.jpg",
       "author": "Arnab",
       "tags": ["autumn", "red", "nature"]
+    },
+    {
+      "id": "rapi-red",
+      "title": "Rapi Red",
+      "video": "Assets/rapi-red.mp4",
+      "thumbnail": "Assets/rapi-red.jpg",
+      "author": "Arnab",
+      "tags": ["abstract", "red", "dynamic"]
+    },
+    {
+      "id": "sukuna-madness",
+      "title": "Sukuna Madness",
+      "video": "Assets/sukuna-madness.mp4",
+      "thumbnail": "Assets/sukuna-madness.jpg",
+      "author": "Arnab",
+      "tags": ["anime", "dark", "action"]
+    },
+    {
+      "id": "makima-eyes",
+      "title": "Makima Eyes",
+      "video": "Assets/makima-eyes.mp4",
+      "thumbnail": "Assets/makima-eyes.jpg",
+      "author": "Arnab",
+      "tags": ["anime", "yellow", "hypnotic"]
+    },
+    {
+      "id": "hatsune-neon",
+      "title": "Hatsune Neon",
+      "video": "Assets/hatsune-neon.mp4",
+      "thumbnail": "Assets/hatsune-neon.jpg",
+      "author": "Arnab",
+      "tags": ["anime", "blue", "cyberpunk"]
     }
+    
   ]
 }

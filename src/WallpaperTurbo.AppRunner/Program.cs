@@ -95,7 +95,8 @@ internal static class Program
             var session = new WallpaperSession(
                 hwnd,
                 wallpaper,
-                pipeline);
+                pipeline,
+                MonitorManager.GetPrimaryMonitor());
 
             session.Play();
 
@@ -231,13 +232,10 @@ internal static class Program
 
             Console.WriteLine();
         }
-        var monitors = MonitorManager.GetMonitors();
+        var monitors = MonitorManager.GetPrimaryMonitor();
 
-        foreach (var monitor in monitors)
-        {
-            Console.WriteLine(
-                $"{monitor.DeviceName} | {monitor.Width}x{monitor.Height} | Primary: {monitor.IsPrimary}");
-        }
+        Console.WriteLine(
+            $"{monitors.DeviceName} | {monitors.Width}x{monitors.Height} | Primary: {monitors.IsPrimary}");
     }
 
     private static string FormatBytes(
