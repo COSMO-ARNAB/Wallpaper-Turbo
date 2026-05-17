@@ -78,7 +78,34 @@ namespace WallpaperTurbo.AppRunner
 
                 var manifest = WallpaperLibrary.Load(manifestPath);
 
-                var wallpaper = manifest.Wallpapers.First();
+                // Display available wallpapers and prompt user to select one.
+                Console.WriteLine("Available Wallpapers:\n");
+
+                for (int i = 0; i < manifest.Wallpapers.Count; i++)
+                {
+                    var item = manifest.Wallpapers[i];
+
+                    Console.WriteLine(
+                        $"[{i + 1}] {item.Title}  —  {item.Author}"
+                    );
+                }
+
+                Console.Write("\nSelect wallpaper number: ");
+
+                string? input = Console.ReadLine();
+
+                if (!int.TryParse(input, out int selection))
+                {
+                    selection = 1;
+                }
+
+                selection = Math.Clamp(
+                    selection - 1,
+                    0,
+                    manifest.Wallpapers.Count - 1
+                );
+
+                var wallpaper = manifest.Wallpapers[selection];
 
                 string videoPath = Path.Combine(
                     AppContext.BaseDirectory,

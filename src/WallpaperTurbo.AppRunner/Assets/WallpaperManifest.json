@@ -7,6 +7,14 @@
       "thumbnail": "Assets/crimson-blind.jpg",
       "author": "Arnab",
       "tags": ["dark", "anime", "red"]
+    },
+    {
+      "id": "red-leaves",
+      "title": "Red Leaves",
+      "video": "Assets/red-leaves.mp4",
+      "thumbnail": "Assets/red-leaves.jpg",
+      "author": "Arnab",
+      "tags": ["autumn", "red", "nature"]
     }
   ]
 }
