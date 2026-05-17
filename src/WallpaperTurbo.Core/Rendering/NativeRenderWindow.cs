@@ -27,29 +27,12 @@ public static class NativeRenderWindow
                     {
                         try
                         {
+                            WindowClassRegistrar.Register(ClassName, WndProc);
+
                             var hInstance = GetModuleHandle(null);
 
-                            WNDCLASSEXW wnd = new WNDCLASSEXW();
-                            wnd.cbSize = Marshal.SizeOf<WNDCLASSEXW>();
-                            wnd.style = CS_HREDRAW | CS_VREDRAW;
-                            wnd.lpfnWndProc = WndProc;
-                            wnd.cbClsExtra = 0;
-                            wnd.cbWndExtra = 0;
-                            wnd.hInstance = hInstance;
-                            wnd.hCursor = LoadCursor(IntPtr.Zero, (IntPtr)32512); // IDC_ARROW
-                            wnd.hbrBackground = CreateSolidBrush(RGB(0, 0, 0)); // Black background
-                            wnd.lpszClassName = ClassName;
-
-                            var atom = RegisterClassExW(ref wnd);
-                            if (atom == 0)
-                            {
-                                tcs.SetException(new InvalidOperationException("RegisterClassEx failed."));
-                                return;
-                            }
-
-                            // Start at 0,0 and make it 1920x1080 (VLC will auto-scale, but good to have a base size)
                             var hwnd = CreateWindowExW(
-                                0x08000000 | 0x00000080, // WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOOLWINDOW (prevents showing in Alt-Tab)
+                                0x08000000 | 0x00000080,
                                 ClassName,
                                 "Wallpaper Turbo Video Canvas",
                                 WS_POPUP | WS_VISIBLE,
@@ -64,34 +47,33 @@ public static class NativeRenderWindow
 
                             if (hwnd == IntPtr.Zero)
                             {
-                                UnregisterClassW(ClassName, hInstance);
+                                WindowClassRegistrar.Unregister(ClassName);
                                 tcs.SetException(new InvalidOperationException("CreateWindowEx failed."));
                                 return;
                             }
 
                             ShowWindow(hwnd, SW_SHOW);
                             UpdateWindow(hwnd);
+
                             NativeMethods.SetWindowPos(
                                 hwnd,
-                                new IntPtr(1), // HWND_BOTTOM
+                                new IntPtr(1),
                                 0,
                                 0,
                                 0,
                                 0,
-                                0x0002 | 0x0001 | 0x0010 // NOSIZE | NOMOVE | NOACTIVATE
+                                0x0002 | 0x0001 | 0x0010
                             );
 
                             tcs.SetResult(hwnd);
 
-                            // Standard message loop for this thread.
                             while (GetMessage(out MSG msg, IntPtr.Zero, 0, 0) != 0)
                             {
                                 TranslateMessage(ref msg);
                                 DispatchMessage(ref msg);
                             }
 
-                            // Clean up class when done.
-                            UnregisterClassW(ClassName, hInstance);
+                            WindowClassRegistrar.Unregister(ClassName);
                         }
                         catch (Exception ex)
                         {
@@ -128,25 +110,7 @@ public static class NativeRenderWindow
 
                 #region Native declarations
 
-                [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-                private struct WNDCLASSEXW
-                {
-                    public int cbSize;
-                    public int style;
-                    [MarshalAs(UnmanagedType.FunctionPtr)]
-                    public WndProcDelegate lpfnWndProc;
-                    public int cbClsExtra;
-                    public int cbWndExtra;
-                    public IntPtr hInstance;
-                    public IntPtr hIcon;
-                    public IntPtr hCursor;
-                    public IntPtr hbrBackground;
-                    [MarshalAs(UnmanagedType.LPWStr)]
-                    public string lpszMenuName;
-                    [MarshalAs(UnmanagedType.LPWStr)]
-                    public string lpszClassName;
-                    public IntPtr hIconSm;
-                }
+                //[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
 
                 [StructLayout(LayoutKind.Sequential)]
                 private struct MSG
@@ -167,7 +131,7 @@ public static class NativeRenderWindow
                     public int y;
                 }
 
-                private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, UIntPtr wParam, IntPtr lParam);
+
 
                 [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
                 private static extern ushort RegisterClassExW([In] ref WNDCLASSEXW lpwcx);
