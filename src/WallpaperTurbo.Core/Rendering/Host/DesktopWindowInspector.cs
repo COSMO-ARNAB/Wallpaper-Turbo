@@ -11,7 +11,7 @@ public static class DesktopWindowInspector
     public static void DumpShellWindows()
     {
         Console.WriteLine();
-        Console.WriteLine("=== Desktop Window Topology ===");
+        //Console.WriteLine("=== Desktop Window Topology ===");
 
         NativeMethods.EnumWindows((hwnd, _) =>
         {

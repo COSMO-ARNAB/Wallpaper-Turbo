@@ -9,62 +9,8 @@ public sealed class DesktopCompositionStrategy
 {
     private const uint WM_SPAWN_WORKER = 0x052C;
 
-    private readonly IntPtr _progman;
-    private readonly IntPtr _shellView;
-    private readonly IntPtr _workerW;
-
     public string Name =>
         "Desktop Composition Strategy";
-
-    public DesktopCompositionStrategy()
-    {
-        _progman =
-            NativeMethods.FindWindowW(
-                "Progman",
-                null);
-
-        NativeMethods.SendMessageTimeout(
-            _progman,
-            WM_SPAWN_WORKER,
-            UIntPtr.Zero,
-            IntPtr.Zero,
-            0,
-            1000,
-            out _);
-
-        IntPtr shellView = IntPtr.Zero;
-        IntPtr workerW = IntPtr.Zero;
-
-        NativeMethods.EnumWindows((hwnd, _) =>
-        {
-            IntPtr currentShellView =
-                NativeMethods.FindWindowEx(
-                    hwnd,
-                    IntPtr.Zero,
-                    "SHELLDLL_DefView",
-                    null);
-
-            if (currentShellView != IntPtr.Zero)
-            {
-                shellView = currentShellView;
-
-                workerW =
-                    NativeMethods.FindWindowEx(
-                        IntPtr.Zero,
-                        hwnd,
-                        "WorkerW",
-                        null);
-
-                return false;
-            }
-
-            return true;
-
-        }, IntPtr.Zero);
-
-        _shellView = shellView;
-        _workerW = workerW;
-    }
 
     public bool IsSupported()
     {
@@ -79,9 +25,88 @@ public sealed class DesktopCompositionStrategy
         if (hwnd == IntPtr.Zero)
             return false;
 
-        if (_progman == IntPtr.Zero)
+        if (!TryResolveDesktopTopology(
+                out IntPtr progman,
+                out IntPtr shellView))
+        {
             return false;
+        }
 
+        ApplyCompositionStyles(hwnd);
+
+        NativeMethods.SetParent(
+            hwnd,
+            progman);
+
+        NativeMethods.SetWindowPos(
+            hwnd,
+            IntPtr.Zero,
+            monitor.X,
+            monitor.Y,
+            monitor.Width,
+            monitor.Height,
+            (uint)(
+                NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW));
+
+        return ValidateAttachment(hwnd);
+    }
+
+    private static bool TryResolveDesktopTopology(
+        out IntPtr progman,
+        out IntPtr shellView)
+    {
+        progman =
+            NativeMethods.FindWindowW(
+                "Progman",
+                null);
+
+        shellView = IntPtr.Zero;
+
+        if (progman == IntPtr.Zero)
+            return false;
+        
+        NativeMethods.SendMessageTimeout(
+        progman,
+        WM_SPAWN_WORKER,
+        UIntPtr.Zero,
+        IntPtr.Zero,
+        0,
+        1000,
+        out _);
+
+        IntPtr resolvedShellView = IntPtr.Zero;
+
+        NativeMethods.EnumWindows((hwnd, _) =>
+        {
+            IntPtr currentShellView =
+                NativeMethods.FindWindowEx(
+                    hwnd,
+                    IntPtr.Zero,
+                    "SHELLDLL_DefView",
+                    null);
+        
+            if (currentShellView != IntPtr.Zero)
+            {
+                resolvedShellView = currentShellView;
+                return false;
+            }
+        
+            return true;
+        
+        }, IntPtr.Zero);
+        
+        shellView = resolvedShellView;
+
+        //Console.WriteLine(
+        //$"Progman=0x{progman.ToInt64():X} ShellView=0x{shellView.ToInt64():X}");
+        
+        return shellView != IntPtr.Zero;
+    }
+
+    private static void ApplyCompositionStyles(
+        IntPtr hwnd)
+    {
         int style =
             NativeMethods.GetWindowLong(
                 hwnd,
@@ -113,45 +138,18 @@ public sealed class DesktopCompositionStrategy
             0,
             255,
             NativeMethods.LWA_ALPHA);
+    }
 
-        IntPtr parent =
-            NativeMethods.SetParent(
-                hwnd,
-                _progman);
-
-        if (parent == IntPtr.Zero &&
-            NativeMethods.GetParent(hwnd) != _progman)
-        {
-            return false;
-        }
-
-        NativeMethods.SetWindowPos(
-            hwnd,
-            _shellView,
-            monitor.X,
-            monitor.Y,
-            monitor.Width,
-            monitor.Height,
-            (uint)(
-                NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
-                NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW));
-
+    private static bool ValidateAttachment(
+        IntPtr hwnd)
+    {
         bool visible =
             NativeMethods.IsWindowVisible(hwnd);
 
-        // IntPtr currentParent =
-        //     NativeMethods.GetParent(hwnd);
-
-        // Console.WriteLine(
-        //     $"[{Name}] Parent: 0x{currentParent.ToInt64():X}");
-
-        // return visible &&
-        //        currentParent == _progman;
-
         int currentStyle =
-        NativeMethods.GetWindowLong(
-        hwnd,
-        NativeMethods.GWL_STYLE);
+            NativeMethods.GetWindowLong(
+                hwnd,
+                NativeMethods.GWL_STYLE);
 
         int currentExStyle =
             NativeMethods.GetWindowLong(
@@ -165,9 +163,6 @@ public sealed class DesktopCompositionStrategy
         bool isLayered =
             ((uint)currentExStyle &
              (uint)NativeMethods.WindowStyles.WS_EX_LAYERED) != 0;
-
-        Console.WriteLine(
-            $"[{Name}] Visible={visible} Child={isChild} Layered={isLayered}");
 
         return visible &&
                isChild &&
