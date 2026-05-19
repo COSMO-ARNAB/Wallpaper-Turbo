@@ -1,3 +1,4 @@
+// WallpaperSession.cs - Represents an active wallpaper session, managing the associated window, media pipeline, and monitor information in Wallpaper Turbo.
 using System;
 using WallpaperTurbo.Core.Media;
 using WallpaperTurbo.Core.Media.Pipelines;

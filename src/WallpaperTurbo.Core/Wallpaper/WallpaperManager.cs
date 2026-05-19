@@ -1,3 +1,4 @@
+// WallpaperManager.cs - Manages the attachment of windows to the desktop for wallpaper rendering in Wallpaper Turbo.
 using System;
 using WallpaperTurbo.Core.Rendering;
 

@@ -1,3 +1,4 @@
+// MonitorManager.cs - Provides functionality to retrieve information about connected monitors in Wallpaper Turbo.
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;

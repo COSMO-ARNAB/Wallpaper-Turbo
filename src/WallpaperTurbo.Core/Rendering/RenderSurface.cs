@@ -16,7 +16,9 @@ public static class RenderSurface
     private const int SW_SHOW = 5;
 
     public static IntPtr Create(
-        string className)
+        string className,
+        int width,
+        int height)
     {
         var hInstance =
             GetModuleHandle(null);
@@ -28,8 +30,8 @@ public static class RenderSurface
             WS_POPUP | WS_VISIBLE,
             0,
             0,
-            NativeMethods.GetSystemMetrics(0),
-            NativeMethods.GetSystemMetrics(1),
+            width,
+            height,
             IntPtr.Zero,
             IntPtr.Zero,
             hInstance,
@@ -47,8 +49,8 @@ public static class RenderSurface
             new IntPtr(1),
             0,
             0,
-            0,
-            0,
+            width,
+            height ,
             0x0002 | 0x0001 | 0x0010);
 
         return hwnd;

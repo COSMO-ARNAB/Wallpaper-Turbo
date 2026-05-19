@@ -51,6 +51,8 @@ internal static class Program
             // Render window
             var hwnd =
                 await NativeRenderWindow.CreateAsync();
+                // int width,
+                // int height;
 
             Console.WriteLine(
                 $"\nVideo Canvas created: {PtrToString(hwnd)}");
@@ -115,7 +117,10 @@ internal static class Program
            Console.WriteLine(
                 "Releasing GPU resources...");
             
-            session.Shutdown();
+            var sessionManager =
+                new WallpaperSessionManager();
+            sessionManager.AddSession(session);
+            sessionManager.ShutdownAll();
             
             NativeRenderWindow.Shutdown(hwnd);
             

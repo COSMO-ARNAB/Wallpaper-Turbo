@@ -1,3 +1,4 @@
+//IMediaPipeline.cs - Interface for media pipelines in Wallpaper Turbo.
 namespace WallpaperTurbo.Core.Media;
 
 public interface IMediaPipeline

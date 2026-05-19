@@ -1,3 +1,4 @@
+// NativeRenderWindow.cs - Provides functionality to create and manage a native render window for wallpaper rendering in Wallpaper Turbo.
 using System;
 using System.Runtime.InteropServices;
 using WallpaperTurbo.Core.Interop;
@@ -26,7 +27,9 @@ public static class NativeRenderWindow
                     WndProc);
 
                 var hwnd = RenderSurface.Create(
-                    ClassName);
+                    ClassName,
+                    NativeMethods.GetSystemMetrics(0),
+                    NativeMethods.GetSystemMetrics(1));
 
                 if (hwnd == IntPtr.Zero)
                 {

@@ -3,20 +3,20 @@ namespace WallpaperTurbo.Core.Models;
 
 public class WallpaperManifest
 {
-    public List<WallpaperEntry> Wallpapers { get; set; } = new();
+    public IReadOnlyList<WallpaperEntry> Wallpapers { get; init; } = [];
 }
 
 public class WallpaperEntry
 {
-    public string Id { get; set; } = string.Empty;
+    public string Id { get; init; } = string.Empty;
 
-    public string Title { get; set; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
 
-    public string Video { get; set; } = string.Empty;
+    public string Video { get; init; } = string.Empty;
 
-    public string Thumbnail { get; set; } = string.Empty;
+    public string Thumbnail { get; init; } = string.Empty;
 
-    public string Author { get; set; } = string.Empty;
+    public string Author { get; init; } = string.Empty;
 
-    public List<string> Tags { get; set; } = new();
+    public List<string> Tags { get; init; } = new();
 }

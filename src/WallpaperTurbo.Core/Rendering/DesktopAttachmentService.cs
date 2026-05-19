@@ -1,3 +1,4 @@
+// DesktopAttachmentService.cs - Provides functionality to attach a window to the desktop for wallpaper rendering in Wallpaper Turbo.
 using System;
 using System.Runtime.InteropServices;
 using System.Text;

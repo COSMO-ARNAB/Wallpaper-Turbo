@@ -1,3 +1,5 @@
+// WallpaperLibrary.cs - Provides functionality to load wallpaper manifests in Wallpaper Turbo.
+using System;
 using System.Text.Json;
 using WallpaperTurbo.Core.Models;
 

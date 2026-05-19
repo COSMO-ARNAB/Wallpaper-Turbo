@@ -1,3 +1,4 @@
+// WindowClassRegistrar.cs - Provides functionality to register and unregister window classes for wallpaper rendering in Wallpaper Turbo.
 using System;
 using System.Runtime.InteropServices;
 
