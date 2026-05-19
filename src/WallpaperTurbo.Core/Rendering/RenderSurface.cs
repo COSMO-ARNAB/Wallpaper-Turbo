@@ -1,7 +1,5 @@
-// RenderSurface.cs - Contains logic to create a native window that serves as the rendering surface for our video wallpaper, which
 using System;
 using System.Runtime.InteropServices;
-using WallpaperTurbo.Core.Interop;
 
 namespace WallpaperTurbo.Core.Rendering;
 
@@ -17,6 +15,8 @@ public static class RenderSurface
 
     public static IntPtr Create(
         string className,
+        int x,
+        int y,
         int width,
         int height)
     {
@@ -24,12 +24,12 @@ public static class RenderSurface
             GetModuleHandle(null);
 
         var hwnd = CreateWindowExW(
-            0x08000000 | 0x00000080,
+            0,
             className,
             "Wallpaper Turbo Video Canvas",
             WS_POPUP | WS_VISIBLE,
-            0,
-            0,
+            x,
+            y,
             width,
             height,
             IntPtr.Zero,
@@ -44,25 +44,18 @@ public static class RenderSurface
 
         UpdateWindow(hwnd);
 
-        NativeMethods.SetWindowPos(
-            hwnd,
-            new IntPtr(1),
-            0,
-            0,
-            width,
-            height ,
-            0x0002 | 0x0001 | 0x0010);
-
         return hwnd;
     }
 
-    [DllImport("kernel32.dll",
+    [DllImport(
+        "kernel32.dll",
         CharSet = CharSet.Unicode,
         SetLastError = true)]
     private static extern IntPtr GetModuleHandle(
         string? lpModuleName);
 
-    [DllImport("user32.dll",
+    [DllImport(
+        "user32.dll",
         CharSet = CharSet.Unicode,
         SetLastError = true)]
     private static extern IntPtr CreateWindowExW(
@@ -79,14 +72,12 @@ public static class RenderSurface
         IntPtr hInstance,
         IntPtr lpParam);
 
-    [DllImport("user32.dll",
-        SetLastError = true)]
+    [DllImport("user32.dll")]
     private static extern bool ShowWindow(
         IntPtr hWnd,
         int nCmdShow);
 
-    [DllImport("user32.dll",
-        SetLastError = true)]
+    [DllImport("user32.dll")]
     private static extern bool UpdateWindow(
         IntPtr hWnd);
 }

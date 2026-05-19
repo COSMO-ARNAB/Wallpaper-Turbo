@@ -1,27 +1,33 @@
-// WallpaperSession.cs - Represents an active wallpaper session, managing the associated window, media pipeline, and monitor information in Wallpaper Turbo.
+// WallpaperSession.cs - Represents an active wallpaper session in Wallpaper Turbo, managing the media pipeline and associated resources for a specific wallpaper instance.
 using System;
-using WallpaperTurbo.Core.Media;
-using WallpaperTurbo.Core.Media.Pipelines;
 using WallpaperTurbo.Core.Display;
+using WallpaperTurbo.Core.Media;
+using WallpaperTurbo.Core.Models;
 
 namespace WallpaperTurbo.Core.Wallpaper;
 
-public sealed class WallpaperSession
+public sealed class WallpaperSession : IDisposable
 {
+    private bool _disposed;
+
     public IntPtr WindowHandle { get; }
 
     public MonitorInfo Monitor { get; }
 
-    public object Wallpaper { get; }
+    public WallpaperEntry Wallpaper { get; }
 
     public IMediaPipeline MediaPipeline { get; }
 
     public WallpaperSession(
         IntPtr windowHandle,
-        object wallpaper,
+        WallpaperEntry wallpaper,
         IMediaPipeline mediaPipeline,
         MonitorInfo monitor)
     {
+        ArgumentNullException.ThrowIfNull(wallpaper);
+        ArgumentNullException.ThrowIfNull(mediaPipeline);
+        ArgumentNullException.ThrowIfNull(monitor);
+
         WindowHandle = windowHandle;
         Wallpaper = wallpaper;
         MediaPipeline = mediaPipeline;
@@ -30,16 +36,25 @@ public sealed class WallpaperSession
 
     public void Play()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         MediaPipeline.Play();
     }
 
     public void Pause()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         MediaPipeline.Pause();
     }
 
-    public void Shutdown()
+    /// <summary>Convenience alias for Dispose.</summary>
+    public void Shutdown() => Dispose();
+
+    public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         MediaPipeline.Release();
     }
 }

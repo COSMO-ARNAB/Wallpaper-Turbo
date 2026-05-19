@@ -12,7 +12,8 @@ using WallpaperTurbo.Core.Rendering;
 using WallpaperTurbo.Core.Wallpaper;
 using WallpaperTurbo.Core.Media;
 using WallpaperTurbo.Core.Display;
-
+using WallpaperTurbo.Core.Models;
+using WallpaperTurbo.Core.Rendering.Host;
 
 namespace WallpaperTurbo.AppRunner;
 
@@ -32,7 +33,6 @@ internal static class Program
         {
             PrintBanner();
 
-            // Hardware detection
             IHardwareDetector detector =
                 new WindowsHardwareDetector();
 
@@ -40,24 +40,36 @@ internal static class Program
                 .GetGpusAsync(cts.Token)
                 .ConfigureAwait(false);
 
+            var monitor =
+                MonitorManager.GetPrimaryMonitor();
+
             PrintTopology(gpus);
 
-            // Desktop initialization
             var wallpaperManager =
                 new WindowsWallpaperManager(Console.WriteLine);
 
-            wallpaperManager.InitializeDesktopHandle();
-
-            // Render window
             var hwnd =
-                await NativeRenderWindow.CreateAsync();
-                // int width,
-                // int height;
+                await NativeRenderWindow.CreateAsync(monitor);
 
             Console.WriteLine(
                 $"\nVideo Canvas created: {PtrToString(hwnd)}");
 
-            // Media pipeline
+            DesktopWindowInspector.DumpShellWindows();
+
+
+            bool attached =
+                wallpaperManager.AttachWindow(
+                    hwnd,
+                    monitor);
+
+            if (!attached)
+            {
+                Console.WriteLine(
+                    "Failed to attach wallpaper window to desktop.");
+
+                return 1;
+            }
+
             Console.WriteLine(
                 "Initializing Hardware Decode Pipeline...");
 
@@ -66,7 +78,6 @@ internal static class Program
 
             pipeline.Initialize(hwnd);
 
-            // Wallpaper loading
             var wallpaper =
                 SelectWallpaper();
 
@@ -94,15 +105,19 @@ internal static class Program
 
             pipeline.LoadMedia(videoPath);
 
+            using var sessionManager =
+                new WallpaperSessionManager();
+
             var session = new WallpaperSession(
                 hwnd,
                 wallpaper,
                 pipeline,
-                MonitorManager.GetPrimaryMonitor());
+                monitor);
+
+            sessionManager.AddSession(session);
 
             session.Play();
 
-            // Runtime
             Console.ForegroundColor =
                 ConsoleColor.Green;
 
@@ -113,34 +128,29 @@ internal static class Program
 
             Console.ReadLine();
 
-            // Shutdown
-           Console.WriteLine(
+            Console.WriteLine(
                 "Releasing GPU resources...");
-            
-            var sessionManager =
-                new WallpaperSessionManager();
-            sessionManager.AddSession(session);
-            sessionManager.ShutdownAll();
-            
-            NativeRenderWindow.Shutdown(hwnd);
-            
-            return 0;
-        }
-        catch (OperationCanceledException)
-        {
-            Console.WriteLine("Operation cancelled.");
-            return 2;
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine(
-                $"Fatal engine error: {ex.Message}");
 
-            return 1;
-        }
+            NativeRenderWindow.Shutdown(hwnd);
+
+            return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Operation cancelled.");
+                return 2;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"Fatal engine error: {ex.Message}");
+
+                return 1;
+            }
+
     }
 
-    private static dynamic SelectWallpaper()
+    private static WallpaperEntry SelectWallpaper()
     {
         string manifestPath = Path.Combine(
             AppContext.BaseDirectory,
@@ -177,6 +187,7 @@ internal static class Program
             manifest.Wallpapers.Count - 1);
 
         return manifest.Wallpapers[selection];
+    
     }
 
     private static void ShowMissingWallpaperWarning(

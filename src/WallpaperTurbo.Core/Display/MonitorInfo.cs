@@ -1,15 +1,16 @@
-// MonitorInfo.cs - Represents information about a connected monitor in Wallpaper Turbo.
-using System;
-
 namespace WallpaperTurbo.Core.Display;
 
 public sealed class MonitorInfo
 {
-    public string DeviceName { get; set; } = string.Empty;
+    public string DeviceName { get; init; } = string.Empty;
 
-    public int Width { get; set; }
+    public int X { get; init; }
 
-    public int Height { get; set; }
+    public int Y { get; init; }
 
-    public bool IsPrimary { get; set; }
+    public int Width { get; init; }
+
+    public int Height { get; init; }
+
+    public bool IsPrimary { get; init; }
 }

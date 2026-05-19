@@ -1,7 +1,9 @@
-// NativeRenderWindow.cs - Provides functionality to create and manage a native render window for wallpaper rendering in Wallpaper Turbo.
+// NativeRenderWindow.cs - Provides functionality to create and manage native render windows for wallpapers in Wallpaper Turbo.
 using System;
 using System.Runtime.InteropServices;
-using WallpaperTurbo.Core.Interop;
+using System.Threading;
+using System.Threading.Tasks;
+using WallpaperTurbo.Core.Display;
 
 namespace WallpaperTurbo.Core.Rendering;
 
@@ -11,10 +13,13 @@ public static class NativeRenderWindow
     private const uint WM_CLOSE = 0x0010;
 
     private static readonly string ClassName =
-        "WallpaperTurbo_TestWindow_Class";
+        "WallpaperTurbo_RenderWindow_Class";
 
-    public static Task<IntPtr> CreateAsync()
+    public static Task<IntPtr> CreateAsync(
+        MonitorInfo monitor)
     {
+        ArgumentNullException.ThrowIfNull(monitor);
+
         var tcs = new TaskCompletionSource<IntPtr>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -28,12 +33,15 @@ public static class NativeRenderWindow
 
                 var hwnd = RenderSurface.Create(
                     ClassName,
-                    NativeMethods.GetSystemMetrics(0),
-                    NativeMethods.GetSystemMetrics(1));
+                    monitor.X,
+                    monitor.Y,
+                    monitor.Width,
+                    monitor.Height);
 
                 if (hwnd == IntPtr.Zero)
                 {
-                    WindowClassRegistrar.Unregister(ClassName);
+                    WindowClassRegistrar.Unregister(
+                        ClassName);
 
                     tcs.SetException(
                         new InvalidOperationException(
@@ -46,7 +54,8 @@ public static class NativeRenderWindow
 
                 RenderLoop.Run();
 
-                WindowClassRegistrar.Unregister(ClassName);
+                WindowClassRegistrar.Unregister(
+                    ClassName);
             }
             catch (Exception ex)
             {
@@ -57,13 +66,16 @@ public static class NativeRenderWindow
             IsBackground = true
         };
 
-        thread.SetApartmentState(ApartmentState.STA);
+        thread.SetApartmentState(
+            ApartmentState.STA);
+
         thread.Start();
 
         return tcs.Task;
     }
 
-    public static void Shutdown(IntPtr hwnd)
+    public static void Shutdown(
+        IntPtr hwnd)
     {
         if (hwnd == IntPtr.Zero)
             return;
@@ -99,8 +111,6 @@ public static class NativeRenderWindow
             lParam);
     }
 
-    #region Native Declarations
-
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool DestroyWindow(
         IntPtr hWnd);
@@ -122,6 +132,4 @@ public static class NativeRenderWindow
     [DllImport("user32.dll", SetLastError = true)]
     private static extern void PostQuitMessage(
         int nExitCode);
-
-    #endregion
 }

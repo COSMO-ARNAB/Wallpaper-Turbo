@@ -1,38 +1,34 @@
-// WallpaperManager.cs - Manages the attachment of windows to the desktop for wallpaper rendering in Wallpaper Turbo.
+//WallpaperManager.cs - Manages the attachment of wallpaper windows to the desktop in Wallpaper Turbo.
 using System;
-using WallpaperTurbo.Core.Rendering;
+using WallpaperTurbo.Core.Display;
+using WallpaperTurbo.Core.Rendering.Host;
 
 namespace WallpaperTurbo.Core.Wallpaper;
 
 public interface IWallpaperManager
 {
-    void InitializeDesktopHandle();
-
-    IntPtr WorkerWHandle { get; }
-
-    void AttachWindow(IntPtr childWindowHandle);
+    bool AttachWindow(
+        IntPtr childWindowHandle,
+        MonitorInfo monitor);
 }
 
 public sealed class WindowsWallpaperManager
     : IWallpaperManager
 {
-    public IntPtr WorkerWHandle =>
-        DesktopAttachmentService.WorkerWHandle;
+    private readonly DesktopHostService _desktopHostService;
 
     public WindowsWallpaperManager(
         Action<string>? logger = null)
     {
+        _desktopHostService = new DesktopHostService();
     }
 
-    public void InitializeDesktopHandle()
+    public bool AttachWindow(
+        IntPtr childWindowHandle,
+        MonitorInfo monitor)
     {
-        DesktopAttachmentService.Initialize();
-    }
-
-    public void AttachWindow(
-        IntPtr childWindowHandle)
-    {
-        DesktopAttachmentService.Attach(
-            childWindowHandle);
+        return _desktopHostService.Attach(
+            childWindowHandle,
+            monitor);
     }
 }
