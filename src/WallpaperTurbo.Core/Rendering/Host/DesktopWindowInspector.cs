@@ -1,4 +1,5 @@
-// DesktopWindowInspector.cs - Provides functionality to inspect and dump the hierarchy of desktop windows in Wallpaper Turbo.
+// DesktopWindowInspector.cs
+
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -11,65 +12,90 @@ public static class DesktopWindowInspector
     public static void DumpShellWindows()
     {
         Console.WriteLine();
-        //Console.WriteLine("=== Desktop Window Topology ===");
+        Console.WriteLine("=== Desktop Window Topology ===");
 
         NativeMethods.EnumWindows((hwnd, _) =>
         {
-            var className = new StringBuilder(256);
+            DumpWindow(hwnd, 0);
 
-            NativeMethods.GetClassName(
+            DumpChildren(
                 hwnd,
-                className,
-                className.Capacity);
-
-            Console.WriteLine(
-                $"HWND=0x{hwnd.ToInt64():X} | CLASS={className}");
-
-            DumpChildren(hwnd);
+                1);
 
             return true;
 
         }, IntPtr.Zero);
 
-        Console.WriteLine("===============================");
+        Console.WriteLine("================================");
         Console.WriteLine();
     }
 
     private static void DumpChildren(
-        IntPtr parent)
+        IntPtr parent,
+        int depth)
     {
-        IntPtr child = IntPtr.Zero;
+        IntPtr child =
+            IntPtr.Zero;
 
         while (true)
         {
-            child = FindWindowEx(
-                parent,
-                child,
-                null,
-                null);
+            child =
+                NativeMethods.FindWindowEx(
+                    parent,
+                    child,
+                    null,
+                    null);
 
             if (child == IntPtr.Zero)
                 break;
 
-            var className =
-                new StringBuilder(256);
-
-            NativeMethods.GetClassName(
+            DumpWindow(
                 child,
-                className,
-                className.Capacity);
+                depth);
 
-            Console.WriteLine(
-                $"   CHILD=0x{child.ToInt64():X} | CLASS={className}");
+            DumpChildren(
+                child,
+                depth + 1);
         }
     }
 
-    [DllImport(
-        "user32.dll",
-        CharSet = CharSet.Unicode)]
-    private static extern IntPtr FindWindowEx(
-        IntPtr hwndParent,
-        IntPtr hwndChildAfter,
-        string? lpszClass,
-        string? lpszWindow);
+    private static void DumpWindow(
+        IntPtr hwnd,
+        int depth)
+    {
+        var className =
+            new StringBuilder(256);
+
+        NativeMethods.GetClassName(
+            hwnd,
+            className,
+            className.Capacity);
+
+        IntPtr parent =
+            NativeMethods.GetParent(hwnd);
+
+        int style =
+            NativeMethods.GetWindowLong(
+                hwnd,
+                NativeMethods.GWL_STYLE);
+
+        int exStyle =
+            NativeMethods.GetWindowLong(
+                hwnd,
+                NativeMethods.GWL_EXSTYLE);
+
+        bool visible =
+            NativeMethods.IsWindowVisible(hwnd);
+
+        string indent =
+            new string(' ', depth * 3);
+
+        Console.WriteLine(
+            $"{indent}HWND=0x{hwnd.ToInt64():X} " +
+            $"CLASS={className} " +
+            $"PARENT=0x{parent.ToInt64():X} " +
+            $"STYLE=0x{style:X8} " +
+            $"EXSTYLE=0x{exStyle:X8} " +
+            $"VISIBLE={visible}");
+    }
 }

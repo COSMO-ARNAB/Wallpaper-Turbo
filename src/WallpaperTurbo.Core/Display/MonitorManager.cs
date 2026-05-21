@@ -16,6 +16,8 @@ public static class MonitorManager
             monitors.Add(new MonitorInfo
             {
                 DeviceName = screen.DeviceName,
+                X = screen.Bounds.X,
+                Y = screen.Bounds.Y,
                 Width = screen.Bounds.Width,
                 Height = screen.Bounds.Height,
                 IsPrimary = screen.Primary

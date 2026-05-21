@@ -1,4 +1,5 @@
-// NativeRenderWindow.cs - Provides functionality to create and manage native render windows for wallpapers in Wallpaper Turbo.
+// NativeRenderWindow.cs
+
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -9,8 +10,11 @@ namespace WallpaperTurbo.Core.Rendering;
 
 public static class NativeRenderWindow
 {
-    private const uint WM_DESTROY = 0x0002;
-    private const uint WM_CLOSE = 0x0010;
+    private const uint WM_DESTROY =
+        0x0002;
+
+    private const uint WM_CLOSE =
+        0x0010;
 
     private static readonly string ClassName =
         "WallpaperTurbo_RenderWindow_Class";
@@ -18,58 +22,75 @@ public static class NativeRenderWindow
     public static Task<IntPtr> CreateAsync(
         MonitorInfo monitor)
     {
-        ArgumentNullException.ThrowIfNull(monitor);
+        ArgumentNullException.ThrowIfNull(
+            monitor);
 
-        var tcs = new TaskCompletionSource<IntPtr>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<IntPtr> tcs =
+            new(
+                TaskCreationOptions
+                    .RunContinuationsAsynchronously);
 
-        var thread = new Thread(() =>
-        {
-            try
+        Thread renderThread =
+            new(() =>
             {
-                WindowClassRegistrar.Register(
-                    ClassName,
-                    WndProc);
-
-                var hwnd = RenderSurface.Create(
-                    ClassName,
-                    monitor.X,
-                    monitor.Y,
-                    monitor.Width,
-                    monitor.Height);
-
-                if (hwnd == IntPtr.Zero)
+                try
                 {
+                    //
+                    // Register native render class.
+                    //
+                    WindowClassRegistrar.Register(
+                        ClassName,
+                        WndProc);
+
+                    //
+                    // Create neutral render surface.
+                    //
+                    IntPtr hwnd =
+                        RenderSurface.Create(
+                            ClassName,
+                            monitor.X,
+                            monitor.Y,
+                            monitor.Width,
+                            monitor.Height);
+
+                    if (hwnd == IntPtr.Zero)
+                    {
+                        WindowClassRegistrar.Unregister(
+                            ClassName);
+
+                        tcs.SetException(
+                            new InvalidOperationException(
+                                "CreateWindowExW failed."));
+
+                        return;
+                    }
+
+                    tcs.SetResult(hwnd);
+
+                    //
+                    // Native message/render loop.
+                    //
+                    RenderLoop.Run();
+
+                    //
+                    // Cleanup.
+                    //
                     WindowClassRegistrar.Unregister(
                         ClassName);
-
-                    tcs.SetException(
-                        new InvalidOperationException(
-                            "CreateWindowEx failed."));
-
-                    return;
                 }
+                catch (Exception ex)
+                {
+                    tcs.TrySetException(ex);
+                }
+            });
 
-                tcs.SetResult(hwnd);
+        renderThread.IsBackground =
+            true;
 
-                RenderLoop.Run();
-
-                WindowClassRegistrar.Unregister(
-                    ClassName);
-            }
-            catch (Exception ex)
-            {
-                tcs.TrySetException(ex);
-            }
-        })
-        {
-            IsBackground = true
-        };
-
-        thread.SetApartmentState(
+        renderThread.SetApartmentState(
             ApartmentState.STA);
 
-        thread.Start();
+        renderThread.Start();
 
         return tcs.Task;
     }
@@ -96,12 +117,16 @@ public static class NativeRenderWindow
         switch (msg)
         {
             case WM_CLOSE:
+            {
                 DestroyWindow(hWnd);
                 return IntPtr.Zero;
+            }
 
             case WM_DESTROY:
+            {
                 PostQuitMessage(0);
                 return IntPtr.Zero;
+            }
         }
 
         return DefWindowProcW(
@@ -111,25 +136,33 @@ public static class NativeRenderWindow
             lParam);
     }
 
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport(
+        "user32.dll",
+        SetLastError = true)]
     private static extern bool DestroyWindow(
         IntPtr hWnd);
 
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport(
+        "user32.dll",
+        SetLastError = true)]
     private static extern IntPtr DefWindowProcW(
         IntPtr hWnd,
         uint Msg,
         UIntPtr wParam,
         IntPtr lParam);
 
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport(
+        "user32.dll",
+        SetLastError = true)]
     private static extern bool PostMessage(
         IntPtr hWnd,
         uint Msg,
         UIntPtr wParam,
         IntPtr lParam);
 
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport(
+        "user32.dll",
+        SetLastError = true)]
     private static extern void PostQuitMessage(
         int nExitCode);
 }

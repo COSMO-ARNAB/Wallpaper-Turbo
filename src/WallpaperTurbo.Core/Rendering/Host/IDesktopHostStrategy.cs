@@ -1,4 +1,5 @@
-// IDesktopHostStrategy.cs - Defines the interface for strategies to attach rendering hosts to the desktop in Wallpaper Turbo.
+// IDesktopHostStrategy.cs
+
 using System;
 using WallpaperTurbo.Core.Display;
 
@@ -13,4 +14,7 @@ public interface IDesktopHostStrategy
     bool TryAttach(
         IntPtr hwnd,
         MonitorInfo monitor);
+
+    void Detach(
+        IntPtr hwnd);
 }

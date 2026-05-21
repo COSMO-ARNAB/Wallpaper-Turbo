@@ -1,17 +1,24 @@
+// RenderSurface.cs
+
 using System;
 using System.Runtime.InteropServices;
+using WallpaperTurbo.Core.Interop;
 
 namespace WallpaperTurbo.Core.Rendering;
 
 public static class RenderSurface
 {
-    private const int WS_POPUP =
-        unchecked((int)0x80000000);
-
     private const int WS_VISIBLE =
         0x10000000;
 
-    private const int SW_SHOW = 5;
+    private const int WS_CLIPSIBLINGS =
+        0x04000000;
+
+    private const int WS_CLIPCHILDREN =
+        0x02000000;
+
+    private const int SW_SHOW =
+        5;
 
     public static IntPtr Create(
         string className,
@@ -20,27 +27,41 @@ public static class RenderSurface
         int width,
         int height)
     {
-        var hInstance =
+        IntPtr hInstance =
             GetModuleHandle(null);
 
-        var hwnd = CreateWindowExW(
-            0,
-            className,
-            "Wallpaper Turbo Video Canvas",
-            WS_POPUP | WS_VISIBLE,
-            x,
-            y,
-            width,
-            height,
-            IntPtr.Zero,
-            IntPtr.Zero,
-            hInstance,
-            IntPtr.Zero);
+        //
+        // IMPORTANT:
+        // Create neutral top-level window.
+        //
+        IntPtr hwnd =
+            CreateWindowExW(
+                (int)(
+                    NativeMethods.WindowStyles.WS_EX_TOOLWINDOW |
+                    NativeMethods.WindowStyles.WS_EX_NOACTIVATE),
+                className,
+                "Wallpaper Turbo Render Surface",
+                WS_VISIBLE |
+                WS_CLIPSIBLINGS |
+                WS_CLIPCHILDREN,
+                x,
+                y,
+                width,
+                height,
+                IntPtr.Zero,
+                IntPtr.Zero,
+                hInstance,
+                IntPtr.Zero);
 
         if (hwnd == IntPtr.Zero)
             return IntPtr.Zero;
 
-        ShowWindow(hwnd, SW_SHOW);
+        //
+        // Do NOT activate/focus.
+        //
+        ShowWindow(
+            hwnd,
+            SW_SHOW);
 
         UpdateWindow(hwnd);
 
@@ -81,3 +102,6 @@ public static class RenderSurface
     private static extern bool UpdateWindow(
         IntPtr hWnd);
 }
+
+
+    

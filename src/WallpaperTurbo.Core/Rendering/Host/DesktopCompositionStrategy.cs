@@ -1,3 +1,4 @@
+//Desktop composition strategy:
 using System;
 using WallpaperTurbo.Core.Display;
 using WallpaperTurbo.Core.Interop;
@@ -7,15 +8,12 @@ namespace WallpaperTurbo.Core.Rendering.Host;
 public sealed class DesktopCompositionStrategy
     : IDesktopHostStrategy
 {
-    private const uint WM_SPAWN_WORKER = 0x052C;
-
     public string Name =>
         "Desktop Composition Strategy";
 
     public bool IsSupported()
     {
-        return WindowsCapabilityDetector
-            .HasRaisedDesktopComposition();
+        return DesktopUtil.GetProgman() != IntPtr.Zero;
     }
 
     public bool TryAttach(
@@ -25,19 +23,34 @@ public sealed class DesktopCompositionStrategy
         if (hwnd == IntPtr.Zero)
             return false;
 
-        if (!TryResolveDesktopTopology(
-                out IntPtr progman,
-                out IntPtr shellView))
+        ArgumentNullException.ThrowIfNull(monitor);
+
+        //
+        // 1. Sanitize window styles BEFORE attach.
+        //
+        WindowUtil.BorderlessWinStyle(hwnd);
+
+        //
+        // 2. Resolve desktop topology.
+        //
+        IntPtr progman =
+            DesktopUtil.GetProgman();
+
+        IntPtr workerW =
+            DesktopUtil.GetDesktopWorkerW();
+
+        IntPtr shellView =
+            DesktopUtil.GetDesktopShellView();
+
+        if (progman == IntPtr.Zero ||
+            workerW == IntPtr.Zero)
         {
             return false;
         }
 
-        ApplyCompositionStyles(hwnd);
-
-        NativeMethods.SetParent(
-            hwnd,
-            progman);
-
+        //
+        // 3. First absolute fullscreen positioning (before parenting).
+        //
         NativeMethods.SetWindowPos(
             hwnd,
             IntPtr.Zero,
@@ -49,123 +62,190 @@ public sealed class DesktopCompositionStrategy
                 NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
                 NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW));
 
-        return ValidateAttachment(hwnd);
-    }
+        //
+        // 4. Attach & Style according to Windows 11 Raised Desktop vs Standard Desktop.
+        //
+        bool attachSuccess = false;
+        IntPtr expectedParent = IntPtr.Zero;
 
-    private static bool TryResolveDesktopTopology(
-        out IntPtr progman,
-        out IntPtr shellView)
-    {
-        progman =
-            NativeMethods.FindWindowW(
-                "Progman",
-                null);
-
-        shellView = IntPtr.Zero;
-
-        if (progman == IntPtr.Zero)
-            return false;
-        
-        NativeMethods.SendMessageTimeout(
-        progman,
-        WM_SPAWN_WORKER,
-        UIntPtr.Zero,
-        IntPtr.Zero,
-        0,
-        1000,
-        out _);
-
-        IntPtr resolvedShellView = IntPtr.Zero;
-
-        NativeMethods.EnumWindows((hwnd, _) =>
+        if (DesktopUtil.IsRaisedDesktop())
         {
-            IntPtr currentShellView =
-                NativeMethods.FindWindowEx(
+            expectedParent = progman;
+
+            // Make child window and set WS_EX_LAYERED transparency to 255.
+            WindowUtil.SetWindowStyle(hwnd, (long)NativeMethods.WindowStyles.WS_CHILD);
+            WindowUtil.SetWindowExStyle(hwnd, 0x08000000); // WS_EX_NOACTIVATE
+            WindowUtil.SetWindowTransparency(hwnd, 255);
+
+            NativeMethods.RECT prct = new NativeMethods.RECT();
+            NativeMethods.MapWindowPoints(hwnd, progman, ref prct, 2);
+
+            if (WindowUtil.TrySetParent(hwnd, progman))
+            {
+                attachSuccess = true;
+
+                // Position it directly under the shell view (desktop icons) and set relative bounds in one atomic call.
+                if (shellView != IntPtr.Zero)
+                {
+                    NativeMethods.SetWindowPos(
+                        hwnd,
+                        shellView,
+                        prct.Left,
+                        prct.Top,
+                        monitor.Width,
+                        monitor.Height,
+                        (uint)NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE);
+                }
+                else
+                {
+                    NativeMethods.SetWindowPos(
+                        hwnd,
+                        IntPtr.Zero,
+                        prct.Left,
+                        prct.Top,
+                        monitor.Width,
+                        monitor.Height,
+                        (uint)(
+                            NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                            NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
+                }
+
+                // Keep WorkerW at bottom.
+                EnsureWorkerWZOrder(progman, workerW);
+            }
+        }
+        else
+        {
+            expectedParent = workerW;
+
+            NativeMethods.RECT prct = new NativeMethods.RECT();
+            NativeMethods.MapWindowPoints(hwnd, workerW, ref prct, 2);
+
+            if (WindowUtil.TrySetParent(hwnd, workerW))
+            {
+                attachSuccess = true;
+
+                // Relative sizing after parenting.
+                NativeMethods.SetWindowPos(
                     hwnd,
                     IntPtr.Zero,
-                    "SHELLDLL_DefView",
-                    null);
-        
-            if (currentShellView != IntPtr.Zero)
-            {
-                resolvedShellView = currentShellView;
-                return false;
+                    prct.Left,
+                    prct.Top,
+                    monitor.Width,
+                    monitor.Height,
+                    (uint)(
+                        NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                        NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
             }
-        
-            return true;
-        
-        }, IntPtr.Zero);
-        
-        shellView = resolvedShellView;
+        }
 
-        //Console.WriteLine(
-        //$"Progman=0x{progman.ToInt64():X} ShellView=0x{shellView.ToInt64():X}");
-        
-        return shellView != IntPtr.Zero;
+        if (!attachSuccess)
+        {
+            return false;
+        }
+
+        IntPtr parent =
+            NativeMethods.GetParent(hwnd);
+
+        Console.WriteLine(
+            $"[{Name}] Parent=0x{parent.ToInt64():X}");
+
+        Console.WriteLine(
+            $"[{Name}] Progman=0x{progman.ToInt64():X}");
+
+        Console.WriteLine(
+            $"[{Name}] WorkerW=0x{workerW.ToInt64():X}");
+
+        Console.WriteLine(
+            $"[{Name}] ShellView=0x{shellView.ToInt64():X}");
+
+        Console.WriteLine(
+            $"[{Name}] RaisedDesktop={DesktopUtil.IsRaisedDesktop()}");
+
+        return ValidateAttachment(
+            hwnd,
+            expectedParent);
     }
 
-    private static void ApplyCompositionStyles(
+    public void Detach(
         IntPtr hwnd)
     {
+        if (hwnd == IntPtr.Zero)
+            return;
+
+        NativeMethods.SetParent(
+            hwnd,
+            IntPtr.Zero);
+    }
+
+    private static void EnsureWorkerWZOrder(
+        IntPtr progman,
+        IntPtr workerW)
+    {
+        if (workerW == IntPtr.Zero)
+            return;
+
+        IntPtr lastChild =
+            WindowUtil.GetLastChildWindow(
+                progman);
+
+        if (lastChild == workerW)
+            return;
+
+        NativeMethods.SetWindowPos(
+            workerW,
+            NativeMethods.HWND_BOTTOM,
+            0,
+            0,
+            0,
+            0,
+            (uint)(
+                NativeMethods.SetWindowPosFlags.SWP_NOMOVE |
+                NativeMethods.SetWindowPosFlags.SWP_NOSIZE |
+                NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
+                NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
+    }
+
+    private static bool ValidateAttachment(
+        IntPtr hwnd,
+        IntPtr expectedParent)
+    {
+        if (!NativeMethods.IsWindow(hwnd))
+            return false;
+
+        if (!NativeMethods.IsWindowVisible(hwnd))
+            return false;
+
+        IntPtr parent =
+            NativeMethods.GetParent(hwnd);
+
+        Console.WriteLine(
+            $"[Validate] ActualParent=0x{parent.ToInt64():X}");
+
+        if (parent == IntPtr.Zero)
+            return false;
+
         int style =
             NativeMethods.GetWindowLong(
                 hwnd,
                 NativeMethods.GWL_STYLE);
-
-        style |=
-            (int)NativeMethods.WindowStyles.WS_CHILD;
-
-        NativeMethods.SetWindowLong(
-            hwnd,
-            NativeMethods.GWL_STYLE,
-            style);
 
         int exStyle =
             NativeMethods.GetWindowLong(
                 hwnd,
                 NativeMethods.GWL_EXSTYLE);
 
-        exStyle |=
-            (int)NativeMethods.WindowStyles.WS_EX_LAYERED;
-
-        NativeMethods.SetWindowLong(
-            hwnd,
-            NativeMethods.GWL_EXSTYLE,
-            exStyle);
-
-        NativeMethods.SetLayeredWindowAttributes(
-            hwnd,
-            0,
-            255,
-            NativeMethods.LWA_ALPHA);
-    }
-
-    private static bool ValidateAttachment(
-        IntPtr hwnd)
-    {
-        bool visible =
-            NativeMethods.IsWindowVisible(hwnd);
-
-        int currentStyle =
-            NativeMethods.GetWindowLong(
-                hwnd,
-                NativeMethods.GWL_STYLE);
-
-        int currentExStyle =
-            NativeMethods.GetWindowLong(
-                hwnd,
-                NativeMethods.GWL_EXSTYLE);
-
         bool isChild =
-            ((uint)currentStyle &
+            ((uint)style &
              (uint)NativeMethods.WindowStyles.WS_CHILD) != 0;
 
-        bool isLayered =
-            ((uint)currentExStyle &
-             (uint)NativeMethods.WindowStyles.WS_EX_LAYERED) != 0;
+        bool noActivate =
+            ((uint)exStyle &
+             (uint)NativeMethods.WindowStyles.WS_EX_NOACTIVATE) != 0;
 
-        return visible &&
-               isChild &&
-               isLayered;
+        return isChild &&
+               noActivate &&
+               (parent == expectedParent);
     }
 }

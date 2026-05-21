@@ -1,33 +1,64 @@
-// Program.cs - Main entry point for Wallpaper Turbo.
+// Program.cs
 
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using WallpaperTurbo.Core.Display;
 using WallpaperTurbo.Core.Hardware;
 using WallpaperTurbo.Core.Hardware.Models;
-using WallpaperTurbo.Core.Media.Pipelines;
-using WallpaperTurbo.Core.Rendering;
-using WallpaperTurbo.Core.Wallpaper;
+using WallpaperTurbo.Core.Interop;
 using WallpaperTurbo.Core.Media;
-using WallpaperTurbo.Core.Display;
+using WallpaperTurbo.Core.Media.Pipelines;
 using WallpaperTurbo.Core.Models;
+using WallpaperTurbo.Core.Rendering;
 using WallpaperTurbo.Core.Rendering.Host;
+using WallpaperTurbo.Core.Wallpaper;
 
 namespace WallpaperTurbo.AppRunner;
 
 internal static class Program
 {
-    private static async Task<int> Main(string[] args)
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetProcessDPIAware();
+
+    private static async Task<int> Main(
+        string[] args)
     {
-        using var cts = new CancellationTokenSource();
+        try
+        {
+            SetProcessDpiAwarenessContext((IntPtr)(-4)); // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+        }
+        catch
+        {
+            try
+            {
+                SetProcessDPIAware();
+            }
+            catch { }
+        }
+
+        using CancellationTokenSource cts =
+            new();
 
         Console.CancelKeyPress += (_, e) =>
         {
             e.Cancel = true;
             cts.Cancel();
         };
+
+        IntPtr hwnd =
+            IntPtr.Zero;
+
+        IMediaPipeline? pipeline =
+            null;
+
+        WallpaperSessionManager? sessionManager =
+            null;
 
         try
         {
@@ -36,27 +67,43 @@ internal static class Program
             IHardwareDetector detector =
                 new WindowsHardwareDetector();
 
-            var gpus = await detector
-                .GetGpusAsync(cts.Token)
-                .ConfigureAwait(false);
+            IEnumerable<GpuInfo> gpus =
+                await detector
+                    .GetGpusAsync(cts.Token)
+                    .ConfigureAwait(false);
 
-            var monitor =
+            MonitorInfo monitor =
                 MonitorManager.GetPrimaryMonitor();
 
             PrintTopology(gpus);
 
-            var wallpaperManager =
-                new WindowsWallpaperManager(Console.WriteLine);
+            WindowsWallpaperManager wallpaperManager =
+                new(Console.WriteLine);
 
-            var hwnd =
-                await NativeRenderWindow.CreateAsync(monitor);
+            //
+            // CREATE RENDER WINDOW
+            //
+            hwnd =
+                await NativeRenderWindow
+                    .CreateAsync(monitor);
+
+            if (hwnd == IntPtr.Zero)
+            {
+                Console.WriteLine(
+                    "Failed to create render window.");
+
+                return 1;
+            }
 
             Console.WriteLine(
-                $"\nVideo Canvas created: {PtrToString(hwnd)}");
+                $"\nRender HWND: {PtrToString(hwnd)}");
 
-            DesktopWindowInspector.DumpShellWindows();
+            DesktopWindowInspector
+                .DumpShellWindows();
 
-
+            //
+            // ATTACH TO DESKTOP
+            //
             bool attached =
                 wallpaperManager.AttachWindow(
                     hwnd,
@@ -70,20 +117,54 @@ internal static class Program
                 return 1;
             }
 
+            //
+            // VERY IMPORTANT:
+            // Re-apply fullscreen bounds AFTER parenting.
+            //
+            int relativeX = monitor.X;
+            int relativeY = monitor.Y;
+            IntPtr parent = NativeMethods.GetParent(hwnd);
+            if (parent != IntPtr.Zero)
+            {
+                NativeMethods.RECT prct = new NativeMethods.RECT { Left = monitor.X, Top = monitor.Y, Right = monitor.X + monitor.Width, Bottom = monitor.Y + monitor.Height };
+                NativeMethods.MapWindowPoints(IntPtr.Zero, parent, ref prct, 2);
+                relativeX = prct.Left;
+                relativeY = prct.Top;
+            }
+
+            NativeMethods.SetWindowPos(
+                hwnd,
+                IntPtr.Zero,
+                relativeX,
+                relativeY,
+                monitor.Width,
+                monitor.Height,
+                (uint)(
+                    NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                    NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
+                    NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
+
+            //
+            // INIT MEDIA PIPELINE
+            //
             Console.WriteLine(
                 "Initializing Hardware Decode Pipeline...");
 
-            var pipeline =
+            pipeline =
                 new HardwareDecodePipeline();
 
             pipeline.Initialize(hwnd);
 
-            var wallpaper =
+            //
+            // SELECT WALLPAPER
+            //
+            WallpaperEntry wallpaper =
                 SelectWallpaper();
 
-            var videoPath = Path.Combine(
-                AppContext.BaseDirectory,
-                wallpaper.Video);
+            string videoPath =
+                Path.Combine(
+                    AppContext.BaseDirectory,
+                    wallpaper.Video);
 
             Console.WriteLine(
                 $"Loaded wallpaper: {wallpaper.Title}");
@@ -96,7 +177,9 @@ internal static class Program
 
             if (!File.Exists(videoPath))
             {
-                ShowMissingWallpaperWarning(videoPath);
+                ShowMissingWallpaperWarning(
+                    videoPath);
+
                 return 1;
             }
 
@@ -105,18 +188,133 @@ internal static class Program
 
             pipeline.LoadMedia(videoPath);
 
-            using var sessionManager =
+            //
+            // CREATE SESSION
+            //
+            sessionManager =
                 new WallpaperSessionManager();
 
-            var session = new WallpaperSession(
-                hwnd,
-                wallpaper,
-                pipeline,
-                monitor);
+            WallpaperSession session =
+                new(
+                    hwnd,
+                    wallpaper,
+                    pipeline,
+                    monitor);
 
-            sessionManager.AddSession(session);
+            sessionManager.AddSession(
+                session);
 
+            //
+            // START PLAYBACK
+            //
             session.Play();
+
+            //
+            // VERY IMPORTANT:
+            // Allow VLC/DWM to create child surfaces first.
+            //
+            await Task.Delay(500);
+
+            // Make all dynamically spawned media player child windows click-through
+            WindowUtil.MakeChildrenTransparent(hwnd);
+
+            //
+            // Re-enforce z-order AFTER playback starts.
+            //
+            if (DesktopUtil.IsRaisedDesktop())
+            {
+                IntPtr shellView = DesktopUtil.GetDesktopShellView();
+                IntPtr progman = DesktopUtil.GetProgman();
+                IntPtr workerW = DesktopUtil.GetDesktopWorkerW();
+
+                int finalX = monitor.X;
+                int finalY = monitor.Y;
+                IntPtr finalParent = NativeMethods.GetParent(hwnd);
+                if (finalParent != IntPtr.Zero)
+                {
+                    NativeMethods.RECT prct = new NativeMethods.RECT { Left = monitor.X, Top = monitor.Y, Right = monitor.X + monitor.Width, Bottom = monitor.Y + monitor.Height };
+                    NativeMethods.MapWindowPoints(IntPtr.Zero, finalParent, ref prct, 2);
+                    finalX = prct.Left;
+                    finalY = prct.Top;
+                }
+
+                if (shellView != IntPtr.Zero)
+                {
+                    NativeMethods.SetWindowPos(
+                        hwnd,
+                        shellView,
+                        finalX,
+                        finalY,
+                        monitor.Width,
+                        monitor.Height,
+                        (uint)(
+                            NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                            NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW));
+                }
+                else
+                {
+                    NativeMethods.SetWindowPos(
+                        hwnd,
+                        IntPtr.Zero,
+                        finalX,
+                        finalY,
+                        monitor.Width,
+                        monitor.Height,
+                        (uint)(
+                            NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                            NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
+                            NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
+                }
+
+                if (progman != IntPtr.Zero && workerW != IntPtr.Zero)
+                {
+                    IntPtr lastChild = WindowUtil.GetLastChildWindow(progman);
+                    if (lastChild != workerW)
+                    {
+                        NativeMethods.SetWindowPos(
+                            workerW,
+                            NativeMethods.HWND_BOTTOM,
+                            0,
+                            0,
+                            0,
+                            0,
+                            (uint)(
+                                NativeMethods.SetWindowPosFlags.SWP_NOMOVE |
+                                NativeMethods.SetWindowPosFlags.SWP_NOSIZE |
+                                NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
+                                NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
+                    }
+                }
+            }
+            else
+            {
+                WindowUtil.SendToBottom(hwnd);
+
+                int finalX = monitor.X;
+                int finalY = monitor.Y;
+                IntPtr finalParent = NativeMethods.GetParent(hwnd);
+                if (finalParent != IntPtr.Zero)
+                {
+                    NativeMethods.RECT prct = new NativeMethods.RECT { Left = monitor.X, Top = monitor.Y, Right = monitor.X + monitor.Width, Bottom = monitor.Y + monitor.Height };
+                    NativeMethods.MapWindowPoints(IntPtr.Zero, finalParent, ref prct, 2);
+                    finalX = prct.Left;
+                    finalY = prct.Top;
+                }
+
+                NativeMethods.SetWindowPos(
+                    hwnd,
+                    NativeMethods.HWND_BOTTOM,
+                    finalX,
+                    finalY,
+                    monitor.Width,
+                    monitor.Height,
+                    (uint)(
+                        NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                        NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
+                        NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
+                        NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
+            }
 
             Console.ForegroundColor =
                 ConsoleColor.Green;
@@ -129,43 +327,83 @@ internal static class Program
             Console.ReadLine();
 
             Console.WriteLine(
-                "Releasing GPU resources...");
+                "\nStopping wallpaper playback...");
+
+            Console.WriteLine(
+                "Releasing media pipeline...");
+
+            pipeline.Release();
+
+            Console.WriteLine(
+                "Shutting down render window...");
 
             NativeRenderWindow.Shutdown(hwnd);
 
+            Console.WriteLine(
+                "Wallpaper Turbo shutdown complete.");
+
             return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                Console.WriteLine("Operation cancelled.");
-                return 2;
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine(
-                    $"Fatal engine error: {ex.Message}");
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine(
+                "Operation cancelled.");
 
-                return 1;
+            return 2;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"Fatal engine error: {ex}");
+
+            return 1;
+        }
+        finally
+        {
+            try
+            {
+                pipeline?.Release();
+            }
+            catch
+            {
             }
 
+            try
+            {
+                if (hwnd != IntPtr.Zero)
+                {
+                    NativeRenderWindow.Shutdown(hwnd);
+                }
+            }
+            catch
+            {
+            }
+
+            sessionManager?.Dispose();
+        }
     }
 
     private static WallpaperEntry SelectWallpaper()
     {
-        string manifestPath = Path.Combine(
-            AppContext.BaseDirectory,
-            "Assets",
-            "WallpaperManifest.json");
+        string manifestPath =
+            Path.Combine(
+                AppContext.BaseDirectory,
+                "Assets",
+                "WallpaperManifest.json");
 
-        var manifest =
-            WallpaperLibrary.Load(manifestPath);
+        WallpaperManifest manifest =
+            WallpaperLibrary.Load(
+                manifestPath);
 
         Console.WriteLine(
             "Available Wallpapers:\n");
 
-        for (int i = 0; i < manifest.Wallpapers.Count; i++)
+        for (int i = 0;
+             i < manifest.Wallpapers.Count;
+             i++)
         {
-            var item = manifest.Wallpapers[i];
+            WallpaperEntry item =
+                manifest.Wallpapers[i];
 
             Console.WriteLine(
                 $"[{i + 1}] {item.Title}  —  {item.Author}");
@@ -174,20 +412,23 @@ internal static class Program
         Console.Write(
             "\nSelect wallpaper number: ");
 
-        string? input = Console.ReadLine();
+        string? input =
+            Console.ReadLine();
 
-        if (!int.TryParse(input, out int selection))
+        if (!int.TryParse(
+                input,
+                out int selection))
         {
             selection = 1;
         }
 
-        selection = Math.Clamp(
-            selection - 1,
-            0,
-            manifest.Wallpapers.Count - 1);
+        selection =
+            Math.Clamp(
+                selection - 1,
+                0,
+                manifest.Wallpapers.Count - 1);
 
         return manifest.Wallpapers[selection];
-    
     }
 
     private static void ShowMissingWallpaperWarning(
@@ -213,7 +454,8 @@ internal static class Program
 
     private static void PrintBanner()
     {
-        Console.Title = "Wallpaper Turbo";
+        Console.Title =
+            "Wallpaper Turbo";
     }
 
     private static void PrintTopology(
@@ -222,17 +464,23 @@ internal static class Program
         Console.WriteLine(
             "=== Wallpaper Turbo — Detected GPU Topology ===\n");
 
-        var list = new List<GpuInfo>(gpus);
+        List<GpuInfo> list =
+            new(gpus);
 
         if (list.Count == 0)
         {
-            Console.WriteLine("No GPUs detected.");
+            Console.WriteLine(
+                "No GPUs detected.");
+
             return;
         }
 
-        for (int i = 0; i < list.Count; i++)
+        for (int i = 0;
+             i < list.Count;
+             i++)
         {
-            var gpu = list[i];
+            GpuInfo gpu =
+                list[i];
 
             Console.WriteLine(
                 $"GPU #{i + 1}: {gpu.Name}");
@@ -248,10 +496,12 @@ internal static class Program
 
             Console.WriteLine();
         }
-        var monitors = MonitorManager.GetPrimaryMonitor();
+
+        MonitorInfo monitor =
+            MonitorManager.GetPrimaryMonitor();
 
         Console.WriteLine(
-            $"{monitors.DeviceName} | {monitors.Width}x{monitors.Height} | Primary: {monitors.IsPrimary}");
+            $"{monitor.DeviceName} | {monitor.Width}x{monitor.Height} | Primary: {monitor.IsPrimary}");
     }
 
     private static string FormatBytes(
@@ -262,12 +512,18 @@ internal static class Program
 
         string[] units =
         {
-            "B", "KB", "MB", "GB", "TB"
+            "B",
+            "KB",
+            "MB",
+            "GB",
+            "TB"
         };
 
-        double value = bytes;
+        double value =
+            bytes;
 
-        int unit = 0;
+        int unit =
+            0;
 
         while (value >= 1024 &&
                unit < units.Length - 1)
