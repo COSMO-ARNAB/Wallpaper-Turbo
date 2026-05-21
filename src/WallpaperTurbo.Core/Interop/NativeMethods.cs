@@ -7,6 +7,7 @@ namespace WallpaperTurbo.Core.Interop;
 public static class NativeMethods
 {
     public const int SM_CXSCREEN = 0;
+    
     public const int SM_CYSCREEN = 1;
 
     public const int GWL_STYLE = -16;
