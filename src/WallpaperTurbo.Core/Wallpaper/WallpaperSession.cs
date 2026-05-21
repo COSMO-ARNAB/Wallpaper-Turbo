@@ -12,7 +12,7 @@ public sealed class WallpaperSession : IDisposable
 
     public IntPtr WindowHandle { get; }
 
-    public MonitorInfo Monitor { get; }
+    public MonitorInfo Monitor { get; private set; }
 
     public WallpaperEntry Wallpaper { get; }
 
@@ -31,6 +31,12 @@ public sealed class WallpaperSession : IDisposable
         WindowHandle = windowHandle;
         Wallpaper = wallpaper;
         MediaPipeline = mediaPipeline;
+        Monitor = monitor;
+    }
+
+    public void UpdateMonitor(MonitorInfo monitor)
+    {
+        ArgumentNullException.ThrowIfNull(monitor);
         Monitor = monitor;
     }
 

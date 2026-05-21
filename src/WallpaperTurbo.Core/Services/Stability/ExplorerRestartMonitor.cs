@@ -21,6 +21,9 @@ public sealed class ExplorerRestartMonitor : IDisposable
     }
 
     public event Action? RestartDetected;
+    public event Action? DisplaySettingsChanged;
+
+    private const uint WM_DISPLAYCHANGE = 0x007E;
 
     private readonly IntPtr _hwnd;
     private readonly Thread _messageThread;
@@ -106,6 +109,12 @@ public sealed class ExplorerRestartMonitor : IDisposable
         {
             // Fire event asynchronously to prevent blocking the message loop
             Task.Run(() => RestartDetected?.Invoke());
+            return IntPtr.Zero;
+        }
+        else if (msg == WM_DISPLAYCHANGE)
+        {
+            // Invoke synchronously on the STA message thread to prevent out-of-order event storms
+            DisplaySettingsChanged?.Invoke();
             return IntPtr.Zero;
         }
 

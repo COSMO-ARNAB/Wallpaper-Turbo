@@ -252,18 +252,18 @@ public sealed class HardwareDecodePipeline
 
             try
             {
+                // Explicitly reset AspectRatio and CropGeometry to null to flush LibVLC's scaling cache
+                _mediaPlayer.AspectRatio = null;
+                _mediaPlayer.CropGeometry = null;
+
                 switch (mode)
                 {
                     case WallpaperLayoutMode.Stretch:
                         _mediaPlayer.AspectRatio = $"{width}:{height}";
-                        _mediaPlayer.CropGeometry = null;
                         break;
                     case WallpaperLayoutMode.Fit:
-                        _mediaPlayer.AspectRatio = null;
-                        _mediaPlayer.CropGeometry = null;
                         break;
                     case WallpaperLayoutMode.Fill:
-                        _mediaPlayer.AspectRatio = null;
                         _mediaPlayer.CropGeometry = $"{width}:{height}";
                         break;
                 }

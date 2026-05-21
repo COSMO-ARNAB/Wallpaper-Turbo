@@ -236,6 +236,9 @@ internal static class Program
         ForegroundWindowWatcher? foregroundWatcher =
             null;
 
+        CancellationTokenSource? displayChangeCts =
+            null;
+
         try
         {
             if (!isSilent)
@@ -659,6 +662,109 @@ internal static class Program
                 });
             };
 
+            object displayChangeLock = new();
+
+            restartMonitor.DisplaySettingsChanged += () =>
+            {
+                CancellationToken token;
+                lock (displayChangeLock)
+                {
+                    displayChangeCts?.Cancel();
+                    displayChangeCts?.Dispose();
+                    displayChangeCts = new CancellationTokenSource();
+                    token = displayChangeCts.Token;
+                }
+
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        Console.WriteLine("[Stability] Display settings change detected! Scheduling debounced layout re-adjustment...");
+                        
+                        // Coalesced debounce delay (500ms) to let monitor/DWM layers fully settle
+                        await Task.Delay(500, token);
+
+                        if (hwnd == IntPtr.Zero)
+                            return;
+
+                        // Query all screens currently active (automatically handles multi-monitor, disconnects, reorders)
+                        var freshMonitors = MonitorManager.GetMonitors();
+
+                        if (sessionManager != null)
+                        {
+                            foreach (var session in sessionManager.Sessions)
+                            {
+                                // Find the matching monitor in the updated list by DeviceName (fallback to updated primary monitor)
+                                MonitorInfo? freshMonitor = null;
+                                foreach (var m in freshMonitors)
+                                {
+                                    if (m.DeviceName == session.Monitor.DeviceName)
+                                    {
+                                        freshMonitor = m;
+                                        break;
+                                    }
+                                }
+
+                                if (freshMonitor == null)
+                                {
+                                    // Fallback: target screen disconnected, fall back to updated primary monitor
+                                    freshMonitor = MonitorManager.GetPrimaryMonitor();
+                                }
+
+                                Console.WriteLine($"[Stability] Re-evaluating screen layout for monitor '{freshMonitor.DeviceName}'. Bounds: {freshMonitor.Width}x{freshMonitor.Height} at ({freshMonitor.X},{freshMonitor.Y})");
+
+                                // Re-parent mapping coordinates
+                                int relX = freshMonitor.X;
+                                int relY = freshMonitor.Y;
+                                IntPtr prnt = NativeMethods.GetParent(session.WindowHandle);
+                                if (prnt != IntPtr.Zero)
+                                {
+                                    NativeMethods.RECT prct = new NativeMethods.RECT 
+                                    { 
+                                        Left = freshMonitor.X, 
+                                        Top = freshMonitor.Y, 
+                                        Right = freshMonitor.X + freshMonitor.Width, 
+                                        Bottom = freshMonitor.Y + freshMonitor.Height 
+                                    };
+                                    NativeMethods.MapWindowPoints(IntPtr.Zero, prnt, ref prct, 2);
+                                    relX = prct.Left;
+                                    relY = prct.Top;
+                                }
+
+                                // Resize the render window. Critical: Use SWP_NOZORDER | SWP_NOACTIVATE to preserve desktop icon layering!
+                                NativeMethods.SetWindowPos(
+                                    session.WindowHandle,
+                                    IntPtr.Zero,
+                                    relX,
+                                    relY,
+                                    freshMonitor.Width,
+                                    freshMonitor.Height,
+                                    (uint)(
+                                        NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                        NativeMethods.SetWindowPosFlags.SWP_NOZORDER |
+                                        NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW));
+
+                                // Update the session's internal monitor topology reference
+                                session.UpdateMonitor(freshMonitor);
+
+                                // Dynamic re-apply layout modes using fresh bounds to flush and recalculate LibVLC scaling
+                                session.MediaPipeline.ApplyLayoutMode(session.Wallpaper.GetLayoutMode());
+                            }
+                        }
+
+                        Console.WriteLine("[Stability] Display re-layout complete!");
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Safely ignored, coalesced by a subsequent display change
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"[Stability] Error adjusting layout to display changes: {ex.Message}");
+                    }
+                });
+            };
+
             foregroundWatcher = new ForegroundWindowWatcher(pauseMode);
             Console.WriteLine($"[Performance] Active Performance Pause Mode: {pauseMode}");
             foregroundWatcher.VisibilityChanged += (isObscured) =>
@@ -857,6 +963,15 @@ internal static class Program
         }
         finally
         {
+            try
+            {
+                displayChangeCts?.Cancel();
+                displayChangeCts?.Dispose();
+            }
+            catch
+            {
+            }
+
             try
             {
                 restartMonitor?.Dispose();
