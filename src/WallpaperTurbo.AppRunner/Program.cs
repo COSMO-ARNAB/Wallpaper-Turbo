@@ -409,36 +409,108 @@ internal static class Program
                 {
                     try
                     {
-                        // Stop all active sessions cleanly
-                        sessionManager?.ShutdownAll();
+                        // Capture references for non-blocking cleanup
+                        var oldSessionManager = sessionManager;
+                        var oldHwnd = hwnd;
 
-                        // Destroy the current render window handle
-                        if (hwnd != IntPtr.Zero)
+                        // Stop all active sessions and destroy the old render window asynchronously in the background to prevent LibVLC/D3D11 deadlocks
+                        _ = Task.Run(() =>
                         {
-                            NativeRenderWindow.Shutdown(hwnd);
-                            hwnd = IntPtr.Zero;
+                            try
+                            {
+                                Console.WriteLine("[Stability] Cleaning up old wallpaper session in the background...");
+                                oldSessionManager?.ShutdownAll();
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.Error.WriteLine($"[Stability] Background session shutdown error: {ex.Message}");
+                            }
+
+                            try
+                            {
+                                if (oldHwnd != IntPtr.Zero)
+                                {
+                                    NativeRenderWindow.Shutdown(oldHwnd);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.Error.WriteLine($"[Stability] Background window shutdown error: {ex.Message}");
+                            }
+                        });
+
+                        // Instantly create a new session manager for the fresh session
+                        sessionManager = new WallpaperSessionManager();
+                        hwnd = IntPtr.Zero;
+
+                        // Wait up to 10 seconds for Explorer and Desktop shell to fully settle and recreate WorkerW
+                        bool success = false;
+                        int maxAttempts = 10;
+                        MonitorInfo freshMonitor = MonitorManager.GetPrimaryMonitor();
+
+                        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+                        {
+                            try
+                            {
+                                Console.WriteLine($"[Stability] Recovery attempt {attempt} of {maxAttempts}...");
+                                
+                                // Allow Explorer and Desktop shell to settle after restarting
+                                await Task.Delay(1000);
+
+                                // Re-verify that Progman and WorkerW exist before proceeding
+                                IntPtr progman = DesktopUtil.GetProgman();
+                                IntPtr workerW = DesktopUtil.GetDesktopWorkerW();
+                                
+                                if (progman == IntPtr.Zero || workerW == IntPtr.Zero)
+                                {
+                                    Console.WriteLine($"[Stability] Desktop shell not fully initialized yet (Progman: {progman != IntPtr.Zero}, WorkerW: {workerW != IntPtr.Zero}). Retrying...");
+                                    continue;
+                                }
+
+                                // Query monitor again (in case dimensions changed during restart)
+                                freshMonitor = MonitorManager.GetPrimaryMonitor();
+
+                                // Recreate the render window
+                                if (hwnd == IntPtr.Zero)
+                                {
+                                    hwnd = await NativeRenderWindow.CreateAsync(freshMonitor);
+                                }
+                                
+                                if (hwnd == IntPtr.Zero)
+                                {
+                                    Console.Error.WriteLine("[Stability] Failed to recreate render window. Retrying...");
+                                    continue;
+                                }
+
+                                // Re-attach to the new Explorer desktop shell
+                                var freshManager = new WindowsWallpaperManager();
+                                bool freshAttached = freshManager.AttachWindow(hwnd, freshMonitor);
+                                if (!freshAttached)
+                                {
+                                    Console.Error.WriteLine("[Stability] Failed to attach window to desktop. Retrying...");
+                                    // Destroy hwnd so we can recreate it fresh next attempt
+                                    NativeRenderWindow.Shutdown(hwnd);
+                                    hwnd = IntPtr.Zero;
+                                    continue;
+                                }
+
+                                success = true;
+                                break;
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.Error.WriteLine($"[Stability] Exception during recovery attempt {attempt}: {ex.Message}");
+                                if (hwnd != IntPtr.Zero)
+                                {
+                                    NativeRenderWindow.Shutdown(hwnd);
+                                    hwnd = IntPtr.Zero;
+                                }
+                            }
                         }
 
-                        // Allow Explorer and Desktop shell to fully settle after restarting
-                        await Task.Delay(2000);
-
-                        // Query primary monitor details again (in case of display change)
-                        var freshMonitor = MonitorManager.GetPrimaryMonitor();
-
-                        // Recreate the render window
-                        hwnd = await NativeRenderWindow.CreateAsync(freshMonitor);
-                        if (hwnd == IntPtr.Zero)
+                        if (!success)
                         {
-                            Console.Error.WriteLine("[Stability] Failed to recreate render window.");
-                            return;
-                        }
-
-                        // Re-attach to the new Explorer desktop shell
-                        var freshManager = new WindowsWallpaperManager();
-                        bool freshAttached = freshManager.AttachWindow(hwnd, freshMonitor);
-                        if (!freshAttached)
-                        {
-                            Console.Error.WriteLine("[Stability] Failed to re-attach to desktop.");
+                            Console.Error.WriteLine("[Stability] Explorer restart recovery failed after maximum retries.");
                             return;
                         }
 

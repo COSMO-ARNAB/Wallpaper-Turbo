@@ -108,8 +108,12 @@ public static class WindowClassRegistrar
 
         if (atom == 0)
         {
-            throw new InvalidOperationException(
-                "RegisterClassExW failed.");
+            int error = Marshal.GetLastWin32Error();
+            if (error != 1410) // 1410 = ERROR_CLASS_ALREADY_EXISTS
+            {
+                throw new InvalidOperationException(
+                    $"RegisterClassExW failed with error code: {error}");
+            }
         }
     }
 
