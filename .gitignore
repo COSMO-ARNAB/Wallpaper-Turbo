@@ -1,6 +1,7 @@
 bin/
 obj/
 .vs/
+/lively-core-separation/
 *.user
 *.suo
 src/WallpaperTurbo.AppRunner/Assets/*.mp4

@@ -23,12 +23,99 @@ namespace WallpaperTurbo.AppRunner;
 internal static class Program
 {
     private static System.IO.StreamWriter? _logWriter;
+    private static int _finalWallpaperIndex = 1;
+    private static PauseMode _pauseMode = PauseMode.Maximized;
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern bool SetConsoleCtrlHandler(ConsoleCtrlDelegate handler, bool add);
+
+    private delegate bool ConsoleCtrlDelegate(int ctrlType);
+
+    private static ConsoleCtrlDelegate? _consoleCtrlHandler;
+    private static int _isDetaching = 0;
 
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool SetProcessDPIAware();
+
+    private static bool OnConsoleCtrl(int ctrlType)
+    {
+        // 2: CTRL_CLOSE_EVENT, 5: CTRL_LOGOFF_EVENT, 6: CTRL_SHUTDOWN_EVENT
+        if (ctrlType == 2 || ctrlType == 5 || ctrlType == 6)
+        {
+            try
+            {
+                Console.WriteLine("\n[Console Control] Terminal shutdown detected. Transitioning to detached background mode...");
+            }
+            catch { }
+            
+            TransitionToDetachedMode();
+            return true;
+        }
+        return false;
+    }
+
+    private static void TransitionToDetachedMode()
+    {
+        if (System.Threading.Interlocked.CompareExchange(ref _isDetaching, 1, 0) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            string? processPath = null;
+            string candidateExe = Path.Combine(AppContext.BaseDirectory, "WallpaperTurbo.AppRunner.exe");
+            if (File.Exists(candidateExe))
+            {
+                processPath = candidateExe;
+            }
+            else
+            {
+                processPath = Environment.ProcessPath;
+            }
+
+            string arguments = $"--wallpaper {_finalWallpaperIndex} --silent --pause-mode {_pauseMode}";
+
+            if (string.IsNullOrEmpty(processPath) || 
+                processPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase) || 
+                processPath.EndsWith("dotnet", StringComparison.OrdinalIgnoreCase))
+            {
+                string dllPath = Path.Combine(AppContext.BaseDirectory, "WallpaperTurbo.AppRunner.dll");
+                if (File.Exists(dllPath))
+                {
+                    processPath = Environment.ProcessPath ?? "dotnet";
+                    arguments = $"\"{dllPath}\" {arguments}";
+                }
+            }
+
+            if (!string.IsNullOrEmpty(processPath))
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = processPath,
+                    Arguments = arguments,
+                    UseShellExecute = true,
+                    CreateNoWindow = true,
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                    WorkingDirectory = AppContext.BaseDirectory
+                };
+
+                System.Diagnostics.Process.Start(psi);
+                System.Threading.Thread.Sleep(500);
+            }
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                Console.Error.WriteLine($"[Detach] Relaunch failed: {ex.Message}");
+            }
+            catch { }
+        }
+    }
 
     private static async Task<int> Main(
         string[] args)
@@ -220,6 +307,12 @@ internal static class Program
                 return 1;
             }
         }
+
+        _finalWallpaperIndex = finalWallpaperIndex;
+        _pauseMode = pauseMode;
+
+        _consoleCtrlHandler = OnConsoleCtrl;
+        SetConsoleCtrlHandler(_consoleCtrlHandler, true);
 
         IntPtr hwnd =
             IntPtr.Zero;
@@ -926,7 +1019,16 @@ internal static class Program
 
                 Console.ResetColor();
 
-                Console.ReadLine();
+                string? line = Console.ReadLine();
+                if (line == null)
+                {
+                    try
+                    {
+                        Console.WriteLine("\n[Console Closed] Standard input closed. Transitioning to detached background mode...");
+                    }
+                    catch { }
+                    TransitionToDetachedMode();
+                }
             }
 
             Console.WriteLine(
