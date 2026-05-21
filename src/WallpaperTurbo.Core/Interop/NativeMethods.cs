@@ -6,7 +6,7 @@ namespace WallpaperTurbo.Core.Interop;
 
 public static class NativeMethods
 {
-    public const int SM_CXSCREEN = 0; //chudir bhai
+    public const int SM_CXSCREEN = 0; 
     
     public const int SM_CYSCREEN = 1;
 
@@ -24,6 +24,7 @@ public static class NativeMethods
         WS_VISIBLE = 0x10000000,
 
         WS_EX_LAYERED = 0x00080000,
+        WS_EX_TRANSPARENT = 0x00000020,
         WS_EX_TOOLWINDOW = 0x00000080,
         WS_EX_NOACTIVATE = 0x08000000,
         WS_EX_APPWINDOW = 0x00040000,

@@ -227,6 +227,9 @@ internal static class Program
                 IntPtr progman = DesktopUtil.GetProgman();
                 IntPtr workerW = DesktopUtil.GetDesktopWorkerW();
 
+                // Re-enforce ShellViewHandle for WndProc Z-order lock
+                WallpaperTurbo.Core.Rendering.NativeRenderWindow.ShellViewHandle = shellView;
+
                 int finalX = monitor.X;
                 int finalY = monitor.Y;
                 IntPtr finalParent = NativeMethods.GetParent(hwnd);

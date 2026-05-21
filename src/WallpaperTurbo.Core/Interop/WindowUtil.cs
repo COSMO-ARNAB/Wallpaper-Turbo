@@ -91,6 +91,9 @@ public static class WindowUtil
         exStyle |=
             (int)NativeMethods.WindowStyles.WS_EX_NOACTIVATE;
 
+        exStyle |=
+            (int)NativeMethods.WindowStyles.WS_EX_TRANSPARENT;
+
         NativeMethods.SetWindowLong(
             hwnd,
             NativeMethods.GWL_EXSTYLE,
@@ -224,8 +227,11 @@ public static class WindowUtil
 
         NativeMethods.EnumChildWindows(parent, (hwnd, lParam) =>
         {
-            // Set WS_EX_NOACTIVATE only. Strip WS_EX_TRANSPARENT so it doesn't paint on top of desktop icons.
-            SetWindowExStyle(hwnd, 0x08000000); // WS_EX_NOACTIVATE
+            // Set both WS_EX_NOACTIVATE and WS_EX_TRANSPARENT to ensure VLC's child video windows are click-transparent and focus-free.
+            SetWindowExStyle(hwnd, (long)(NativeMethods.WindowStyles.WS_EX_NOACTIVATE | NativeMethods.WindowStyles.WS_EX_TRANSPARENT));
+
+            // Set layered window attributes with 255 alpha (opaque but hit-transparent due to WS_EX_TRANSPARENT + WS_EX_LAYERED)
+            SetWindowTransparency(hwnd, 255);
             return true;
         }, IntPtr.Zero);
     }

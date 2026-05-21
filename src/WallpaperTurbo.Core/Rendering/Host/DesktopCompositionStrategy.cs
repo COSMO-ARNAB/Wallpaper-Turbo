@@ -48,6 +48,9 @@ public sealed class DesktopCompositionStrategy
             return false;
         }
 
+        // Lock shellView handle for WndProc Z-order enforcement
+        NativeRenderWindow.ShellViewHandle = shellView;
+
         //
         // 3. First absolute fullscreen positioning (before parenting).
         //
@@ -74,7 +77,7 @@ public sealed class DesktopCompositionStrategy
 
             // Make child window and set WS_EX_LAYERED transparency to 255.
             WindowUtil.SetWindowStyle(hwnd, (long)NativeMethods.WindowStyles.WS_CHILD);
-            WindowUtil.SetWindowExStyle(hwnd, 0x08000000); // WS_EX_NOACTIVATE
+            WindowUtil.SetWindowExStyle(hwnd, (long)(NativeMethods.WindowStyles.WS_EX_NOACTIVATE | NativeMethods.WindowStyles.WS_EX_TRANSPARENT));
             WindowUtil.SetWindowTransparency(hwnd, 255);
 
             NativeMethods.RECT prct = new NativeMethods.RECT();

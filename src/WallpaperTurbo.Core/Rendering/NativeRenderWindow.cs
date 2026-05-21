@@ -10,11 +10,34 @@ namespace WallpaperTurbo.Core.Rendering;
 
 public static class NativeRenderWindow
 {
+    public static IntPtr ShellViewHandle { get; set; } = IntPtr.Zero;
+
     private const uint WM_DESTROY =
         0x0002;
 
     private const uint WM_CLOSE =
         0x0010;
+
+    private const uint WM_MOUSEACTIVATE =
+        0x0021;
+
+    private const int MA_NOACTIVATE =
+        3;
+
+    private const uint WM_WINDOWPOSCHANGING =
+        0x0046;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINDOWPOS
+    {
+        public IntPtr hwnd;
+        public IntPtr hwndInsertAfter;
+        public int x;
+        public int y;
+        public int cx;
+        public int cy;
+        public uint flags;
+    }
 
     private static readonly string ClassName =
         "WallpaperTurbo_RenderWindow_Class";
@@ -126,6 +149,35 @@ public static class NativeRenderWindow
             {
                 PostQuitMessage(0);
                 return IntPtr.Zero;
+            }
+
+            case WM_MOUSEACTIVATE:
+            {
+                return new IntPtr(MA_NOACTIVATE);
+            }
+
+            case WM_WINDOWPOSCHANGING:
+            {
+                if (lParam != IntPtr.Zero)
+                {
+                    try
+                    {
+                        WINDOWPOS wp = Marshal.PtrToStructure<WINDOWPOS>(lParam);
+
+                        // If we have a valid ShellView handle, lock our Z-order immediately behind it.
+                        if (ShellViewHandle != IntPtr.Zero)
+                        {
+                            wp.hwndInsertAfter = ShellViewHandle;
+                            wp.flags &= ~0x0004U; // Clear SWP_NOZORDER so Windows processes our custom insert target
+                            Marshal.StructureToPtr(wp, lParam, true);
+                        }
+                    }
+                    catch
+                    {
+                        // Defensive catch to ensure no thread crash
+                    }
+                }
+                break;
             }
         }
 
