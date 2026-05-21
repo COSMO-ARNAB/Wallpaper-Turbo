@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.IO;
 using LibVLCSharp.Shared;
 using WallpaperTurbo.Core.Media;
+using WallpaperTurbo.Core.Models;
+using WallpaperTurbo.Core.Interop;
 
 namespace WallpaperTurbo.Core.Media.Pipelines;
 
@@ -21,6 +23,8 @@ public sealed class HardwareDecodePipeline
 
     private LibVLCSharp.Shared.Media? _media;
 
+    private IntPtr _parentWindowHandle = IntPtr.Zero;
+
     private readonly object _sync =
         new();
 
@@ -34,6 +38,8 @@ public sealed class HardwareDecodePipeline
         {
             if (_libVLC != null)
                 return;
+
+            _parentWindowHandle = parentWindowHandle;
 
             string vlcPath =
                 @"C:\Program Files\VideoLAN\VLC";
@@ -222,6 +228,51 @@ public sealed class HardwareDecodePipeline
         //
         Trace.TraceInformation(
             $"SetTargetFps({fps})");
+    }
+
+    public void ApplyLayoutMode(WallpaperLayoutMode mode)
+    {
+        lock (_sync)
+        {
+            if (_mediaPlayer == null)
+                return;
+
+            int width = 1920;
+            int height = 1080;
+            if (_parentWindowHandle != IntPtr.Zero && NativeMethods.GetClientRect(_parentWindowHandle, out var rect))
+            {
+                int w = rect.Right - rect.Left;
+                int h = rect.Bottom - rect.Top;
+                if (w > 0 && h > 0)
+                {
+                    width = w;
+                    height = h;
+                }
+            }
+
+            try
+            {
+                switch (mode)
+                {
+                    case WallpaperLayoutMode.Stretch:
+                        _mediaPlayer.AspectRatio = $"{width}:{height}";
+                        _mediaPlayer.CropGeometry = null;
+                        break;
+                    case WallpaperLayoutMode.Fit:
+                        _mediaPlayer.AspectRatio = null;
+                        _mediaPlayer.CropGeometry = null;
+                        break;
+                    case WallpaperLayoutMode.Fill:
+                        _mediaPlayer.AspectRatio = null;
+                        _mediaPlayer.CropGeometry = $"{width}:{height}";
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError($"Failed to apply layout mode {mode}: {ex.Message}");
+            }
+        }
     }
 
     public void Release()

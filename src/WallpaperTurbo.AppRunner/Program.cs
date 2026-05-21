@@ -15,11 +15,15 @@ using WallpaperTurbo.Core.Models;
 using WallpaperTurbo.Core.Rendering;
 using WallpaperTurbo.Core.Rendering.Host;
 using WallpaperTurbo.Core.Wallpaper;
+using WallpaperTurbo.Core.Services.Stability;
+using WallpaperTurbo.Core.Services.Performance;
 
 namespace WallpaperTurbo.AppRunner;
 
 internal static class Program
 {
+    private static System.IO.StreamWriter? _logWriter;
+
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
 
@@ -51,6 +55,172 @@ internal static class Program
             cts.Cancel();
         };
 
+        bool isDetach = false;
+        bool isStop = false;
+        bool isSilent = false;
+        int? wallpaperIndex = null;
+        PauseMode pauseMode = PauseMode.Maximized;
+        bool pauseModeExplicitlySet = false;
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i].Equals("--detach", StringComparison.OrdinalIgnoreCase))
+            {
+                isDetach = true;
+            }
+            else if (args[i].Equals("--stop", StringComparison.OrdinalIgnoreCase))
+            {
+                isStop = true;
+            }
+            else if (args[i].Equals("--silent", StringComparison.OrdinalIgnoreCase))
+            {
+                isSilent = true;
+            }
+            else if (args[i].Equals("--wallpaper", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 < args.Length && int.TryParse(args[i + 1], out int index))
+                {
+                    wallpaperIndex = index;
+                    i++;
+                }
+            }
+            else if (args[i].Equals("--pause-mode", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 < args.Length && Enum.TryParse<PauseMode>(args[i + 1], true, out var mode))
+                {
+                    pauseMode = mode;
+                    pauseModeExplicitlySet = true;
+                    i++;
+                }
+            }
+            else if (args[i].Equals("--pause-on-focus", StringComparison.OrdinalIgnoreCase))
+            {
+                pauseMode = PauseMode.Focused;
+                pauseModeExplicitlySet = true;
+            }
+            else if (int.TryParse(args[i], out int index))
+            {
+                wallpaperIndex = index;
+            }
+        }
+
+        if (isSilent)
+        {
+            try
+            {
+                string logPath = Path.Combine(AppContext.BaseDirectory, "wallpaper.log");
+                var fileStream = new FileStream(logPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                _logWriter = new StreamWriter(fileStream) { AutoFlush = true };
+                Console.SetOut(_logWriter);
+                Console.SetError(_logWriter);
+                Console.WriteLine($"[Wallpaper Turbo Background Log - Started {DateTime.Now}]");
+            }
+            catch { }
+        }
+
+        if (isStop)
+        {
+            StopRunningInstances();
+            return 0;
+        }
+
+        string manifestPath = Path.Combine(AppContext.BaseDirectory, "Assets", "WallpaperManifest.json");
+        if (!File.Exists(manifestPath))
+        {
+            Console.Error.WriteLine($"Manifest file not found: {manifestPath}");
+            return 1;
+        }
+
+        WallpaperManifest manifest = WallpaperLibrary.Load(manifestPath);
+        int finalWallpaperIndex = 1;
+
+        if (wallpaperIndex.HasValue)
+        {
+            finalWallpaperIndex = Math.Clamp(wallpaperIndex.Value, 1, manifest.Wallpapers.Count);
+        }
+        else
+        {
+            if (isSilent)
+            {
+                finalWallpaperIndex = 1;
+            }
+            else
+            {
+                Console.WriteLine("Available Wallpapers:\n");
+                for (int i = 0; i < manifest.Wallpapers.Count; i++)
+                {
+                    WallpaperEntry item = manifest.Wallpapers[i];
+                    Console.WriteLine($"[{i + 1}] {item.Title}  —  {item.Author}");
+                }
+                Console.Write("\nSelect wallpaper number: ");
+                string? input = Console.ReadLine();
+                if (!int.TryParse(input, out int selection))
+                {
+                    selection = 1;
+                }
+                finalWallpaperIndex = Math.Clamp(selection, 1, manifest.Wallpapers.Count);
+            }
+        }
+
+        if (!pauseModeExplicitlySet && !isSilent)
+        {
+            Console.WriteLine("\nSelect Performance Pause Mode:");
+            Console.WriteLine("[1] With Focus Mode (pauses when another window is focused)");
+            Console.WriteLine("[2] Without Focus Mode (plays continuously, pauses only when maximized/fullscreen)");
+            Console.Write("\nSelect option [1 or 2, default 2]: ");
+            string? pauseInput = Console.ReadLine();
+            if (pauseInput == "1")
+            {
+                pauseMode = PauseMode.Focused;
+            }
+            else
+            {
+                pauseMode = PauseMode.Maximized;
+            }
+        }
+
+        if (isDetach)
+        {
+            StopRunningInstances();
+
+            string? processPath = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(processPath))
+            {
+                processPath = Path.Combine(AppContext.BaseDirectory, "WallpaperTurbo.AppRunner.exe");
+            }
+
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = processPath,
+                Arguments = $"--wallpaper {finalWallpaperIndex} --silent --pause-mode {pauseMode}",
+                UseShellExecute = true,
+                CreateNoWindow = true,
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                WorkingDirectory = AppContext.BaseDirectory
+            };
+
+            try
+            {
+                System.Diagnostics.Process.Start(psi);
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"\nStarted Wallpaper Turbo in the background with wallpaper #{finalWallpaperIndex}.");
+                Console.WriteLine("You can safely close this terminal and VS Code now!");
+                Console.ResetColor();
+                
+                // Allow a small delay for the process to launch before parent exits
+                await Task.Delay(1500);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Failed to start background process: {ex.Message}");
+                Console.ResetColor();
+                return 1;
+            }
+        }
+
         IntPtr hwnd =
             IntPtr.Zero;
 
@@ -60,9 +230,18 @@ internal static class Program
         WallpaperSessionManager? sessionManager =
             null;
 
+        ExplorerRestartMonitor? restartMonitor =
+            null;
+
+        ForegroundWindowWatcher? foregroundWatcher =
+            null;
+
         try
         {
-            PrintBanner();
+            if (!isSilent)
+            {
+                PrintBanner();
+            }
 
             IHardwareDetector detector =
                 new WindowsHardwareDetector();
@@ -75,7 +254,10 @@ internal static class Program
             MonitorInfo monitor =
                 MonitorManager.GetPrimaryMonitor();
 
-            PrintTopology(gpus);
+            if (!isSilent)
+            {
+                PrintTopology(gpus);
+            }
 
             WindowsWallpaperManager wallpaperManager =
                 new(Console.WriteLine);
@@ -95,11 +277,14 @@ internal static class Program
                 return 1;
             }
 
-            Console.WriteLine(
-                $"\nRender HWND: {PtrToString(hwnd)}");
+            if (!isSilent)
+            {
+                Console.WriteLine(
+                    $"\nRender HWND: {PtrToString(hwnd)}");
 
-            DesktopWindowInspector
-                .DumpShellWindows();
+                DesktopWindowInspector
+                    .DumpShellWindows();
+            }
 
             //
             // ATTACH TO DESKTOP
@@ -158,8 +343,7 @@ internal static class Program
             //
             // SELECT WALLPAPER
             //
-            WallpaperEntry wallpaper =
-                SelectWallpaper();
+            WallpaperEntry wallpaper = manifest.Wallpapers[finalWallpaperIndex - 1];
 
             string videoPath =
                 Path.Combine(
@@ -208,6 +392,231 @@ internal static class Program
             // START PLAYBACK
             //
             session.Play();
+
+            //
+            // STABILITY & PERFORMANCE WATCHERS
+            //
+            bool isRecovering = false;
+            restartMonitor = new ExplorerRestartMonitor();
+            restartMonitor.RestartDetected += () =>
+            {
+                if (isRecovering) return;
+                isRecovering = true;
+                
+                Console.WriteLine("[Stability] Explorer restart detected! Re-attaching wallpaper in 2 seconds...");
+                
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        // Stop all active sessions cleanly
+                        sessionManager?.ShutdownAll();
+
+                        // Destroy the current render window handle
+                        if (hwnd != IntPtr.Zero)
+                        {
+                            NativeRenderWindow.Shutdown(hwnd);
+                            hwnd = IntPtr.Zero;
+                        }
+
+                        // Allow Explorer and Desktop shell to fully settle after restarting
+                        await Task.Delay(2000);
+
+                        // Query primary monitor details again (in case of display change)
+                        var freshMonitor = MonitorManager.GetPrimaryMonitor();
+
+                        // Recreate the render window
+                        hwnd = await NativeRenderWindow.CreateAsync(freshMonitor);
+                        if (hwnd == IntPtr.Zero)
+                        {
+                            Console.Error.WriteLine("[Stability] Failed to recreate render window.");
+                            return;
+                        }
+
+                        // Re-attach to the new Explorer desktop shell
+                        var freshManager = new WindowsWallpaperManager();
+                        bool freshAttached = freshManager.AttachWindow(hwnd, freshMonitor);
+                        if (!freshAttached)
+                        {
+                            Console.Error.WriteLine("[Stability] Failed to re-attach to desktop.");
+                            return;
+                        }
+
+                        // Map positions and apply SetWindowPos relative to new parent
+                        int relX = freshMonitor.X;
+                        int relY = freshMonitor.Y;
+                        IntPtr prnt = NativeMethods.GetParent(hwnd);
+                        if (prnt != IntPtr.Zero)
+                        {
+                            NativeMethods.RECT prct = new NativeMethods.RECT 
+                            { 
+                                Left = freshMonitor.X, 
+                                Top = freshMonitor.Y, 
+                                Right = freshMonitor.X + freshMonitor.Width, 
+                                Bottom = freshMonitor.Y + freshMonitor.Height 
+                            };
+                            NativeMethods.MapWindowPoints(IntPtr.Zero, prnt, ref prct, 2);
+                            relX = prct.Left;
+                            relY = prct.Top;
+                        }
+
+                        NativeMethods.SetWindowPos(
+                            hwnd,
+                            IntPtr.Zero,
+                            relX,
+                            relY,
+                            freshMonitor.Width,
+                            freshMonitor.Height,
+                            (uint)(
+                                NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
+                                NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
+
+                        // Initialize the media pipeline on the new handle
+                        var freshPipeline = new HardwareDecodePipeline();
+                        freshPipeline.Initialize(hwnd);
+
+                        var freshWallpaper = manifest.Wallpapers[finalWallpaperIndex - 1];
+                        string freshVideoPath = Path.Combine(AppContext.BaseDirectory, freshWallpaper.Video);
+                        if (File.Exists(freshVideoPath))
+                        {
+                            freshPipeline.LoadMedia(freshVideoPath);
+                            
+                            var freshSession = new WallpaperSession(
+                                hwnd, 
+                                freshWallpaper, 
+                                freshPipeline, 
+                                freshMonitor);
+                            
+                            sessionManager?.AddSession(freshSession);
+                            freshSession.Play();
+                            
+                            // Reassign pipeline to outer local variable for safety/cleanup
+                            pipeline = freshPipeline;
+
+                            await Task.Delay(500);
+                            WindowUtil.MakeChildrenTransparent(hwnd);
+
+                            // Re-enforce z-order persistence exactly as in Main
+                            if (DesktopUtil.IsRaisedDesktop())
+                            {
+                                IntPtr shellView = DesktopUtil.GetDesktopShellView();
+                                IntPtr progman = DesktopUtil.GetProgman();
+                                IntPtr workerW = DesktopUtil.GetDesktopWorkerW();
+
+                                WallpaperTurbo.Core.Rendering.NativeRenderWindow.ShellViewHandle = shellView;
+
+                                if (shellView != IntPtr.Zero)
+                                {
+                                    NativeMethods.SetWindowPos(
+                                        hwnd,
+                                        shellView,
+                                        relX,
+                                        relY,
+                                        freshMonitor.Width,
+                                        freshMonitor.Height,
+                                        (uint)(
+                                            NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                            NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW));
+                                }
+                                else
+                                {
+                                    NativeMethods.SetWindowPos(
+                                        hwnd,
+                                        IntPtr.Zero,
+                                        relX,
+                                        relY,
+                                        freshMonitor.Width,
+                                        freshMonitor.Height,
+                                        (uint)(
+                                            NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                            NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
+                                            NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
+                                }
+
+                                if (progman != IntPtr.Zero && workerW != IntPtr.Zero)
+                                {
+                                    IntPtr lastChild = WindowUtil.GetLastChildWindow(progman);
+                                    if (lastChild != workerW)
+                                    {
+                                        NativeMethods.SetWindowPos(
+                                            workerW,
+                                            NativeMethods.HWND_BOTTOM,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            (uint)(
+                                                NativeMethods.SetWindowPosFlags.SWP_NOMOVE |
+                                                NativeMethods.SetWindowPosFlags.SWP_NOSIZE |
+                                                NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                                NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
+                                                NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                WindowUtil.SendToBottom(hwnd);
+
+                                NativeMethods.SetWindowPos(
+                                    hwnd,
+                                    NativeMethods.HWND_BOTTOM,
+                                    relX,
+                                    relY,
+                                    freshMonitor.Width,
+                                    freshMonitor.Height,
+                                    (uint)(
+                                        NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                        NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
+                                        NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
+                                        NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
+                            }
+
+                            Console.WriteLine("[Stability] Re-attachment successful!");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"[Stability] Error during Explorer restart recovery: {ex.Message}");
+                    }
+                    finally
+                    {
+                        isRecovering = false;
+                    }
+                });
+            };
+
+            foregroundWatcher = new ForegroundWindowWatcher(pauseMode);
+            Console.WriteLine($"[Performance] Active Performance Pause Mode: {pauseMode}");
+            foregroundWatcher.VisibilityChanged += (isObscured) =>
+            {
+                if (isObscured)
+                {
+                    string reason = pauseMode == PauseMode.Focused 
+                        ? "application focused" 
+                        : "fullscreen/maximized window";
+                    Console.WriteLine($"[Performance] Desktop obscured by {reason}. Suspending playback...");
+                    if (sessionManager != null)
+                    {
+                        foreach (var s in sessionManager.Sessions)
+                        {
+                            s.Pause();
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("[Performance] Desktop is now visible. Resuming playback...");
+                    if (sessionManager != null)
+                    {
+                        foreach (var s in sessionManager.Sessions)
+                        {
+                            s.Play();
+                        }
+                    }
+                }
+            };
 
             //
             // VERY IMPORTANT:
@@ -319,15 +728,28 @@ internal static class Program
                         NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
             }
 
-            Console.ForegroundColor =
-                ConsoleColor.Green;
+            if (isSilent)
+            {
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+            else
+            {
+                Console.ForegroundColor =
+                    ConsoleColor.Green;
 
-            Console.WriteLine(
-                "\nWallpaper Turbo is running! Press [ENTER] to exit cleanly.");
+                Console.WriteLine(
+                    "\nWallpaper Turbo is running! Press [ENTER] to exit cleanly.");
 
-            Console.ResetColor();
+                Console.ResetColor();
 
-            Console.ReadLine();
+                Console.ReadLine();
+            }
 
             Console.WriteLine(
                 "\nStopping wallpaper playback...");
@@ -365,6 +787,22 @@ internal static class Program
         {
             try
             {
+                restartMonitor?.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                foregroundWatcher?.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
                 pipeline?.Release();
             }
             catch
@@ -384,54 +822,6 @@ internal static class Program
 
             sessionManager?.Dispose();
         }
-    }
-
-    private static WallpaperEntry SelectWallpaper()
-    {
-        string manifestPath =
-            Path.Combine(
-                AppContext.BaseDirectory,
-                "Assets",
-                "WallpaperManifest.json");
-
-        WallpaperManifest manifest =
-            WallpaperLibrary.Load(
-                manifestPath);
-
-        Console.WriteLine(
-            "Available Wallpapers:\n");
-
-        for (int i = 0;
-             i < manifest.Wallpapers.Count;
-             i++)
-        {
-            WallpaperEntry item =
-                manifest.Wallpapers[i];
-
-            Console.WriteLine(
-                $"[{i + 1}] {item.Title}  —  {item.Author}");
-        }
-
-        Console.Write(
-            "\nSelect wallpaper number: ");
-
-        string? input =
-            Console.ReadLine();
-
-        if (!int.TryParse(
-                input,
-                out int selection))
-        {
-            selection = 1;
-        }
-
-        selection =
-            Math.Clamp(
-                selection - 1,
-                0,
-                manifest.Wallpapers.Count - 1);
-
-        return manifest.Wallpapers[selection];
     }
 
     private static void ShowMissingWallpaperWarning(
@@ -550,5 +940,45 @@ internal static class Program
         return IntPtr.Size == 8
             ? $"0x{p.ToInt64():X}"
             : $"0x{p.ToInt32():X}";
+    }
+
+    private static void StopRunningInstances()
+    {
+        int currentId = System.Diagnostics.Process.GetCurrentProcess().Id;
+        string currentName = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+
+        try
+        {
+            var processes = System.Diagnostics.Process.GetProcessesByName(currentName);
+            int stoppedCount = 0;
+            foreach (var process in processes)
+            {
+                if (process.Id != currentId)
+                {
+                    try
+                    {
+                        process.Kill(true); // Kill process and its children recursively
+                        process.WaitForExit(3000);
+                        stoppedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to stop process {process.Id}: {ex.Message}");
+                    }
+                }
+            }
+            if (stoppedCount > 0)
+            {
+                Console.WriteLine($"Stopped {stoppedCount} running instance(s) of Wallpaper Turbo.");
+            }
+            else
+            {
+                Console.WriteLine("No other running instances of Wallpaper Turbo found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error enumerating processes: {ex.Message}");
+        }
     }
 }

@@ -191,4 +191,9 @@ public static class NativeMethods
         IntPtr hWndTo,
         ref RECT lpPoints,
         uint cPoints);
+
+    [DllImport("user32.dll")]
+    public static extern bool GetClientRect(
+        IntPtr hWnd,
+        out RECT lpRect);
 }

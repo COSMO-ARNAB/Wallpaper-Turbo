@@ -18,5 +18,14 @@ public class WallpaperEntry
 
     public string Author { get; init; } = string.Empty;
 
-    public List<string> Tags { get; init; } = new();
+    public string LayoutMode { get; init; } = "Fill";
+
+    public WallpaperLayoutMode GetLayoutMode()
+    {
+        if (Enum.TryParse<WallpaperLayoutMode>(LayoutMode, true, out var mode))
+        {
+            return mode;
+        }
+        return WallpaperLayoutMode.Fill;
+    }
 }

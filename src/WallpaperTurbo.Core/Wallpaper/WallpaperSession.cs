@@ -38,6 +38,7 @@ public sealed class WallpaperSession : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         MediaPipeline.Play();
+        MediaPipeline.ApplyLayoutMode(Wallpaper.GetLayoutMode());
     }
 
     public void Pause()

@@ -1,4 +1,6 @@
 //IMediaPipeline.cs - Interface for media pipelines in Wallpaper Turbo.
+using WallpaperTurbo.Core.Models;
+
 namespace WallpaperTurbo.Core.Media;
 
 public interface IMediaPipeline
@@ -14,6 +16,8 @@ public interface IMediaPipeline
     void Pause();
 
     void SetTargetFps(int fps);
+
+    void ApplyLayoutMode(WallpaperLayoutMode mode);
 
     void Release();
 }
