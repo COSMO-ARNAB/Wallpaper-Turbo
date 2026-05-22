@@ -225,13 +225,55 @@ public static class WindowUtil
     {
         if (parent == IntPtr.Zero) return;
 
+        int width = 0;
+        int height = 0;
+        if (NativeMethods.GetClientRect(parent, out var parentRect))
+        {
+            width = parentRect.Right - parentRect.Left;
+            height = parentRect.Bottom - parentRect.Top;
+        }
+
         NativeMethods.EnumChildWindows(parent, (hwnd, lParam) =>
         {
+            int style = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_STYLE);
+            style &= unchecked((int)~(uint)NativeMethods.WindowStyles.WS_POPUP);
+            style |= (int)(
+                NativeMethods.WindowStyles.WS_CHILD |
+                NativeMethods.WindowStyles.WS_VISIBLE |
+                NativeMethods.WindowStyles.WS_CLIPSIBLINGS |
+                NativeMethods.WindowStyles.WS_CLIPCHILDREN);
+            NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_STYLE, style);
+
+            int exStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+            exStyle &= ~WS_EX_APPWINDOW;
+            exStyle |= (int)(
+                NativeMethods.WindowStyles.WS_EX_TOOLWINDOW |
+                NativeMethods.WindowStyles.WS_EX_NOACTIVATE |
+                NativeMethods.WindowStyles.WS_EX_TRANSPARENT);
+            NativeMethods.SetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE, exStyle);
+
             // Set both WS_EX_NOACTIVATE and WS_EX_TRANSPARENT to ensure VLC's child video windows are click-transparent and focus-free.
             SetWindowExStyle(hwnd, (long)(NativeMethods.WindowStyles.WS_EX_NOACTIVATE | NativeMethods.WindowStyles.WS_EX_TRANSPARENT));
 
             // Set layered window attributes with 255 alpha (opaque but hit-transparent due to WS_EX_TRANSPARENT + WS_EX_LAYERED)
             SetWindowTransparency(hwnd, 255);
+
+            if (width > 0 && height > 0)
+            {
+                NativeMethods.SetWindowPos(
+                    hwnd,
+                    IntPtr.Zero,
+                    0,
+                    0,
+                    width,
+                    height,
+                    (uint)(
+                        NativeMethods.SetWindowPosFlags.SWP_NOZORDER |
+                        NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                        NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
+                        NativeMethods.SetWindowPosFlags.SWP_FRAMECHANGED));
+            }
+
             return true;
         }, IntPtr.Zero);
     }

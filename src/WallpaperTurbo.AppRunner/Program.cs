@@ -25,6 +25,9 @@ internal static class Program
     private static System.IO.StreamWriter? _logWriter;
     private static int _finalWallpaperIndex = 1;
     private static PauseMode _pauseMode = PauseMode.Maximized;
+    private static bool _useSoftwareDecode;
+    private static string? _videoOutputModule;
+    private static bool _memoryDiagnostics;
     private static WallpaperSessionManager? _sessionManager;
     private static IMediaPipeline? _activePipeline;
     private static IntPtr _hwnd = IntPtr.Zero;
@@ -80,7 +83,8 @@ internal static class Program
                 processPath = Environment.ProcessPath;
             }
 
-            string arguments = $"--wallpaper {_finalWallpaperIndex} --silent --pause-mode {_pauseMode}";
+            string decodeArgument = _useSoftwareDecode ? " --software-decode" : string.Empty;
+            string arguments = $"--wallpaper {_finalWallpaperIndex} --silent --pause-mode {_pauseMode}{decodeArgument}";
 
             if (string.IsNullOrEmpty(processPath) || 
                 processPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase) || 
@@ -151,6 +155,11 @@ internal static class Program
         int? wallpaperIndex = null;
         PauseMode pauseMode = PauseMode.Maximized;
         bool pauseModeExplicitlySet = false;
+        bool useSoftwareDecode = false;
+        string? videoOutputModule = null;
+        bool memoryDiagnostics = false;
+        bool noDetachOnStdinClose = false;
+        bool skipDesktopAttach = false;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -165,6 +174,35 @@ internal static class Program
             else if (args[i].Equals("--silent", StringComparison.OrdinalIgnoreCase))
             {
                 isSilent = true;
+            }
+            else if (args[i].Equals("--software-decode", StringComparison.OrdinalIgnoreCase))
+            {
+                useSoftwareDecode = true;
+            }
+            else if (args[i].Equals("--vout", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 < args.Length)
+                {
+                    videoOutputModule = args[i + 1];
+                    i++;
+                }
+            }
+            else if (args[i].StartsWith("--vout=", StringComparison.OrdinalIgnoreCase))
+            {
+                videoOutputModule = args[i]["--vout=".Length..];
+            }
+            else if (args[i].Equals("--mem-diagnostics", StringComparison.OrdinalIgnoreCase) ||
+                     args[i].Equals("--memory-diagnostics", StringComparison.OrdinalIgnoreCase))
+            {
+                memoryDiagnostics = true;
+            }
+            else if (args[i].Equals("--no-detach-on-stdin-close", StringComparison.OrdinalIgnoreCase))
+            {
+                noDetachOnStdinClose = true;
+            }
+            else if (args[i].Equals("--skip-desktop-attach", StringComparison.OrdinalIgnoreCase))
+            {
+                skipDesktopAttach = true;
             }
             else if (args[i].Equals("--wallpaper", StringComparison.OrdinalIgnoreCase))
             {
@@ -282,7 +320,7 @@ internal static class Program
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = processPath,
-                Arguments = $"--wallpaper {finalWallpaperIndex} --silent --pause-mode {pauseMode}",
+                Arguments = $"--wallpaper {finalWallpaperIndex} --silent --pause-mode {pauseMode}{(useSoftwareDecode ? " --software-decode" : string.Empty)}",
                 UseShellExecute = true,
                 CreateNoWindow = true,
                 WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
@@ -313,6 +351,10 @@ internal static class Program
 
         _finalWallpaperIndex = finalWallpaperIndex;
         _pauseMode = pauseMode;
+        _useSoftwareDecode = useSoftwareDecode;
+        _videoOutputModule = videoOutputModule;
+        _memoryDiagnostics = memoryDiagnostics;
+        LogMemory("startup.after-args");
 
         _consoleCtrlHandler = OnConsoleCtrl;
         SetConsoleCtrlHandler(_consoleCtrlHandler, true);
@@ -358,6 +400,7 @@ internal static class Program
             _hwnd =
                 await NativeRenderWindow
                     .CreateAsync(monitor);
+            LogMemory("render-window.created");
 
             if (_hwnd == IntPtr.Zero)
             {
@@ -376,21 +419,30 @@ internal static class Program
                     .DumpShellWindows();
             }
 
-            //
-            // ATTACH TO DESKTOP
-            //
-            bool attached =
-                wallpaperManager.AttachWindow(
-                    _hwnd,
-                    monitor);
+            if (!skipDesktopAttach)
+            {
+                //
+                // ATTACH TO DESKTOP
+                //
+                bool attached =
+                    wallpaperManager.AttachWindow(
+                        _hwnd,
+                        monitor);
 
-            if (!attached)
+                if (!attached)
+                {
+                    Console.WriteLine(
+                        "Failed to attach wallpaper window to desktop.");
+
+                    return 1;
+                }
+            }
+            else
             {
                 Console.WriteLine(
-                    "Failed to attach wallpaper window to desktop.");
-
-                return 1;
+                    "[Diagnostics] Desktop attachment skipped; render window remains top-level.");
             }
+            LogMemory("desktop.attached");
 
             //
             // VERY IMPORTANT:
@@ -426,9 +478,11 @@ internal static class Program
                 "Initializing Hardware Decode Pipeline...");
 
             _activePipeline =
-                new HardwareDecodePipeline();
+                new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule);
 
+            LogMemory("pipeline.before-initialize");
             _activePipeline.Initialize(_hwnd);
+            LogMemory("pipeline.after-initialize");
 
             //
             // SELECT WALLPAPER
@@ -460,7 +514,9 @@ internal static class Program
             Console.WriteLine(
                 $"Loading media stream: {videoPath}");
 
+            LogMemory("media.before-load");
             _activePipeline.LoadMedia(videoPath);
+            LogMemory("media.after-load");
 
             //
             // CREATE SESSION
@@ -481,7 +537,9 @@ internal static class Program
             //
             // START PLAYBACK
             //
+            LogMemory("playback.before-play");
             session.Play();
+            LogMemory("playback.after-play");
 
             //
             // STABILITY & PERFORMANCE WATCHERS
@@ -635,7 +693,7 @@ internal static class Program
                                 NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
 
                         // Initialize the media pipeline on the new handle
-                        var freshPipeline = new HardwareDecodePipeline();
+                        var freshPipeline = new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule);
                         freshPipeline.Initialize(_hwnd);
 
                         var freshWallpaper = manifest.Wallpapers[finalWallpaperIndex - 1];
@@ -854,6 +912,7 @@ internal static class Program
 
             foregroundWatcher = new ForegroundWindowWatcher(pauseMode);
             Console.WriteLine($"[Performance] Active Performance Pause Mode: {pauseMode}");
+            LogMemory("watchers.started");
             foregroundWatcher.VisibilityChanged += (isObscured) =>
             {
                 if (isObscured)
@@ -869,6 +928,7 @@ internal static class Program
                             s.Pause();
                         }
                     }
+                    LogMemory("performance.paused");
                 }
                 else
                 {
@@ -880,6 +940,7 @@ internal static class Program
                             s.Play();
                         }
                     }
+                    LogMemory("performance.resumed");
                 }
             };
 
@@ -890,7 +951,9 @@ internal static class Program
             await Task.Delay(500);
 
             // Make all dynamically spawned media player child windows click-through
+            LogMemory("vlc-children.before-style");
             WindowUtil.MakeChildrenTransparent(_hwnd);
+            LogMemory("vlc-children.after-style");
 
             //
             // Re-enforce z-order AFTER playback starts.
@@ -992,6 +1055,7 @@ internal static class Program
                         NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
                         NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
             }
+            LogMemory("desktop.zorder-enforced");
 
             if (isSilent)
             {
@@ -1012,6 +1076,7 @@ internal static class Program
                 Console.WriteLine("  pause         - Pause active wallpaper playback");
                 Console.WriteLine("  play          - Resume active wallpaper playback");
                 Console.WriteLine("  layout <mode> - Change layout (stretch, fit, fill)");
+                Console.WriteLine("  mem           - Print current memory diagnostics");
                 Console.WriteLine("  exit          - Exit Wallpaper Turbo cleanly");
                 Console.ResetColor();
 
@@ -1023,10 +1088,17 @@ internal static class Program
                     {
                         try
                         {
-                            Console.WriteLine("\n[Console Closed] Standard input closed. Transitioning to detached background mode...");
+                            Console.WriteLine(noDetachOnStdinClose
+                                ? "\n[Console Closed] Standard input closed. Shutting down because detach is disabled for this run..."
+                                : "\n[Console Closed] Standard input closed. Transitioning to detached background mode...");
                         }
                         catch { }
-                        TransitionToDetachedMode();
+
+                        if (!noDetachOnStdinClose)
+                        {
+                            TransitionToDetachedMode();
+                        }
+
                         break;
                     }
 
@@ -1049,12 +1121,14 @@ internal static class Program
             Console.WriteLine(
                 "Releasing media pipeline...");
 
-            _activePipeline?.Release();
+            _sessionManager?.ShutdownAll();
+            _activePipeline = null;
 
             Console.WriteLine(
                 "Shutting down render window...");
 
             NativeRenderWindow.Shutdown(_hwnd);
+            _hwnd = IntPtr.Zero;
 
             Console.WriteLine(
                 "Wallpaper Turbo shutdown complete.");
@@ -1175,6 +1249,10 @@ internal static class Program
                 }
                 break;
 
+            case "mem":
+                LogMemory("console.mem", force: true);
+                break;
+
             case "layout":
                 if (Enum.TryParse<WallpaperLayoutMode>(args, true, out var mode))
                 {
@@ -1248,7 +1326,7 @@ internal static class Program
         }
 
         var oldSession = sessions[0];
-        var oldPipeline = oldSession.MediaPipeline;
+        var activePipeline = oldSession.MediaPipeline;
 
         await Task.Run(async () =>
         {
@@ -1264,32 +1342,21 @@ internal static class Program
                     Console.WriteLine($"[HotSwap] Warning during pause: {ex.Message}");
                 }
 
-                // 2. Initialize new pipeline on same HWND
-                var newPipeline = new HardwareDecodePipeline();
-                newPipeline.Initialize(hwnd);
-                newPipeline.LoadMedia(videoPath);
+                activePipeline.LoadMedia(videoPath);
 
-                // 3. Create new session with same HWND and monitor
                 var newSession = new WallpaperSession(
                     hwnd,
                     newWallpaper,
-                    newPipeline,
+                    activePipeline,
                     oldSession.Monitor);
 
-                // 4. Swap sessions in manager (thread-safe)
                 sessionManager.ReplaceSession(oldSession, newSession);
 
-                // 5. Update static tracking field for cleanup
-                _activePipeline = newPipeline;
+                _activePipeline = activePipeline;
                 _finalWallpaperIndex = newIndex;
 
-                // 6. Start new playback
                 newSession.Play();
 
-                // 7. Dispose old pipeline asynchronously in background to prevent blocking
-                SafeReleasePipeline(oldPipeline);
-
-                // 8. Wait for VLC to spawn children, then apply transparency
                 await Task.Delay(500);
                 WindowUtil.MakeChildrenTransparent(hwnd);
 
@@ -1302,30 +1369,6 @@ internal static class Program
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"[HotSwap] Error: Failed to complete hot-swap: {ex.Message}");
                 Console.ResetColor();
-            }
-        });
-    }
-
-    private static void SafeReleasePipeline(IMediaPipeline pipeline)
-    {
-        Task.Run(() =>
-        {
-            try
-            {
-                Console.WriteLine("[HotSwap] Disposing old media pipeline in background...");
-                var releaseTask = Task.Run(() => pipeline.Release());
-                if (!releaseTask.Wait(4000))
-                {
-                    Console.WriteLine("[HotSwap] Warning: Old pipeline release timed out. Forcing background detachment.");
-                }
-                else
-                {
-                    Console.WriteLine("[HotSwap] Old media pipeline disposed successfully.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[HotSwap] Warning: Error during background pipeline disposal: {ex.Message}");
             }
         });
     }
@@ -1437,6 +1480,75 @@ internal static class Program
             units[unit]);
     }
 
+    private static string FormatBytes(
+        long bytes)
+    {
+        if (bytes <= 0)
+            return "0 B";
+
+        string[] units =
+        {
+            "B",
+            "KB",
+            "MB",
+            "GB",
+            "TB"
+        };
+
+        double value =
+            bytes;
+
+        int unit =
+            0;
+
+        while (value >= 1024 &&
+               unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+
+        return string.Format(
+            "{0:0.##} {1}",
+            value,
+            units[unit]);
+    }
+
+    private static void LogMemory(
+        string checkpoint,
+        bool force = false)
+    {
+        if (!_memoryDiagnostics && !force)
+            return;
+
+        try
+        {
+            using var process =
+                System.Diagnostics.Process.GetCurrentProcess();
+
+            process.Refresh();
+
+            GCMemoryInfo gcInfo =
+                GC.GetGCMemoryInfo();
+
+            Console.WriteLine(
+                $"[Memory:{checkpoint}] " +
+                $"Private={FormatBytes(process.PrivateMemorySize64)}, " +
+                $"WorkingSet={FormatBytes(process.WorkingSet64)}, " +
+                $"Virtual={FormatBytes(process.VirtualMemorySize64)}, " +
+                $"Managed={FormatBytes(GC.GetTotalMemory(false))}, " +
+                $"GCHeap={FormatBytes(gcInfo.HeapSizeBytes)}, " +
+                $"Committed={FormatBytes(gcInfo.TotalCommittedBytes)}, " +
+                $"Handles={process.HandleCount}, " +
+                $"Threads={process.Threads.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                $"[Memory:{checkpoint}] Failed to read process memory: {ex.Message}");
+        }
+    }
+
     private static string PtrToString(
         IntPtr p)
     {
@@ -1452,24 +1564,30 @@ internal static class Program
     {
         int currentId = System.Diagnostics.Process.GetCurrentProcess().Id;
         string currentName = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+        string[] candidateNames = currentName.Equals("dotnet", StringComparison.OrdinalIgnoreCase)
+            ? ["WallpaperTurbo.AppRunner"]
+            : [currentName, "WallpaperTurbo.AppRunner"];
 
         try
         {
-            var processes = System.Diagnostics.Process.GetProcessesByName(currentName);
             int stoppedCount = 0;
-            foreach (var process in processes)
+            foreach (string processName in candidateNames.Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                if (process.Id != currentId)
+                var processes = System.Diagnostics.Process.GetProcessesByName(processName);
+                foreach (var process in processes)
                 {
-                    try
+                    if (process.Id != currentId)
                     {
-                        process.Kill(true); // Kill process and its children recursively
-                        process.WaitForExit(3000);
-                        stoppedCount++;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to stop process {process.Id}: {ex.Message}");
+                        try
+                        {
+                            process.Kill(true); // Kill process and its children recursively
+                            process.WaitForExit(3000);
+                            stoppedCount++;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Failed to stop process {process.Id}: {ex.Message}");
+                        }
                     }
                 }
             }

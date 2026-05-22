@@ -17,6 +17,10 @@ namespace WallpaperTurbo.Core.Media.Pipelines;
 public sealed class HardwareDecodePipeline
     : IMediaPipeline
 {
+    private readonly bool _useSoftwareDecode;
+
+    private readonly string? _videoOutputModule;
+
     private LibVLC? _libVLC;
 
     private MediaPlayer? _mediaPlayer;
@@ -30,6 +34,16 @@ public sealed class HardwareDecodePipeline
 
     public PipelineType Type =>
         PipelineType.HardwareDecode;
+
+    public HardwareDecodePipeline(
+        bool useSoftwareDecode = false,
+        string? videoOutputModule = null)
+    {
+        _useSoftwareDecode = useSoftwareDecode;
+        _videoOutputModule = string.IsNullOrWhiteSpace(videoOutputModule)
+            ? null
+            : videoOutputModule.Trim();
+    }
 
     public void Initialize(
         IntPtr parentWindowHandle)
@@ -64,7 +78,13 @@ public sealed class HardwareDecodePipeline
                 //
                 // Hardware decoding.
                 //
-                "--avcodec-hw=d3d11va",
+                _useSoftwareDecode
+                    ? "--avcodec-hw=none"
+                    : "--avcodec-hw=d3d11va",
+
+                _videoOutputModule == null
+                    ? "--vout=direct3d11"
+                    : $"--vout={_videoOutputModule}",
 
                 //
                 // No audio path.
@@ -154,6 +174,14 @@ public sealed class HardwareDecodePipeline
                     "Pipeline not initialized.");
             }
 
+            try
+            {
+                _mediaPlayer.Stop();
+            }
+            catch
+            {
+            }
+
             _media?.Dispose();
 
             _media =
@@ -161,6 +189,11 @@ public sealed class HardwareDecodePipeline
                     _libVLC,
                     filePath,
                     FromType.FromPath);
+
+            if (_useSoftwareDecode)
+            {
+                _media.AddOption(":avcodec-hw=none");
+            }
 
             //
             // Embedded playback only.

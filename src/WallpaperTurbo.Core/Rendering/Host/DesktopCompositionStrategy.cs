@@ -80,8 +80,14 @@ public sealed class DesktopCompositionStrategy
             WindowUtil.SetWindowExStyle(hwnd, (long)(NativeMethods.WindowStyles.WS_EX_NOACTIVATE | NativeMethods.WindowStyles.WS_EX_TRANSPARENT));
             WindowUtil.SetWindowTransparency(hwnd, 255);
 
-            NativeMethods.RECT prct = new NativeMethods.RECT();
-            NativeMethods.MapWindowPoints(hwnd, progman, ref prct, 2);
+            NativeMethods.RECT prct = new NativeMethods.RECT
+            {
+                Left = monitor.X,
+                Top = monitor.Y,
+                Right = monitor.X + monitor.Width,
+                Bottom = monitor.Y + monitor.Height
+            };
+            NativeMethods.MapWindowPoints(IntPtr.Zero, progman, ref prct, 2);
 
             if (WindowUtil.TrySetParent(hwnd, progman))
             {
@@ -121,8 +127,14 @@ public sealed class DesktopCompositionStrategy
         {
             expectedParent = workerW;
 
-            NativeMethods.RECT prct = new NativeMethods.RECT();
-            NativeMethods.MapWindowPoints(hwnd, workerW, ref prct, 2);
+            NativeMethods.RECT prct = new NativeMethods.RECT
+            {
+                Left = monitor.X,
+                Top = monitor.Y,
+                Right = monitor.X + monitor.Width,
+                Bottom = monitor.Y + monitor.Height
+            };
+            NativeMethods.MapWindowPoints(IntPtr.Zero, workerW, ref prct, 2);
 
             if (WindowUtil.TrySetParent(hwnd, workerW))
             {
