@@ -925,9 +925,17 @@ internal static class Program
                     {
                         foreach (var s in _sessionManager.Sessions)
                         {
-                            s.Pause();
+                            if (pauseMode == PauseMode.Maximized)
+                            {
+                                s.Suspend();
+                            }
+                            else
+                            {
+                                s.Pause();
+                            }
                         }
                     }
+                    TrimProcessMemory();
                     LogMemory("performance.paused");
                 }
                 else
@@ -937,10 +945,23 @@ internal static class Program
                     {
                         foreach (var s in _sessionManager.Sessions)
                         {
-                            s.Play();
+                            if (pauseMode == PauseMode.Maximized)
+                            {
+                                s.Resume();
+                            }
+                            else
+                            {
+                                s.Play();
+                            }
                         }
                     }
                     LogMemory("performance.resumed");
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(1500);
+                        TrimProcessMemory();
+                        LogMemory("performance.resumed.trimmed");
+                    });
                 }
             };
 
@@ -1056,6 +1077,39 @@ internal static class Program
                         NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
             }
             LogMemory("desktop.zorder-enforced");
+
+            // Asynchronously wait for initial frames to settle, then aggressively reclaim startup memory
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(1500);
+                TrimProcessMemory();
+                LogMemory("startup.trimmed");
+            });
+
+            // Start a periodic background memory trimmer (every 10 seconds) to keep physical Working Set continuously low during active playback
+            _ = Task.Run(async () =>
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await Task.Delay(10000, cts.Token);
+                        if (_sessionManager != null && _hwnd != IntPtr.Zero)
+                        {
+                            TrimProcessMemory();
+                            LogMemory("periodic.trimmed");
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch
+                    {
+                        // Safe failure
+                    }
+                }
+            });
 
             if (isSilent)
             {
@@ -1250,6 +1304,7 @@ internal static class Program
                 break;
 
             case "mem":
+                TrimProcessMemory();
                 LogMemory("console.mem", force: true);
                 break;
 
@@ -1357,8 +1412,10 @@ internal static class Program
 
                 newSession.Play();
 
-                await Task.Delay(500);
+                await Task.Delay(1500);
                 WindowUtil.MakeChildrenTransparent(hwnd);
+                TrimProcessMemory();
+                LogMemory("hotswap.trimmed");
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"[HotSwap] Successfully hot-swapped to '{newWallpaper.Title}'!");
@@ -1514,6 +1571,23 @@ internal static class Program
             units[unit]);
     }
 
+    public static void TrimProcessMemory()
+    {
+        try
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            WallpaperTurbo.Core.Interop.NativeMethods.EmptyWorkingSet(process.Handle);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Memory] Trim failed: {ex.Message}");
+        }
+    }
+
     private static void LogMemory(
         string checkpoint,
         bool force = false)
@@ -1562,35 +1636,126 @@ internal static class Program
 
     private static void StopRunningInstances()
     {
-        int currentId = System.Diagnostics.Process.GetCurrentProcess().Id;
-        string currentName = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
-        string[] candidateNames = currentName.Equals("dotnet", StringComparison.OrdinalIgnoreCase)
-            ? ["WallpaperTurbo.AppRunner"]
-            : [currentName, "WallpaperTurbo.AppRunner"];
+        uint currentId = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+        var targetPids = new System.Collections.Generic.HashSet<uint>();
 
         try
         {
-            int stoppedCount = 0;
+            // Enumerate all windows to find WallpaperTurbo render windows
+            NativeMethods.EnumWindows((hwnd, _) =>
+            {
+                System.Text.StringBuilder sb = new System.Text.StringBuilder(256);
+                if (NativeMethods.GetClassName(hwnd, sb, sb.Capacity) > 0)
+                {
+                    string className = sb.ToString();
+                    if (className.Equals("WallpaperTurbo_RenderWindow_Class", StringComparison.OrdinalIgnoreCase))
+                    {
+                        NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+                        if (pid != 0 && pid != currentId)
+                        {
+                            targetPids.Add(pid);
+                        }
+                    }
+                }
+
+                // Also check children
+                NativeMethods.EnumChildWindows(hwnd, (childHwnd, __) =>
+                {
+                    System.Text.StringBuilder sbChild = new System.Text.StringBuilder(256);
+                    if (NativeMethods.GetClassName(childHwnd, sbChild, sbChild.Capacity) > 0)
+                    {
+                        string className = sbChild.ToString();
+                        if (className.Equals("WallpaperTurbo_RenderWindow_Class", StringComparison.OrdinalIgnoreCase))
+                        {
+                            NativeMethods.GetWindowThreadProcessId(childHwnd, out uint pid);
+                            if (pid != 0 && pid != currentId)
+                            {
+                                targetPids.Add(pid);
+                            }
+                        }
+                    }
+                    return true;
+                }, IntPtr.Zero);
+
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Stop] Warning: Error enumerating windows: {ex.Message}");
+        }
+
+        string currentName = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+        var candidateNames = new System.Collections.Generic.List<string> { "dotnet", "WallpaperTurbo.AppRunner", currentName };
+
+        try
+        {
+            // Add process-name-based candidates as fallback
             foreach (string processName in candidateNames.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 var processes = System.Diagnostics.Process.GetProcessesByName(processName);
                 foreach (var process in processes)
                 {
-                    if (process.Id != currentId)
+                    if (process.Id == (int)currentId)
+                        continue;
+
+                    bool isWallpaperProcess = false;
+
+                    if (processName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
                     {
                         try
                         {
-                            process.Kill(true); // Kill process and its children recursively
-                            process.WaitForExit(3000);
-                            stoppedCount++;
+                            foreach (System.Diagnostics.ProcessModule module in process.Modules)
+                            {
+                                if (module.ModuleName.Contains("WallpaperTurbo", StringComparison.OrdinalIgnoreCase) ||
+                                    module.ModuleName.Contains("LibVLCSharp", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    isWallpaperProcess = true;
+                                    break;
+                                }
+                            }
                         }
-                        catch (Exception ex)
+                        catch
                         {
-                            Console.WriteLine($"Failed to stop process {process.Id}: {ex.Message}");
+                            // Protect against access-denied or architecture mismatch
                         }
+                    }
+                    else
+                    {
+                        isWallpaperProcess = true;
+                    }
+
+                    if (isWallpaperProcess)
+                    {
+                        targetPids.Add((uint)process.Id);
                     }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Stop] Warning: Error checking process names: {ex.Message}");
+        }
+
+        try
+        {
+            int stoppedCount = 0;
+            foreach (uint pid in targetPids)
+            {
+                try
+                {
+                    using var process = System.Diagnostics.Process.GetProcessById((int)pid);
+                    process.Kill(true); // Kill process and its children recursively
+                    process.WaitForExit(3000);
+                    stoppedCount++;
+                    Console.WriteLine($"Successfully terminated Wallpaper Turbo process (PID: {pid}).");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to stop process {pid}: {ex.Message}");
+                }
+            }
+
             if (stoppedCount > 0)
             {
                 Console.WriteLine($"Stopped {stoppedCount} running instance(s) of Wallpaper Turbo.");
@@ -1602,7 +1767,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error enumerating processes: {ex.Message}");
+            Console.WriteLine($"Error terminating processes: {ex.Message}");
         }
     }
 }

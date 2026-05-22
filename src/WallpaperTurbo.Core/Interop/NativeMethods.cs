@@ -196,4 +196,14 @@ public static class NativeMethods
     public static extern bool GetClientRect(
         IntPtr hWnd,
         out RECT lpRect);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint GetWindowThreadProcessId(
+        IntPtr hWnd,
+        out uint lpdwProcessId);
+
+    [DllImport("psapi.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EmptyWorkingSet(
+        IntPtr hProcess);
 }

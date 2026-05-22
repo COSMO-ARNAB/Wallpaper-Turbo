@@ -53,6 +53,19 @@ public sealed class WallpaperSession : IDisposable
         MediaPipeline.Pause();
     }
 
+    public void Suspend()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        MediaPipeline.Suspend();
+    }
+
+    public void Resume()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        MediaPipeline.Resume();
+        MediaPipeline.ApplyLayoutMode(Wallpaper.GetLayoutMode());
+    }
+
     /// <summary>Convenience alias for Dispose.</summary>
     public void Shutdown() => Dispose();
 

@@ -15,6 +15,10 @@ public interface IMediaPipeline
 
     void Pause();
 
+    void Suspend();
+
+    void Resume();
+
     void SetTargetFps(int fps);
 
     void ApplyLayoutMode(WallpaperLayoutMode mode);

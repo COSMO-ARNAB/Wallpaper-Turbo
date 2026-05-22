@@ -29,6 +29,8 @@ public sealed class HardwareDecodePipeline
 
     private IntPtr _parentWindowHandle = IntPtr.Zero;
 
+    private long _suspendedTime = -1;
+
     private readonly object _sync =
         new();
 
@@ -73,7 +75,7 @@ public sealed class HardwareDecodePipeline
             // IMPORTANT:
             // Embedded wallpaper-safe VLC flags.
             //
-            string[] args =
+            var argsList = new System.Collections.Generic.List<string>
             {
                 //
                 // Hardware decoding.
@@ -132,11 +134,31 @@ public sealed class HardwareDecodePipeline
                 "--loop"
             };
 
+            if (_useSoftwareDecode)
+            {
+                argsList.AddRange(new[]
+                {
+                    "--avcodec-threads=1",
+                    "--file-caching=200",
+                    "--network-caching=200",
+                    "--live-caching=200",
+                    "--disc-caching=200",
+                    "--no-stats",
+                    "--no-sub-autodetect-file",
+                    "--no-snapshot-preview"
+                });
+            }
+
+            string[] args = argsList.ToArray();
+
             _libVLC =
                 new LibVLC(args);
 
             _mediaPlayer =
-                new MediaPlayer(_libVLC);
+                new MediaPlayer(_libVLC)
+                {
+                    EnableHardwareDecoding = !_useSoftwareDecode
+                };
 
             //
             // CRITICAL:
@@ -249,6 +271,55 @@ public sealed class HardwareDecodePipeline
         lock (_sync)
         {
             _mediaPlayer?.Pause();
+        }
+    }
+
+    public void Suspend()
+    {
+        lock (_sync)
+        {
+            if (_mediaPlayer != null && _mediaPlayer.IsPlaying)
+            {
+                _suspendedTime = _mediaPlayer.Time;
+                _mediaPlayer.Stop();
+                Console.WriteLine($"[Pipeline] Suspended playback at {_suspendedTime}ms to reclaim system and GPU resources.");
+            }
+        }
+    }
+
+    public void Resume()
+    {
+        lock (_sync)
+        {
+            if (_mediaPlayer != null)
+            {
+                _mediaPlayer.Play();
+                if (_suspendedTime >= 0)
+                {
+                    long targetTime = _suspendedTime;
+                    _suspendedTime = -1;
+
+                    // Set time after a brief delay to ensure VLC has opened the media and decoder is active
+                    System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        for (int i = 0; i < 20; i++) // Try up to 2 seconds (20 * 100ms)
+                        {
+                            await System.Threading.Tasks.Task.Delay(100);
+                            lock (_sync)
+                            {
+                                if (_mediaPlayer == null) break;
+                                // If the media player is actively playing or reports a valid time, apply the seek
+                                if (_mediaPlayer.IsPlaying || _mediaPlayer.Time > 0)
+                                {
+                                    _mediaPlayer.Time = targetTime;
+                                    Console.WriteLine($"[Pipeline] Resumed and seeked to {targetTime}ms successfully.");
+                                    break;
+                                }
+                            }
+                        }
+                    });
+                }
+            }
         }
     }
 
