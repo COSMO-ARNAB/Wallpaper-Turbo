@@ -47,6 +47,14 @@
       "thumbnail": "Assets/hatsune-neon.jpg",
       "author": "Arnab",
       "tags": ["anime", "blue", "cyberpunk"]
+    },
+    {
+      "id": "frieren-lasting-memories",
+      "title": "Frieren Memories",
+      "video": "Assets/frieren-lasting-memories.mp4",
+      "thumbnail": "Assets/frieren-lasting-memories.jpg",
+      "author": "Arnab",
+      "tags": ["anime", "red", "emotional"]
     }
     
   ]
