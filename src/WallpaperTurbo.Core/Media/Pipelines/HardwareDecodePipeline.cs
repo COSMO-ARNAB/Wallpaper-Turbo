@@ -17,7 +17,7 @@ namespace WallpaperTurbo.Core.Media.Pipelines;
 public sealed class HardwareDecodePipeline
     : IMediaPipeline
 {
-    private readonly bool _useSoftwareDecode;
+    private readonly VideoDecodeMode _decodeMode;
 
     private readonly string? _videoOutputModule;
 
@@ -37,14 +37,22 @@ public sealed class HardwareDecodePipeline
     public PipelineType Type =>
         PipelineType.HardwareDecode;
 
+    public bool SuspendAsPause { get; set; } = true;
+
+    public int FileCachingMs { get; set; } = 1000;
+
     public HardwareDecodePipeline(
-        bool useSoftwareDecode = false,
-        string? videoOutputModule = null)
+        VideoDecodeMode decodeMode = VideoDecodeMode.Auto,
+        string? videoOutputModule = null,
+        bool suspendAsPause = true,
+        int fileCachingMs = 1000)
     {
-        _useSoftwareDecode = useSoftwareDecode;
+        _decodeMode = decodeMode;
         _videoOutputModule = string.IsNullOrWhiteSpace(videoOutputModule)
             ? null
             : videoOutputModule.Trim();
+        SuspendAsPause = suspendAsPause;
+        FileCachingMs = fileCachingMs;
     }
 
     public void Initialize(
@@ -77,17 +85,6 @@ public sealed class HardwareDecodePipeline
             //
             var argsList = new System.Collections.Generic.List<string>
             {
-                //
-                // Hardware decoding.
-                //
-                _useSoftwareDecode
-                    ? "--avcodec-hw=none"
-                    : "--avcodec-hw=d3d11va",
-
-                _videoOutputModule == null
-                    ? "--vout=direct3d11"
-                    : $"--vout={_videoOutputModule}",
-
                 //
                 // No audio path.
                 //
@@ -131,33 +128,58 @@ public sealed class HardwareDecodePipeline
                 //
                 // Continuous playback.
                 //
-                "--loop"
+                "--loop",
+
+                //
+                // Native Memory Buffering Reductions (Universal)
+                //
+                $"--file-caching={FileCachingMs}",
+                $"--network-caching={FileCachingMs}",
+                $"--live-caching={FileCachingMs}",
+                $"--disc-caching={FileCachingMs}",
+                "--no-stats",
+                "--no-sub-autodetect-file",
+                "--no-snapshot-preview"
             };
 
-            if (_useSoftwareDecode)
+            if (_videoOutputModule != null)
+            {
+                argsList.Add($"--vout={_videoOutputModule}");
+            }
+
+            if (_decodeMode == VideoDecodeMode.Software)
             {
                 argsList.AddRange(new[]
                 {
-                    "--avcodec-threads=1",
-                    "--file-caching=200",
-                    "--network-caching=200",
-                    "--live-caching=200",
-                    "--disc-caching=200",
-                    "--no-stats",
-                    "--no-sub-autodetect-file",
-                    "--no-snapshot-preview"
+                    "--avcodec-hw=none",
+                    "--avcodec-threads=1"
                 });
             }
+            else if (_decodeMode == VideoDecodeMode.Hardware)
+            {
+                argsList.Add("--avcodec-hw=d3d11va");
+            }
+
+#if DEBUG
+            argsList.Add("--verbose=2");
+#endif
 
             string[] args = argsList.ToArray();
 
             _libVLC =
                 new LibVLC(args);
 
+#if DEBUG
+            _libVLC.Log += (s, ev) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[VLC] {ev.Level}: {ev.Message} ({ev.Module})");
+            };
+#endif
+
             _mediaPlayer =
                 new MediaPlayer(_libVLC)
                 {
-                    EnableHardwareDecoding = !_useSoftwareDecode
+                    EnableHardwareDecoding = _decodeMode != VideoDecodeMode.Software
                 };
 
             //
@@ -212,7 +234,7 @@ public sealed class HardwareDecodePipeline
                     filePath,
                     FromType.FromPath);
 
-            if (_useSoftwareDecode)
+            if (_decodeMode == VideoDecodeMode.Software)
             {
                 _media.AddOption(":avcodec-hw=none");
             }
@@ -280,9 +302,17 @@ public sealed class HardwareDecodePipeline
         {
             if (_mediaPlayer != null && _mediaPlayer.IsPlaying)
             {
-                _suspendedTime = _mediaPlayer.Time;
-                _mediaPlayer.Stop();
-                Console.WriteLine($"[Pipeline] Suspended playback at {_suspendedTime}ms to reclaim system and GPU resources.");
+                if (SuspendAsPause)
+                {
+                    _mediaPlayer.Pause();
+                    Console.WriteLine("[Pipeline] Paused playback (suspend-as-pause mode) to keep D3D11 active and ensure buttery smooth resumption.");
+                }
+                else
+                {
+                    _suspendedTime = _mediaPlayer.Time;
+                    _mediaPlayer.Stop();
+                    Console.WriteLine($"[Pipeline] Suspended playback at {_suspendedTime}ms (stop mode) to reclaim system and GPU resources.");
+                }
             }
         }
     }
@@ -293,32 +323,58 @@ public sealed class HardwareDecodePipeline
         {
             if (_mediaPlayer != null)
             {
-                _mediaPlayer.Play();
-                if (_suspendedTime >= 0)
+                if (SuspendAsPause)
                 {
-                    long targetTime = _suspendedTime;
-                    _suspendedTime = -1;
-
-                    // Set time after a brief delay to ensure VLC has opened the media and decoder is active
-                    System.Threading.Tasks.Task.Run(async () =>
-                    {
-                        for (int i = 0; i < 20; i++) // Try up to 2 seconds (20 * 100ms)
-                        {
-                            await System.Threading.Tasks.Task.Delay(100);
-                            lock (_sync)
-                            {
-                                if (_mediaPlayer == null) break;
-                                // If the media player is actively playing or reports a valid time, apply the seek
-                                if (_mediaPlayer.IsPlaying || _mediaPlayer.Time > 0)
-                                {
-                                    _mediaPlayer.Time = targetTime;
-                                    Console.WriteLine($"[Pipeline] Resumed and seeked to {targetTime}ms successfully.");
-                                    break;
-                                }
-                            }
-                        }
-                    });
+                    _mediaPlayer.Play();
+                    Console.WriteLine("[Pipeline] Resumed playback instantly from paused state.");
                 }
+                else
+                {
+                    if (_suspendedTime >= 0)
+                    {
+                        long targetTime = _suspendedTime;
+                        _suspendedTime = -1;
+
+                        if (_libVLC != null && _media != null)
+                        {
+                            string mrl = _media.Mrl;
+                            _media.Dispose();
+
+                            _media = new LibVLCSharp.Shared.Media(_libVLC, mrl, FromType.FromLocation);
+                            
+                            if (_decodeMode == VideoDecodeMode.Software)
+                            {
+                                _media.AddOption(":avcodec-hw=none");
+                            }
+                            _media.AddOption(":embedded-video");
+                            _media.AddOption(":no-fullscreen");
+                            _media.AddOption(":input-repeat=65535");
+                            _media.AddOption(":no-video-title-show");
+                            
+                            // Convert ms to seconds double (e.g. 1500ms -> 1.5s)
+                            double seconds = targetTime / 1000.0;
+                            _media.AddOption($":start-time={seconds:0.###}");
+                            
+                            _mediaPlayer.Media = _media;
+                            Console.WriteLine($"[Pipeline] Resumed with optimized start-time: {seconds:0.###}s");
+                        }
+                    }
+                    
+                    _mediaPlayer.Play();
+                }
+
+                // Make all dynamically spawned media player child windows click-through immediately on resume
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    await System.Threading.Tasks.Task.Delay(300);
+                    lock (_sync)
+                    {
+                        if (_mediaPlayer != null && _mediaPlayer.Hwnd != IntPtr.Zero)
+                        {
+                            WallpaperTurbo.Core.Interop.WindowUtil.MakeChildrenTransparent(_mediaPlayer.Hwnd);
+                        }
+                    }
+                });
             }
         }
     }
