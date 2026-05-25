@@ -1,0 +1,212 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <!-- ========================================== -->
+    <!-- DESIGN SYSTEM TOKENS                       -->
+    <!-- ========================================== -->
+
+    <!-- Neon-Tech Colors -->
+    <Color x:Key="ObsidianDarkColor">#080A10</Color>
+    <Color x:Key="PanelDarkColor">#0F121D</Color>
+    <Color x:Key="CardDarkColor">#161A26</Color>
+    <Color x:Key="ActiveCyanColor">#66FCF1</Color>
+    <Color x:Key="ActivePurpleColor">#BD00FF</Color>
+    <Color x:Key="ActiveGreenColor">#00FF66</Color>
+    <Color x:Key="WarningRedColor">#FF3366</Color>
+    <Color x:Key="MutedTextColor">#8B949E</Color>
+
+    <!-- Glowing & Accent Brushes -->
+    <SolidColorBrush x:Key="ObsidianDarkBrush" Color="{StaticResource ObsidianDarkColor}" />
+    <SolidColorBrush x:Key="PanelDarkBrush" Color="{StaticResource PanelDarkColor}" />
+    <SolidColorBrush x:Key="CardDarkBrush" Color="{StaticResource CardDarkColor}" />
+    <SolidColorBrush x:Key="ActiveCyanBrush" Color="{StaticResource ActiveCyanColor}" />
+    <SolidColorBrush x:Key="ActivePurpleBrush" Color="{StaticResource ActivePurpleColor}" />
+    <SolidColorBrush x:Key="ActiveGreenBrush" Color="{StaticResource ActiveGreenColor}" />
+    <SolidColorBrush x:Key="WarningRedBrush" Color="{StaticResource WarningRedColor}" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="{StaticResource MutedTextColor}" />
+    <SolidColorBrush x:Key="WhiteTextBrush" Color="#FFFFFF" />
+
+    <!-- Neon Gradients -->
+    <LinearGradientBrush x:Key="NeonPurpleCyanGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource ActivePurpleColor}" Offset="0" />
+        <GradientStop Color="{StaticResource ActiveCyanColor}" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="SidebarSelectionGradient" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#25BD00FF" Offset="0" />
+        <GradientStop Color="#00BD00FF" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Corner Radius Definitions (8 / 16 / 24) -->
+    <CornerRadius x:Key="RadiusSmall">8</CornerRadius>
+    <CornerRadius x:Key="RadiusMedium">16</CornerRadius>
+    <CornerRadius x:Key="RadiusLarge">24</CornerRadius>
+
+    <!-- Spacing scale is strictly managed in layouts using margins of 4, 8, 16, 24, 32 -->
+
+    <!-- Deep Obsidian Card Background Gradient -->
+    <LinearGradientBrush x:Key="PremiumCardBgGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#121625" Offset="0" />
+        <GradientStop Color="#1C2132" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- ========================================== -->
+    <!-- TYPOGRAPHY HIERARCHY                       -->
+    <!-- ========================================== -->
+    
+    <Style x:Key="FontPremiumBase" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display, Inter, Segoe UI" />
+        <Setter Property="Foreground" Value="{StaticResource WhiteTextBrush}" />
+    </Style>
+
+    <Style x:Key="HeaderLargeStyle" TargetType="TextBlock" BasedOn="{StaticResource FontPremiumBase}">
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <Style x:Key="HeaderMediumStyle" TargetType="TextBlock" BasedOn="{StaticResource FontPremiumBase}">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <Style x:Key="MetadataStyle" TargetType="TextBlock" BasedOn="{StaticResource FontPremiumBase}">
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+    </Style>
+
+    <Style x:Key="TelemetryMetricStyle" TargetType="TextBlock" BasedOn="{StaticResource FontPremiumBase}">
+        <Setter Property="FontFamily" Value="Cascadia Code, Consolas, Segoe UI" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource WhiteTextBrush}" />
+    </Style>
+
+    <Style x:Key="TelemetryLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource FontPremiumBase}">
+        <Setter Property="FontSize" Value="9" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+    </Style>
+
+    <!-- ========================================== -->
+    <!-- PREMIUM GLOWING CARD CONTROLS              -->
+    <!-- ========================================== -->
+
+    <!-- Glowing Border Card Style -->
+    <Style x:Key="NeonCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource PremiumCardBgGradient}" />
+        <Setter Property="BorderBrush" Value="#2566FCF1" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMedium}" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect Color="{StaticResource ActivePurpleColor}" BlurRadius="15" ShadowDepth="0" Opacity="0.05" />
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <EventTrigger RoutedEvent="MouseEnter">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.Opacity)"
+                                         To="0.15" Duration="0:0:0.2" />
+                        <DoubleAnimation Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.BlurRadius)"
+                                         To="20" Duration="0:0:0.2" />
+                        <ColorAnimation Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.Color)"
+                                        To="{StaticResource ActiveCyanColor}" Duration="0:0:0.2" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+            <EventTrigger RoutedEvent="MouseLeave">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.Opacity)"
+                                         To="0.05" Duration="0:0:0.2" />
+                        <DoubleAnimation Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.BlurRadius)"
+                                         To="15" Duration="0:0:0.2" />
+                        <ColorAnimation Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.Color)"
+                                        To="{StaticResource ActivePurpleColor}" Duration="0:0:0.2" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Sidebar Button Navigation Style -->
+    <Style x:Key="SidebarButtonStyle" TargetType="RadioButton">
+        <Setter Property="Height" Value="48" />
+        <Setter Property="Margin" Value="8,2,8,2" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display, Inter, Segoe UI" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Border" 
+                            Background="{TemplateBinding Background}" 
+                            CornerRadius="8" 
+                            BorderThickness="4,0,0,0" 
+                            BorderBrush="Transparent">
+                        <Grid>
+                            <!-- Highlight Bar on Left -->
+                            <Border x:Name="Indicator" Width="4" Height="24" Background="Transparent" HorizontalAlignment="Left" CornerRadius="2" Margin="-4,0,0,0"/>
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0,0,0" 
+                                              TextBlock.FontFamily="{TemplateBinding FontFamily}"
+                                              TextBlock.FontSize="{TemplateBinding FontSize}"
+                                              TextBlock.FontWeight="{TemplateBinding FontWeight}"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}"/>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource SidebarSelectionGradient}" />
+                            <Setter TargetName="Indicator" Property="Background" Value="{StaticResource ActivePurpleBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Border" Property="Background" Value="#10FFFFFF" />
+                            <Setter Property="Foreground" Value="#FFFFFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Sci-fi Import Gradient Button -->
+    <Style x:Key="NeonImportButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="#1A2238" />
+        <Setter Property="BorderBrush" Value="#40BD00FF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource NeonPurpleCyanGradient}" />
+                            <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource ActiveCyanBrush}" />
+                            <Setter Property="Foreground" Value="#000000" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+
+</ResourceDictionary>

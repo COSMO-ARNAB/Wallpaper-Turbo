@@ -1,6 +1,6 @@
-﻿using System.Configuration;
-using System.Data;
+using System;
 using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace WallpaperTurbo.UI;
 
@@ -9,5 +9,42 @@ namespace WallpaperTurbo.UI;
 /// </summary>
 public partial class App : Application
 {
-}
+    private static readonly IServiceProvider _serviceProvider = ConfigureServices();
 
+    private static IServiceProvider ConfigureServices()
+    {
+        var services = new ServiceCollection();
+
+        // Core Business Logic Services
+        services.AddSingleton<Services.WallpaperService>();
+        services.AddSingleton<Services.TelemetryService>();
+
+        // ViewModels
+        services.AddSingleton<ViewModels.MainViewModel>();
+        services.AddSingleton<ViewModels.DashboardViewModel>();
+        services.AddSingleton<ViewModels.LibraryViewModel>();
+        services.AddSingleton<ViewModels.SettingsViewModel>();
+
+        // Windows & Views
+        services.AddSingleton<MainWindow>();
+
+        return services.BuildServiceProvider();
+    }
+
+    public static T GetService<T>() where T : class
+    {
+        return _serviceProvider.GetRequiredService<T>();
+    }
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        // Apply global application dark theme
+        Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
+
+        // Resolve and display main window
+        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        mainWindow.Show();
+
+        base.OnStartup(e);
+    }
+}

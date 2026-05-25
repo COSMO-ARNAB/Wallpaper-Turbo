@@ -1,12 +1,351 @@
-﻿<Window x:Class="WallpaperTurbo.UI.MainWindow"
+<Window x:Class="WallpaperTurbo.UI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:WallpaperTurbo.UI"
+        xmlns:views="clr-namespace:WallpaperTurbo.UI.Views"
+        xmlns:vm="clr-namespace:WallpaperTurbo.UI.ViewModels"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="Wallpaper Turbo" 
+        Height="780" Width="1240"
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen">
 
+    <!-- MVVM Content DataTemplate Mappings -->
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+            <views:DashboardView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LibraryViewModel}">
+            <views:LibraryView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <views:SettingsView />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <!-- Left Sidebar Navigation Column -->
+            <ColumnDefinition Width="250" />
+            <!-- Main Content Area Column -->
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ========================================== -->
+        <!-- LEFT SIDEBAR PANEL                         -->
+        <!-- ========================================== -->
+        <Border Grid.Column="0" Background="#0A0B10" BorderBrush="#10FFFFFF" BorderThickness="0,0,1,0" Padding="0,16,0,12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- Brand Logo -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Navigation Items -->
+                    <RowDefinition Height="*" />
+                    <!-- Spacing Separator -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Now Playing Card -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Sidebar Footer Status -->
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- BRAND LOGO HEADER -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,12,20,24">
+                    <!-- Glowing Cyber logo visual -->
+                    <Grid Width="36" Height="36" Margin="0,0,12,0">
+                        <Ellipse Width="36" Height="36" Fill="#10BD00FF" />
+                        <Path Data="M 8,8 L 18,28 L 28,8 M 18,16 L 28,8" 
+                              Stroke="{StaticResource NeonPurpleCyanGradient}" 
+                              StrokeThickness="3" 
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                    </Grid>
+                    
+                    <StackPanel VerticalAlignment="Center">
+                        <!-- Main Title -->
+                        <TextBlock Text="WALLPAPER" FontSize="15" FontWeight="ExtraBold" Foreground="#FFFFFF" />
+                        <TextBlock Text="TURBO" FontSize="15" FontWeight="Bold" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,-4,0,0" />
+                        <!-- Subtitle -->
+                        <TextBlock Text="LIVE DESKTOP ENGINE" FontSize="8" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" Margin="0,1,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- NAVIGATION BUTTON LIST -->
+                <StackPanel Grid.Row="1">
+                    <RadioButton Content="Dashboard" IsChecked="True" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Library" Command="{Binding NavigateCommand}" CommandParameter="Library" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Playlists" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Monitor Setup" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Engine" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Performance" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Settings" Command="{Binding NavigateCommand}" CommandParameter="Settings" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="About" Style="{StaticResource SidebarButtonStyle}" />
+                </StackPanel>
+
+                <!-- SUBTLE SEPARATOR FOR LOWER SIDEBAR -->
+                <Border Grid.Row="2" Height="1" Background="#12FFFFFF" Margin="20,12,20,16" VerticalAlignment="Center"/>
+
+                <!-- NOW PLAYING CYBER WIDGET -->
+                <Border Grid.Row="3" Style="{StaticResource NeonCardStyle}" Margin="12,0,12,16" Padding="12" ClipToBounds="True">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        
+                        <!-- Mini Artwork / Graphic Placeholder -->
+                        <Border Grid.Row="0" CornerRadius="8" Height="90" Margin="0,0,0,10" ClipToBounds="True">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#0D0E15" Offset="0" />
+                                    <GradientStop Color="#1A0D36" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <!-- Cyber vector animation -->
+                            <Path Data="M 10,45 Q 40,10 80,40 T 150,5" Stroke="{StaticResource NeonPurpleCyanGradient}" StrokeThickness="1" Opacity="0.5" VerticalAlignment="Center" />
+                        </Border>
+
+                        <!-- Media Title & Specs -->
+                        <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                            <TextBlock Text="{Binding ActiveWallpaperTitle}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding ActiveWallpaperSpecs}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
+                        </StackPanel>
+
+                        <!-- Media Progress Scrubber -->
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="01:24" FontSize="9" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                            
+                            <!-- Glowing Scrubber bar -->
+                            <ProgressBar Grid.Column="1" Value="35" Height="3" Margin="8,0" Background="#15FFFFFF" Foreground="{StaticResource ActiveCyanBrush}">
+                                <ProgressBar.Effect>
+                                    <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="4" ShadowDepth="0" Opacity="0.2" />
+                                </ProgressBar.Effect>
+                            </ProgressBar>
+                            
+                            <TextBlock Grid.Column="2" Text="03:47" FontSize="9" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- SIDEBAR FOOTER ENGINE INDICATOR -->
+                <Border Grid.Row="4" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="16,12">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Glowing status dot -->
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource ActiveGreenBrush}" Margin="0,0,8,0">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="{StaticResource ActiveGreenColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.6" />
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <StackPanel>
+                                <TextBlock Text="{Binding EngineStatusText}" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF" />
+                                <TextBlock Text="{Binding ActiveRendererText}" FontSize="8" Foreground="{StaticResource MutedTextBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                        
+                        <!-- Sidebar Settings shortcut -->
+                        <ui:Button Icon="Settings24" Appearance="Transparent" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="4" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ========================================== -->
+        <!-- RIGHT CONTENT AND HEADER REGION            -->
+        <!-- ========================================== -->
+        <Grid Grid.Column="1" Background="#070911">
+            <Grid.RowDefinitions>
+                <!-- Custom Titlebar & Premium Command bar -->
+                <RowDefinition Height="Auto" />
+                <!-- Central Presenter Workspace -->
+                <RowDefinition Height="*" />
+                <!-- Performance Footer -->
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- WPF-UI Native Snap Titlebar & Command Header -->
+            <Grid Grid.Row="0" Height="64">
+                <!-- TitleBar spans the entire header to handle dragging/snapping -->
+                <ui:TitleBar Title="" Height="64" Grid.ColumnSpan="2" VerticalAlignment="Stretch" Padding="0,0,8,0"/>
+                
+                <!-- Our custom Command Bar content overlay (interactivity is preserved because interactive buttons are hit-testable, while blank space clicks through to titlebar) -->
+                <Border Padding="24,12" Height="64" VerticalAlignment="Center" Background="Transparent" IsHitTestVisible="True">
+                    <Grid>
+                        <!-- Center glowing engineering slogan tagline -->
+                        <TextBlock Text="LIVE DESKTOP. MAX PERFORMANCE." 
+                                   Foreground="{StaticResource NeonPurpleCyanGradient}"
+                                   FontFamily="Segoe UI Variable Display, Inter"
+                                   FontSize="11" 
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center" 
+                                   HorizontalAlignment="Left" />
+
+                        <!-- Right Command controls (leaving ~130px on the far right for the native Min/Max/Close buttons inside TitleBar) -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,130,0">
+                            <!-- Monitor Selector combobox with screen icon -->
+                            <ComboBox Height="30" Width="130" SelectedIndex="0" Margin="0,0,8,0">
+                                <ComboBoxItem>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:SymbolIcon Symbol="Desktop24" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Monitor 1" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </ComboBoxItem>
+                            </ComboBox>
+
+                            <!-- Layout Switch button -->
+                            <ui:Button Icon="Grid24" Appearance="Secondary" Margin="0,0,8,0" Padding="8,6" />
+
+                            <!-- Glowing Accent + Import Button -->
+                            <ui:Button Content="+ Import" Style="{StaticResource NeonImportButtonStyle}" Margin="0,0,12,0" />
+
+                            <!-- Header status action shortcuts -->
+                            <ui:Button Icon="AlertUrgent24" Appearance="Transparent" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,6,0" Padding="6" />
+                            <ui:Button Icon="Settings24" Appearance="Transparent" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,6,0" Padding="6" />
+                            
+                            <!-- Profile picture border matching mockup -->
+                            <Border Width="24" Height="24" CornerRadius="12" BorderThickness="1.5" BorderBrush="{StaticResource ActiveGreenBrush}">
+                                <Ellipse Width="20" Height="20" Fill="#20FFFFFF"/>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- CENTRAL DYNAMIC MVVM WORKSPACE -->
+            <ContentPresenter Grid.Row="1" Content="{Binding CurrentPageViewModel}" Margin="24,8,24,12" />
+
+            <!-- ========================================== -->
+            <!-- UNIFIED CYBERNETIC FOOTER PANEL            -->
+            <!-- ========================================== -->
+            <Border Grid.Row="2" Background="#090B12" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="24,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Engine Status details -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Ellipse Width="10" Height="10" Fill="{StaticResource ActiveGreenBrush}" Margin="0,0,12,0">
+                            <Ellipse.Effect>
+                                <DropShadowEffect Color="{StaticResource ActiveGreenColor}" BlurRadius="8" Opacity="0.5" ShadowDepth="0" />
+                            </Ellipse.Effect>
+                        </Ellipse>
+                        
+                        <StackPanel>
+                            <TextBlock Text="{Binding EngineStatusText}" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF" />
+                            <TextBlock FontSize="8" Foreground="{StaticResource MutedTextBrush}" Margin="0,1,0,0">
+                                <Run Text="VLC (D3D11VA)  •  Hardware Decode: " /><Run Text="Enabled" Foreground="{StaticResource ActiveGreenBrush}" FontWeight="Bold" />
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Center: Metrics row separated by thin cyber borders -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- FPS metric -->
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Heart24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <StackPanel>
+                                    <TextBlock Text="FPS" Style="{StaticResource TelemetryLabelStyle}" />
+                                    <TextBlock Text="{Binding FpsText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- GPU metric -->
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Desktop24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <StackPanel>
+                                    <TextBlock Text="GPU LOAD" Style="{StaticResource TelemetryLabelStyle}" />
+                                    <TextBlock Text="{Binding GpuText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- VRAM metric -->
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <StackPanel>
+                                    <TextBlock Text="VRAM" Style="{StaticResource TelemetryLabelStyle}" />
+                                    <TextBlock Text="{Binding VramText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- RAM metric -->
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <StackPanel>
+                                    <TextBlock Text="RAM USAGE" Style="{StaticResource TelemetryLabelStyle}" />
+                                    <TextBlock Text="{Binding RamText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Uptime metric -->
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Settings24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <StackPanel>
+                                    <TextBlock Text="UPTIME" Style="{StaticResource TelemetryLabelStyle}" />
+                                    <TextBlock Text="{Binding UptimeText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Resolution -->
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Desktop24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <StackPanel>
+                                    <TextBlock Text="RESOLUTION" Style="{StaticResource TelemetryLabelStyle}" />
+                                    <TextBlock Text="3840 x 2160" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Active Renderer -->
+                        <Border Padding="0" Margin="0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <StackPanel>
+                                    <TextBlock Text="RENDERER" Style="{StaticResource TelemetryLabelStyle}" />
+                                    <TextBlock Text="{Binding ActiveRendererText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Right: Premium Max Performance Optimized Badge -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border BorderBrush="#2566FCF1" BorderThickness="1" CornerRadius="8" Background="#0866FCF1" Padding="12,6" Margin="0,0,12,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M 0,6 L 6,6 L 3,12 L 8,4 L 3,4 L 5,0 Z" Fill="{StaticResource ActiveCyanBrush}" Width="8" Height="12" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <StackPanel>
+                                    <TextBlock Text="OPTIMIZED" FontSize="8" FontWeight="ExtraBold" Foreground="{StaticResource ActiveCyanBrush}" />
+                                    <TextBlock Text="MAX PERFORMANCE" FontSize="6" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Version Tag -->
+                        <TextBlock Text="v2.1.0" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

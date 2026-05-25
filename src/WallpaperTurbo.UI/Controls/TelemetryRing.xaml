@@ -1,0 +1,52 @@
+<UserControl x:Class="WallpaperTurbo.UI.Controls.TelemetryRing"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             mc:Ignorable="d" 
+             d:DesignHeight="140" d:DesignWidth="140">
+    
+    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+        <!-- Outer Glowing Accent Circle -->
+        <Ellipse Width="110" Height="110" Stroke="#1066FCF1" StrokeThickness="1" />
+        
+        <!-- High-Performance GPU-Friendly Progress Ring -->
+        <ui:ProgressRing x:Name="Ring"
+                         Progress="{Binding Value, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                         Width="100" 
+                         Height="100" 
+                         Foreground="{StaticResource NeonPurpleCyanGradient}"
+                         Background="#15FFFFFF">
+            <ui:ProgressRing.Effect>
+                <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="12" ShadowDepth="0" Opacity="0.25" />
+            </ui:ProgressRing.Effect>
+        </ui:ProgressRing>
+
+        <!-- Centered Metric Typography -->
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,4,0,0">
+            <!-- Large Telemetry Percentage -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat={}{0:0}}" 
+                           FontSize="22" 
+                           FontWeight="Bold" 
+                           FontFamily="Segoe UI Variable Display, Inter"
+                           Foreground="#FFFFFF" />
+                <TextBlock Text="%" 
+                           FontSize="14" 
+                           FontWeight="SemiBold" 
+                           Foreground="{StaticResource MutedTextBrush}" 
+                           Margin="2,4,0,0" />
+            </StackPanel>
+            
+            <!-- Telemetry Indicator Label -->
+            <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                       FontSize="10" 
+                       FontWeight="Bold"
+                       FontFamily="Segoe UI Variable Display"
+                       Foreground="{StaticResource MutedTextBrush}" 
+                       HorizontalAlignment="Center" 
+                       Margin="0,-2,0,0" />
+        </StackPanel>
+    </Grid>
+</UserControl>

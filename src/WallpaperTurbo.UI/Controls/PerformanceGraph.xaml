@@ -1,0 +1,29 @@
+<UserControl x:Class="WallpaperTurbo.UI.Controls.PerformanceGraph"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="40" d:DesignWidth="120">
+    <Grid Background="Transparent">
+        <!-- Semi-transparent grid backdrop lines to match sci-fi telemetry grids -->
+        <UniformGrid Rows="2" Columns="1" Margin="0,2,0,2">
+            <Border BorderBrush="#08FFFFFF" BorderThickness="0,0,0,1" />
+            <Border BorderBrush="#08FFFFFF" BorderThickness="0,0,0,0" />
+        </UniformGrid>
+
+        <!-- Vector Polyline Drawing the Real-Time Wave -->
+        <Polyline x:Name="WaveLine"
+                  Stroke="{Binding StrokeBrush, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                  StrokeThickness="1.5"
+                  VerticalAlignment="Stretch"
+                  HorizontalAlignment="Stretch">
+            <Polyline.Effect>
+                <DropShadowEffect Color="{Binding GlowColor, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                  BlurRadius="6" 
+                                  ShadowDepth="0" 
+                                  Opacity="0.3" />
+            </Polyline.Effect>
+        </Polyline>
+    </Grid>
+</UserControl>
