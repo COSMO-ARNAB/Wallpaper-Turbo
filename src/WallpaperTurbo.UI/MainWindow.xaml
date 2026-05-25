@@ -13,6 +13,14 @@
         Background="Transparent"
         WindowStartupLocation="CenterScreen">
 
+    <!-- Configure WindowChrome to remove native OS titlebar while retaining resizing/snap layouts -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="6"
+                      CornerRadius="0"
+                      GlassFrameThickness="0,1,0,0" />
+    </WindowChrome.WindowChrome>
+
     <!-- MVVM Content DataTemplate Mappings -->
     <Window.Resources>
         <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
@@ -27,6 +35,17 @@
     </Window.Resources>
 
     <Grid>
+        <!-- Root grid layout trigger to prevent screen clipping when window is maximized -->
+        <Grid.Style>
+            <Style TargetType="Grid">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
+                        <Setter Property="Margin" Value="7" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Style>
+        
         <Grid.ColumnDefinitions>
             <!-- Left Sidebar Navigation Column -->
             <ColumnDefinition Width="250" />
@@ -189,7 +208,7 @@
                                    HorizontalAlignment="Left" />
 
                         <!-- Right Command controls (leaving ~130px on the far right for the native Min/Max/Close buttons inside TitleBar) -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,130,0">
+                        <StackPanel WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,130,0">
                             <!-- Monitor Selector combobox with screen icon -->
                             <ComboBox Height="30" Width="130" SelectedIndex="0" Margin="0,0,8,0">
                                 <ComboBoxItem>
