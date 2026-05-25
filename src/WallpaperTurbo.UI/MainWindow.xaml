@@ -40,7 +40,7 @@
             <Style TargetType="Grid">
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
-                        <Setter Property="Margin" Value="7" />
+                        <Setter Property="Margin" Value="8" />
                     </DataTrigger>
                 </Style.Triggers>
             </Style>
@@ -244,7 +244,7 @@
             <!-- ========================================== -->
             <!-- UNIFIED CYBERNETIC FOOTER PANEL            -->
             <!-- ========================================== -->
-            <Border Grid.Row="2" Background="#090B12" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="24,10">
+            <Border Grid.Row="2" Background="#090B12" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="24,14">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -269,9 +269,9 @@
                     </StackPanel>
 
                     <!-- Center: Metrics row separated by thin cyber borders -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0">
                         <!-- FPS metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="Heart24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <StackPanel>
@@ -282,7 +282,7 @@
                         </Border>
 
                         <!-- GPU metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="Desktop24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <StackPanel>
@@ -293,7 +293,7 @@
                         </Border>
 
                         <!-- VRAM metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <StackPanel>
@@ -304,7 +304,7 @@
                         </Border>
 
                         <!-- RAM metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <StackPanel>
@@ -315,7 +315,7 @@
                         </Border>
 
                         <!-- Uptime metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="Settings24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <StackPanel>
@@ -326,7 +326,7 @@
                         </Border>
 
                         <!-- Resolution -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="24" Padding="0,0,16,0" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="Desktop24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <StackPanel>
@@ -337,7 +337,7 @@
                         </Border>
 
                         <!-- Active Renderer -->
-                        <Border Padding="0" Margin="0" VerticalAlignment="Center">
+                        <Border Padding="0" Margin="0,4,0,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <StackPanel>
@@ -346,7 +346,7 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
-                    </StackPanel>
+                    </WrapPanel>
 
                     <!-- Right: Premium Max Performance Optimized Badge -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">

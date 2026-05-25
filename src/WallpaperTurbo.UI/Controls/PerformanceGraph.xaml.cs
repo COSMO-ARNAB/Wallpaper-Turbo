@@ -36,7 +36,9 @@ public partial class PerformanceGraph : UserControl
     }
 
     private readonly List<double> _history = new();
+    private readonly List<double> _displayHistory = new();
     private const int MaxPoints = 25;
+    private bool _isRenderingHooked = false;
 
     public PerformanceGraph()
     {
@@ -46,10 +48,69 @@ public partial class PerformanceGraph : UserControl
         for (int i = 0; i < MaxPoints; i++)
         {
             _history.Add(0.0);
+            _displayHistory.Add(0.0);
         }
 
-        Loaded += (s, e) => Redraw();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
         SizeChanged += (s, e) => Redraw();
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        StartInterpolationLoop();
+        Redraw();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        StopInterpolationLoop();
+    }
+
+    private void StartInterpolationLoop()
+    {
+        if (!_isRenderingHooked)
+        {
+            CompositionTarget.Rendering += OnCompositionTargetRendering;
+            _isRenderingHooked = true;
+        }
+    }
+
+    private void StopInterpolationLoop()
+    {
+        if (_isRenderingHooked)
+        {
+            CompositionTarget.Rendering -= OnCompositionTargetRendering;
+            _isRenderingHooked = false;
+        }
+    }
+
+    private void OnCompositionTargetRendering(object? sender, EventArgs e)
+    {
+        // Smoothly interpolate display points toward target history points
+        bool needsRedraw = false;
+        for (int i = 0; i < MaxPoints; i++)
+        {
+            double target = _history[i];
+            double current = _displayHistory[i];
+            double delta = target - current;
+
+            if (Math.Abs(delta) > 0.01)
+            {
+                // Exponential moving average for fluid organic ease-out motion (10% step per frame)
+                _displayHistory[i] = current + (delta * 0.1);
+                needsRedraw = true;
+            }
+            else
+            {
+                _displayHistory[i] = target;
+            }
+        }
+
+        if (needsRedraw)
+        {
+            Redraw();
+        }
     }
 
     private static void OnValueChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -67,7 +128,19 @@ public partial class PerformanceGraph : UserControl
         {
             _history.RemoveAt(0);
         }
-        Redraw();
+
+        // Maintain display history sizing matching actual history
+        while (_displayHistory.Count < _history.Count)
+        {
+            _displayHistory.Add(val);
+        }
+        if (_displayHistory.Count > MaxPoints)
+        {
+            _displayHistory.RemoveAt(0);
+        }
+        
+        // Ensure interpolation loop runs when values are actively updated
+        StartInterpolationLoop();
     }
 
     private void Redraw()
@@ -80,11 +153,11 @@ public partial class PerformanceGraph : UserControl
 
         double stepX = w / (MaxPoints - 1);
 
-        for (int i = 0; i < _history.Count; i++)
+        for (int i = 0; i < _displayHistory.Count; i++)
         {
             double x = i * stepX;
             // Map 0-100% to h-0 height bounds safely
-            double valueNormalized = Math.Clamp(_history[i] / 100.0, 0.0, 1.0);
+            double valueNormalized = Math.Clamp(_displayHistory[i] / 100.0, 0.0, 1.0);
             double y = h - (valueNormalized * (h - 4.0)) - 2.0; // pad slightly to avoid edge cuts
 
             points.Add(new Point(x, y));

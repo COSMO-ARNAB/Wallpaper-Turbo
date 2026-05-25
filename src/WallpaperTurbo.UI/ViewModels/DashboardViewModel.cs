@@ -53,6 +53,12 @@ public partial class DashboardViewModel : ObservableObject
     // Collection of active monitors
     public ObservableCollection<MonitorTopologyItem> Monitors { get; } = new();
 
+    private double _lastGpu = -1;
+    private double _lastVideoDecode = -1;
+    private double _lastCpu = -1;
+    private double _lastRam = -1;
+    private double _lastVram = -1;
+
     public DashboardViewModel(WallpaperService wallpaperService)
     {
         _wallpaperService = wallpaperService;
@@ -84,23 +90,50 @@ public partial class DashboardViewModel : ObservableObject
 
     public void UpdateTelemetry(TelemetryMetrics m)
     {
-        GpuValue = m.GpuUsage;
-        VideoDecodeValue = m.VideoDecodeUsage;
-        CpuValue = m.CpuUsage;
+        // 0.5% dead-band filter to prevent layout over-refresh stutters for micro-changes
+        if (Math.Abs(m.GpuUsage - _lastGpu) >= 0.5 || m.GpuUsage == 0.0)
+        {
+            GpuValue = m.GpuUsage;
+            _lastGpu = m.GpuUsage;
+        }
+
+        if (Math.Abs(m.VideoDecodeUsage - _lastVideoDecode) >= 0.5 || m.VideoDecodeUsage == 0.0)
+        {
+            VideoDecodeValue = m.VideoDecodeUsage;
+            _lastVideoDecode = m.VideoDecodeUsage;
+        }
+
+        if (Math.Abs(m.CpuUsage - _lastCpu) >= 0.5 || m.CpuUsage == 0.0)
+        {
+            CpuValue = m.CpuUsage;
+            _lastCpu = m.CpuUsage;
+        }
         
-        // Ram formatting
-        RamValueText = $"{m.RamUsageGb:0.0} / {m.RamTotalGb:0} GB";
-        RamPercentage = (m.RamUsageGb / m.RamTotalGb) * 100.0;
+        // Ram formatting with 0.1 GB filter
+        if (Math.Abs(m.RamUsageGb - _lastRam) >= 0.1 || m.RamUsageGb == 0.0)
+        {
+            RamValueText = $"{m.RamUsageGb:0.0} / {m.RamTotalGb:0} GB";
+            RamPercentage = (m.RamUsageGb / m.RamTotalGb) * 100.0;
+            _lastRam = m.RamUsageGb;
+        }
 
-        // Vram formatting
-        VramValueText = $"{m.VramUsageGb:0.0} / {m.VramTotalGb:0} GB";
-        VramPercentage = (m.VramUsageGb / m.VramTotalGb) * 100.0;
+        // Vram formatting with 0.05 GB filter
+        if (Math.Abs(m.VramUsageGb - _lastVram) >= 0.05 || m.VramUsageGb == 0.0)
+        {
+            VramValueText = $"{m.VramUsageGb:0.0} / {m.VramTotalGb:0} GB";
+            VramPercentage = (m.VramUsageGb / m.VramTotalGb) * 100.0;
+            _lastVram = m.VramUsageGb;
+        }
 
-        // Engine Status Indicators
-        RendererText = m.Renderer;
-        HardwareDecodeText = m.HardwareDecodeStatus;
-        DwmCompositionText = m.IsDwmCompositionEnabled ? "Optimized" : "Disabled";
-        WorkerWText = m.IsWorkerWAttached ? "Yes" : "No";
+        // Engine Status Indicators (Only trigger property setters if values actually changed)
+        if (RendererText != m.Renderer) RendererText = m.Renderer;
+        if (HardwareDecodeText != m.HardwareDecodeStatus) HardwareDecodeText = m.HardwareDecodeStatus;
+        
+        string compositionState = m.IsDwmCompositionEnabled ? "Optimized" : "Disabled";
+        if (DwmCompositionText != compositionState) DwmCompositionText = compositionState;
+
+        string workerWState = m.IsWorkerWAttached ? "Yes" : "No";
+        if (WorkerWText != workerWState) WorkerWText = workerWState;
     }
 
     [RelayCommand]

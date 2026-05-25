@@ -29,7 +29,9 @@ public class TelemetryService
     private readonly Random _rand = new();
     private readonly TelemetryMetrics _metrics = new();
     private DateTime _startTime = DateTime.UtcNow;
-    private bool _isFirstPoll = true;
+
+    private int _lastAppRunnerPid = -1;
+    private ITelemetryProvider _provider = null!;
 
     // Win32 Helpers for WorkerW & DWM
     [DllImport("user32.dll", SetLastError = true)]
@@ -45,7 +47,6 @@ public class TelemetryService
         // Fetch total physical memory once
         try
         {
-            var gcMemoryInfo = GC.GetGCMemoryInfo();
             _metrics.RamTotalGb = Math.Round(GetTotalPhysicalMemoryBytes() / (1024.0 * 1024.0 * 1024.0), 1);
             if (_metrics.RamTotalGb <= 0)
                 _metrics.RamTotalGb = 16.0; // standard fallback
@@ -54,6 +55,9 @@ public class TelemetryService
         {
             _metrics.RamTotalGb = 16.0;
         }
+
+        // Initialize default provider (attempt PerformanceCounters first)
+        _provider = new PerformanceCounterTelemetryProvider();
 
         _timer = new System.Timers.Timer(1000);
         _timer.Elapsed += async (s, e) => await PollMetricsAsync();
@@ -68,6 +72,7 @@ public class TelemetryService
     public void Stop()
     {
         _timer.Stop();
+        _provider?.Reset();
     }
 
     public TelemetryMetrics CurrentMetrics => _metrics;
@@ -92,11 +97,10 @@ public class TelemetryService
                     _metrics.Uptime = DateTime.UtcNow - _startTime;
                 }
                 
-                // Read memory working set
+                // Read memory working set (basic process metric)
                 try
                 {
                     runner.Refresh();
-                    // Keep working set low in diagnostics (usually 30MB-120MB with our trimmer active!)
                     _metrics.RamUsageGb = Math.Round(runner.WorkingSet64 / (1024.0 * 1024.0 * 1024.0), 2);
                 }
                 catch
@@ -110,28 +114,75 @@ public class TelemetryService
                 _metrics.RamUsageGb = 0;
             }
 
-            // 2. Fetch/Simulate System Performance Metrics gracefully
-            // Performance counters can be locked/slow, so we use a responsive, smooth telemetry poller
+            // 2. Fetch GPU Performance Metrics dynamically via Windows Performance Counters or Fallback
             await Task.Run(() =>
             {
-                if (isRunning)
+                if (isRunning && runner != null)
                 {
-                    // High-fidelity active rendering diagnostics
-                    _metrics.CpuUsage = Math.Round(5.0 + (_rand.NextDouble() * 3.0), 1); // 5%-8%
-                    _metrics.GpuUsage = Math.Round(15.0 + (_rand.NextDouble() * 5.0), 1); // 15%-20%
-                    _metrics.VideoDecodeUsage = Math.Round(10.0 + (_rand.NextDouble() * 3.0), 1); // 10%-13%
-                    _metrics.VramUsageGb = Math.Round(1.1 + (_rand.NextDouble() * 0.2), 1); // 1.1GB-1.3GB
+                    int pid = runner.Id;
+                    
+                    // Initialize or update Performance Counters if PID has changed
+                    if (pid != _lastAppRunnerPid)
+                    {
+                        _lastAppRunnerPid = pid;
+
+                        // Try primary PerformanceCounter provider
+                        bool success = false;
+                        try
+                        {
+                            if (_provider is not PerformanceCounterTelemetryProvider)
+                            {
+                                _provider?.Dispose();
+                                _provider = new PerformanceCounterTelemetryProvider();
+                            }
+                            success = _provider.Initialize(pid);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"PerformanceCounter provider throws on init: {ex.Message}");
+                        }
+
+                        // If primary provider fails or is not supported, switch automatically to Fallback provider
+                        if (!success || !_provider.IsSupported)
+                        {
+                            Debug.WriteLine("Switching to FallbackTelemetryProvider due to counter load failure.");
+                            _provider?.Dispose();
+                            _provider = new FallbackTelemetryProvider();
+                            _provider.Initialize(pid);
+                        }
+                    }
+
+                    // Poll using the active provider
+                    try
+                    {
+                        _provider.Poll(pid, _metrics);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error polling telemetry provider: {ex.Message}");
+                        // Force a fallback switch next loop
+                        _lastAppRunnerPid = -1;
+                    }
+
+                    // Static indicators when running
                     _metrics.Fps = 60;
                     _metrics.Renderer = "VLC (D3D11VA)";
                     _metrics.HardwareDecodeStatus = "Enabled";
                 }
                 else
                 {
-                    // Idle state metrics
+                    // Clean up and clear counter cache in idle state
+                    if (_lastAppRunnerPid != -1)
+                    {
+                        _provider?.Reset();
+                        _lastAppRunnerPid = -1;
+                    }
+
+                    // Idle metrics
                     _metrics.CpuUsage = Math.Round(1.0 + (_rand.NextDouble() * 1.5), 1);
-                    _metrics.GpuUsage = Math.Round(0.5 + (_rand.NextDouble() * 1.5), 1);
-                    _metrics.VideoDecodeUsage = 0;
-                    _metrics.VramUsageGb = 0;
+                    _metrics.GpuUsage = 0.0;
+                    _metrics.VideoDecodeUsage = 0.0;
+                    _metrics.VramUsageGb = 0.0;
                     _metrics.Fps = 0;
                     _metrics.Renderer = "None";
                     _metrics.HardwareDecodeStatus = "Inactive";

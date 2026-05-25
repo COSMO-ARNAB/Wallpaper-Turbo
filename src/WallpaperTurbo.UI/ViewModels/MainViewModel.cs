@@ -76,18 +76,32 @@ public partial class MainViewModel : ObservableObject
 
     private void OnMetricsUpdated(TelemetryMetrics m)
     {
-        // Update global performance status footer strings
-        IsEngineRunning = _wallpaperService.IsEngineRunning();
-        EngineStatusText = IsEngineRunning ? "ENGINE RUNNING" : "ENGINE STOPPED";
-        UptimeText = IsEngineRunning 
+        // Update global performance status footer strings using high-efficiency property checks
+        bool running = _wallpaperService.IsEngineRunning();
+        if (IsEngineRunning != running) IsEngineRunning = running;
+        
+        string statusText = running ? "ENGINE RUNNING" : "ENGINE STOPPED";
+        if (EngineStatusText != statusText) EngineStatusText = statusText;
+
+        string uptime = running 
             ? string.Format("{0:00}:{1:00}:{2:00}", (int)m.Uptime.TotalHours, m.Uptime.Minutes, m.Uptime.Seconds)
             : "00:00:00";
+        if (UptimeText != uptime) UptimeText = uptime;
 
-        FpsText = IsEngineRunning ? $"{m.Fps}" : "0";
-        GpuText = IsEngineRunning ? $"{m.GpuUsage:0}%" : "0%";
-        VramText = IsEngineRunning ? $"{m.VramUsageGb:0.0} / {m.VramTotalGb:0} GB" : $"0.0 / {m.VramTotalGb:0} GB";
-        RamText = IsEngineRunning ? $"{m.RamUsageGb:0.0} GB" : "0.0 GB";
-        ActiveRendererText = IsEngineRunning ? m.Renderer : "None";
+        string fpsVal = running ? $"{m.Fps}" : "0";
+        if (FpsText != fpsVal) FpsText = fpsVal;
+
+        string gpuVal = running ? $"{m.GpuUsage:0}%" : "0%";
+        if (GpuText != gpuVal) GpuText = gpuVal;
+
+        string vramVal = running ? $"{m.VramUsageGb:0.0} / {m.VramTotalGb:0} GB" : $"0.0 / {m.VramTotalGb:0} GB";
+        if (VramText != vramVal) VramText = vramVal;
+
+        string ramVal = running ? $"{m.RamUsageGb:0.0} GB" : "0.0 GB";
+        if (RamText != ramVal) RamText = ramVal;
+
+        string renderer = running ? m.Renderer : "None";
+        if (ActiveRendererText != renderer) ActiveRendererText = renderer;
 
         // Push update notification downward to active child VMs
         _dashboardViewModel.UpdateTelemetry(m);
