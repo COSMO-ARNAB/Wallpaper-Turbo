@@ -6,7 +6,11 @@
       "video": "Assets/crimson-blind.mp4",
       "thumbnail": "Assets/crimson-blind.jpg",
       "author": "Arnab",
-      "tags": ["dark", "anime", "red"]
+      "tags": [
+        "dark",
+        "anime",
+        "red"
+      ]
     },
     {
       "id": "red-leaves",
@@ -14,7 +18,11 @@
       "video": "Assets/red-leaves.mp4",
       "thumbnail": "Assets/red-leaves.jpg",
       "author": "Arnab",
-      "tags": ["autumn", "red", "nature"]
+      "tags": [
+        "autumn",
+        "red",
+        "nature"
+      ]
     },
     {
       "id": "rapi-red",
@@ -22,7 +30,11 @@
       "video": "Assets/rapi-red.mp4",
       "thumbnail": "Assets/rapi-red.jpg",
       "author": "Arnab",
-      "tags": ["abstract", "red", "dynamic"]
+      "tags": [
+        "abstract",
+        "red",
+        "dynamic"
+      ]
     },
     {
       "id": "sukuna-madness",
@@ -30,7 +42,11 @@
       "video": "Assets/sukuna-madness.mp4",
       "thumbnail": "Assets/sukuna-madness.jpg",
       "author": "Arnab",
-      "tags": ["anime", "dark", "action"]
+      "tags": [
+        "anime",
+        "dark",
+        "action"
+      ]
     },
     {
       "id": "makima-eyes",
@@ -38,7 +54,11 @@
       "video": "Assets/makima-eyes.mp4",
       "thumbnail": "Assets/makima-eyes.jpg",
       "author": "Arnab",
-      "tags": ["anime", "yellow", "hypnotic"]
+      "tags": [
+        "anime",
+        "yellow",
+        "hypnotic"
+      ]
     },
     {
       "id": "hatsune-neon",
@@ -46,7 +66,11 @@
       "video": "Assets/hatsune-neon.mp4",
       "thumbnail": "Assets/hatsune-neon.jpg",
       "author": "Arnab",
-      "tags": ["anime", "blue", "cyberpunk"]
+      "tags": [
+        "anime",
+        "blue",
+        "cyberpunk"
+      ]
     },
     {
       "id": "frieren-lasting-memories",
@@ -54,8 +78,23 @@
       "video": "Assets/frieren-lasting-memories.mp4",
       "thumbnail": "Assets/frieren-lasting-memories.jpg",
       "author": "Arnab",
-      "tags": ["anime", "red", "emotional"]
+      "tags": [
+        "anime",
+        "red",
+        "emotional"
+      ]
+    },
+    {
+      "id": "white-toyota",
+      "title": "White Toyota",
+      "video": "Assets/white-toyota.mp4",
+      "thumbnail": "Assets/white-toyota.jpg",
+      "author": "Arnab",
+      "tags": [
+        "abstract",
+        "white",
+        "cars"
+      ]
     }
-    
   ]
 }

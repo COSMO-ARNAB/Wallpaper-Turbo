@@ -5,19 +5,133 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="700" d:DesignWidth="1100">
+    
     <Grid Margin="24">
-        <StackPanel>
-            <TextBlock Text="Wallpaper Library Manager" Style="{StaticResource HeaderLargeStyle}" Margin="0,0,0,16" />
-            <TextBlock Text="Browse your entire collection or import new cinematic streams." FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,24" />
-            
-            <Border Style="{StaticResource NeonCardStyle}" Padding="24" HorizontalAlignment="Left" Width="400">
-                <StackPanel>
-                    <TextBlock Text="Quick Actions" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,12" />
-                    <ui:Button Content="+ Import Local Video" Style="{StaticResource NeonImportButtonStyle}" Margin="0,0,0,8" />
-                    <ui:Button Content="Open Manifest File" Appearance="Secondary" Icon="Folder24" Margin="0,0,0,8" />
-                </StackPanel>
-            </Border>
+        <Grid.RowDefinitions>
+            <!-- 1. Header Block -->
+            <RowDefinition Height="Auto" />
+            <!-- 2. Search & Category Filters -->
+            <RowDefinition Height="Auto" />
+            <!-- 3. Collection Grid (Scrollable) -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 1. HEADER -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Wallpaper Library Manager" Style="{StaticResource HeaderLargeStyle}" Margin="0,0,0,6" />
+            <TextBlock Text="Browse your entire collection and click Play to launch any desktop wallpaper." FontSize="12" Foreground="{StaticResource MutedTextBrush}" />
         </StackPanel>
+
+        <!-- 2. SEARCH & FILTER CONTROLS -->
+        <Grid Grid.Row="1" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="250" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Filters -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <RadioButton Content="All" 
+                             Command="{Binding SelectCategoryCommand}" 
+                             CommandParameter="All" 
+                             IsChecked="True" 
+                             Style="{StaticResource {x:Type ToggleButton}}" 
+                             Height="30" Padding="14,3" Margin="0,0,8,0" 
+                             Background="#1A1E2D" Foreground="#FFFFFF"/>
+                <RadioButton Content="4K" 
+                             Command="{Binding SelectCategoryCommand}" 
+                             CommandParameter="4K" 
+                             Style="{StaticResource {x:Type ToggleButton}}" 
+                             Height="30" Padding="14,3" Margin="0,0,8,0" 
+                             Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
+                <RadioButton Content="Ultrawide" 
+                             Command="{Binding SelectCategoryCommand}" 
+                             CommandParameter="Ultrawide" 
+                             Style="{StaticResource {x:Type ToggleButton}}" 
+                             Height="30" Padding="14,3" Margin="0,0,8,0" 
+                             Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
+                <RadioButton Content="Abstract" 
+                             Command="{Binding SelectCategoryCommand}" 
+                             CommandParameter="Abstract" 
+                             Style="{StaticResource {x:Type ToggleButton}}" 
+                             Height="30" Padding="14,3" Margin="0,0,8,0" 
+                             Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
+                <RadioButton Content="Nature" 
+                             Command="{Binding SelectCategoryCommand}" 
+                             CommandParameter="Nature" 
+                             Style="{StaticResource {x:Type ToggleButton}}" 
+                             Height="30" Padding="14,3" Margin="0,0,8,0" 
+                             Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
+                <RadioButton Content="Sci-Fi" 
+                             Command="{Binding SelectCategoryCommand}" 
+                             CommandParameter="Sci-Fi" 
+                             Style="{StaticResource {x:Type ToggleButton}}" 
+                             Height="30" Padding="14,3" Margin="0,0,8,0" 
+                             Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
+            </StackPanel>
+
+            <!-- Search box -->
+            <ui:TextBox Grid.Column="1" 
+                        PlaceholderText="Search wallpapers..." 
+                        Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                        Icon="Search24"
+                        Height="32"
+                        Background="#121622"
+                        BorderBrush="#2066FCF1"
+                        Foreground="#FFFFFF" />
+        </Grid>
+
+        <!-- 3. SIMPLE & STABLE ITEMS CONTROL -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding FilteredWallpapers}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <!-- Simple, clean card -->
+                        <Border Margin="8" Width="230" Height="200" CornerRadius="8" Background="#131622" BorderBrush="#2066FCF1" BorderThickness="1" ClipToBounds="True">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="124" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <!-- Thumbnail -->
+                                <Image Grid.Row="0" Source="{Binding LoadedThumbnail}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                <!-- Metadata & Control footer -->
+                                <Grid Grid.Row="1" Margin="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Resolution}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+
+                                    <ui:Button Grid.Column="1" 
+                                               Icon="Play16" 
+                                               Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                               CommandParameter="{Binding}" 
+                                               Appearance="Primary" 
+                                               Background="{StaticResource ActiveCyanBrush}" 
+                                               Foreground="#000000"
+                                               Width="32" Height="32" 
+                                               CornerRadius="16" 
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
     </Grid>
 </UserControl>

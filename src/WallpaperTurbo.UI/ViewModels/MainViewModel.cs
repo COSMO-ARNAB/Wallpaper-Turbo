@@ -11,6 +11,7 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly WallpaperService _wallpaperService;
     private readonly TelemetryService _telemetryService;
+    private readonly IWallpaperLibraryService _libraryService;
 
     [ObservableProperty]
     private object? _currentPageViewModel;
@@ -53,12 +54,14 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel(
         WallpaperService wallpaperService,
         TelemetryService telemetryService,
+        IWallpaperLibraryService libraryService,
         DashboardViewModel dashboardViewModel,
         LibraryViewModel libraryViewModel,
         SettingsViewModel settingsViewModel)
     {
         _wallpaperService = wallpaperService;
         _telemetryService = telemetryService;
+        _libraryService = libraryService;
         _dashboardViewModel = dashboardViewModel;
         _libraryViewModel = libraryViewModel;
         _settingsViewModel = settingsViewModel;
@@ -158,5 +161,56 @@ public partial class MainViewModel : ObservableObject
     {
         ActiveWallpaperTitle = title;
         ActiveWallpaperSpecs = specs;
+    }
+
+    [RelayCommand]
+    private async Task ImportWallpaperAsync()
+    {
+        var openFileDialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Import Cinematic Wallpaper",
+            Filter = "Supported Formats (*.mp4;*.webm;*.mkv;*.gif;*.jpg;*.jpeg;*.png)|*.mp4;*.webm;*.mkv;*.gif;*.jpg;*.jpeg;*.png",
+            Multiselect = false
+        };
+
+        if (openFileDialog.ShowDialog() == true)
+        {
+            try
+            {
+                // Trigger the non-blocking import pipeline
+                var newWp = await _libraryService.ImportWallpaperAsync(
+                    openFileDialog.FileName,
+                    async (completedWp) =>
+                    {
+                        // Background dispatcher STA thumbnail finished, refresh UI on Main thread
+                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+                        {
+                            await _dashboardViewModel.LoadLibraryAsync();
+                            await _libraryViewModel.LoadLibraryAsync();
+                        });
+                    }, CancellationToken.None);
+
+                // Instantly load placeholders for transient fluid UI
+                await _dashboardViewModel.LoadLibraryAsync();
+                await _libraryViewModel.LoadLibraryAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(
+                    $"Failed to import wallpaper:\n{ex.Message}",
+                    "Import Failure",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
+        }
+    }
+
+    public async Task ShutdownAsync()
+    {
+        // Cancel telemetry updates
+        _telemetryService.Stop();
+
+        // Await all background library tasks (saving manifests, finishing thumbnails) safely
+        await _libraryService.ShutdownAsync();
     }
 }

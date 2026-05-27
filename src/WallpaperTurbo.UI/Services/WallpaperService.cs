@@ -5,29 +5,255 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace WallpaperTurbo.UI.Services;
 
-public class WallpaperEntry
+public class WallpaperEntry : ObservableObject
 {
+    private string _id = string.Empty;
     [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
+    public string Id
+    {
+        get => _id;
+        set => SetProperty(ref _id, value);
+    }
 
+    private string _title = string.Empty;
     [JsonPropertyName("title")]
-    public string Title { get; set; } = string.Empty;
+    public string Title
+    {
+        get => _title;
+        set => SetProperty(ref _title, value);
+    }
 
+    private string _video = string.Empty;
     [JsonPropertyName("video")]
-    public string Video { get; set; } = string.Empty;
+    public string Video
+    {
+        get => _video;
+        set => SetProperty(ref _video, value);
+    }
 
+    private string _thumbnail = string.Empty;
     [JsonPropertyName("thumbnail")]
-    public string Thumbnail { get; set; } = string.Empty;
+    public string Thumbnail
+    {
+        get => _thumbnail;
+        set
+        {
+            if (SetProperty(ref _thumbnail, value))
+            {
+                // When path changes, load BitmapImage asynchronously on a background thread.
+                // This eliminates all synchronous JPEG decoding from the UI dispatcher.
+                _ = LoadThumbnailInternalAsync(value);
+            }
+        }
+    }
 
+    // ── Async-loaded frozen bitmap, safe to bind directly without any converter ──
+    private ImageSource? _loadedThumbnail;
+    [JsonIgnore]
+    public ImageSource? LoadedThumbnail
+    {
+        get => _loadedThumbnail;
+        private set
+        {
+            // Track bitmap lifecycle for VRAM diagnostics
+            if (_loadedThumbnail != null && !(value == null))
+                DiagnosticsService.OnBitmapEvicted(); // replacing existing
+            else if (_loadedThumbnail == null && value != null)
+                DiagnosticsService.OnBitmapLoaded();
+            else if (_loadedThumbnail != null && value == null)
+                DiagnosticsService.OnBitmapEvicted();
+            SetProperty(ref _loadedThumbnail, value);
+        }
+    }
+
+    /// <summary>
+    /// Explicitly clear the loaded bitmap to allow GC/VRAM reclamation.
+    /// Called by VirtualizingWrapPanel when an item scrolls far outside the cache zone.
+    /// The bitmap will be reloaded lazily when the item scrolls back into view.
+    /// </summary>
+    public void EvictThumbnail()
+    {
+        if (DebugFlags.SafeDebugMode && !DebugFlags.EnableThumbnailEviction)
+        {
+            Debug.WriteLine("[ISOLATE] EvictThumbnail requested but bypassed via EnableThumbnailEviction = false.");
+            return;
+        }
+
+        if (_loadedThumbnail != null)
+        {
+            // Reset to null → WPF Image shows nothing → GC can collect the BitmapImage
+            // Next time Thumbnail is set (or on next scroll-in), it reloads from disk.
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.CheckAccess())
+                LoadedThumbnail = null;
+            else
+                dispatcher.BeginInvoke(() => LoadedThumbnail = null, DispatcherPriority.Background);
+        }
+    }
+
+    // Static fallback: created once, frozen, reused for all entries
+    private static BitmapImage? _fallbackBitmap;
+    private static readonly object _fallbackLock = new();
+
+    private static BitmapImage EnsureFallback()
+    {
+        lock (_fallbackLock)
+        {
+            if (_fallbackBitmap == null)
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.UriSource = new Uri("pack://application:,,,/Assets/Branding/wallpaper-turbo.ico", UriKind.Absolute);
+                bmp.DecodePixelWidth = 320;
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.EndInit();
+                bmp.Freeze();
+                _fallbackBitmap = bmp;
+            }
+            return _fallbackBitmap;
+        }
+    }
+
+    private async Task LoadThumbnailInternalAsync(string path)
+    {
+        // Pack URIs and empty paths → show fallback immediately (no disk I/O)
+        if (string.IsNullOrWhiteSpace(path) || path.StartsWith("pack://", StringComparison.OrdinalIgnoreCase))
+        {
+            await ApplyThumbnailToUI(EnsureFallback());
+            return;
+        }
+
+        if (DebugFlags.SafeDebugMode && !DebugFlags.EnableAsyncThumbnailLoading)
+        {
+            Debug.WriteLine($"[ISOLATE] LoadThumbnailInternalAsync (SYNC on UI thread) for: {path}");
+            ImageSource? result = null;
+            try
+            {
+                if (File.Exists(path))
+                {
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.UriSource = new Uri(path, UriKind.Absolute);
+                    bmp.DecodePixelWidth = 320;
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    result = bmp;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ISOLATE] Sync load error: {ex.Message}");
+            }
+            LoadedThumbnail = result ?? EnsureFallback();
+            return;
+        }
+
+        // Track decode queue depth for diagnostics
+        DiagnosticsService.OnDecodeQueued();
+        try
+        {
+            // Real file paths: decode on threadpool, freeze, dispatch result to UI
+            ImageSource? result = await Task.Run(() =>
+            {
+                try
+                {
+                    if (!File.Exists(path)) return null;
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.UriSource = new Uri(path, UriKind.Absolute);
+                    bmp.DecodePixelWidth = 320; // Pre-scale to card width; saves VRAM
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.EndInit();
+                    bmp.Freeze(); // Must freeze before crossing thread boundary
+                    return (ImageSource?)bmp;
+                }
+                catch
+                {
+                    return null;
+                }
+            });
+
+            await ApplyThumbnailToUI(result ?? EnsureFallback());
+        }
+        finally
+        {
+            DiagnosticsService.OnDecodeCompleted();
+        }
+    }
+
+    private async Task ApplyThumbnailToUI(ImageSource source)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null || dispatcher.CheckAccess())
+        {
+            LoadedThumbnail = source;
+        }
+        else
+        {
+            await dispatcher.InvokeAsync(
+                () => LoadedThumbnail = source,
+                DispatcherPriority.Background);
+        }
+    }
+
+    private string _author = string.Empty;
     [JsonPropertyName("author")]
-    public string Author { get; set; } = string.Empty;
+    public string Author
+    {
+        get => _author;
+        set => SetProperty(ref _author, value);
+    }
 
+    private List<string> _tags = new();
     [JsonPropertyName("tags")]
-    public List<string> Tags { get; set; } = new();
+    public List<string> Tags
+    {
+        get => _tags;
+        set => SetProperty(ref _tags, value);
+    }
+
+    private bool _isActive;
+    [JsonIgnore]
+    public bool IsActive
+    {
+        get => _isActive;
+        set => SetProperty(ref _isActive, value);
+    }
+
+    private System.Windows.Media.ImageSource? _previewSource;
+    [JsonIgnore]
+    public System.Windows.Media.ImageSource? PreviewSource
+    {
+        get => _previewSource;
+        set => SetProperty(ref _previewSource, value);
+    }
+
+    private bool _isPreviewActive;
+    [JsonIgnore]
+    public bool IsPreviewActive
+    {
+        get => _isPreviewActive;
+        set => SetProperty(ref _isPreviewActive, value);
+    }
+
+    private bool _isFallbackThumbnail;
+    [JsonIgnore]
+    public bool IsFallbackThumbnail
+    {
+        get => _isFallbackThumbnail;
+        set => SetProperty(ref _isFallbackThumbnail, value);
+    }
 
     // Derived visual helpers
     public string Resolution => Id.Contains("frieren") || Id.Contains("crimson") ? "3840 x 2160" : "3440 x 1440";
@@ -43,17 +269,20 @@ public class WallpaperManifest
 
 public class WallpaperService
 {
+    private readonly IWallpaperLibraryService _libraryService;
     private readonly string _manifestPath;
     private readonly string _appRunnerDir;
     private readonly string _appRunnerExePath;
     private List<WallpaperEntry> _wallpapers = new();
     private int _activeWallpaperIndex = -1;
+    private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
 
     public string ActivePauseProfile { get; set; } = "Maximized";
     public bool UseSoftwareDecoding { get; set; } = false;
 
-    public WallpaperService()
+    public WallpaperService(IWallpaperLibraryService libraryService)
     {
+        _libraryService = libraryService;
         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
         
         // Resolve path to WallpaperTurbo.AppRunner
@@ -95,76 +324,75 @@ public class WallpaperService
 
     public async Task<List<WallpaperEntry>> GetWallpapersAsync()
     {
-        if (_wallpapers.Any())
-            return _wallpapers;
-
-        try
-        {
-            if (!File.Exists(_manifestPath))
-            {
-                Debug.WriteLine($"Manifest not found at: {_manifestPath}");
-                return new List<WallpaperEntry>();
-            }
-
-            string json = await File.ReadAllTextAsync(_manifestPath);
-            var manifest = JsonSerializer.Deserialize<WallpaperManifest>(json);
-            if (manifest != null)
-            {
-                _wallpapers = manifest.Wallpapers;
-                // Try to resolve relative thumbnail paths to absolute paths
-                foreach (var wp in _wallpapers)
-                {
-                    wp.Thumbnail = Path.Combine(_appRunnerDir, wp.Thumbnail);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error reading manifest: {ex.Message}");
-        }
-
+        var list = await _libraryService.GetWallpapersAsync();
+        _wallpapers = list.ToList();
+        
+        // Sync active states on reload
+        bool running = IsEngineRunning();
+        UpdateActiveStates(running ? _activeWallpaperIndex : -1);
+        
         return _wallpapers;
+    }
+
+    private void UpdateActiveStates(int activeIndex)
+    {
+        for (int i = 0; i < _wallpapers.Count; i++)
+        {
+            _wallpapers[i].IsActive = (i == activeIndex - 1);
+        }
     }
 
     public bool IsEngineRunning()
     {
-        // Check for AppRunner process name
-        var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
-        if (runnerProcesses.Any())
-            return true;
-
-        // Also check if running via dotnet exec
-        var dotnetProcesses = Process.GetProcessesByName("dotnet");
-        foreach (var p in dotnetProcesses)
+        if (DebugFlags.SafeDebugMode)
         {
-            try
-            {
-                foreach (ProcessModule m in p.Modules)
-                {
-                    if (m.ModuleName.Contains("WallpaperTurbo.AppRunner", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
-                }
-            }
-            catch
-            {
-                // Protect against architectural mismatches or access-denied
-            }
+            return _mockEngineRunning;
         }
 
-        return false;
+        bool isRunning = false;
+
+        // Fast path: check for named AppRunner process - this is O(1) and non-blocking
+        var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
+        if (runnerProcesses.Any())
+        {
+            isRunning = true;
+        }
+        // NOTE: Removed dotnet module enumeration fallback - iterating p.Modules is a blocking 
+        // Win32 syscall that can stall for 100-300ms per process, causing UI freezes when 
+        // called on the telemetry timer callback. Named process check is sufficient.
+
+        if (!isRunning && _activeWallpaperIndex != -1)
+        {
+            _activeWallpaperIndex = -1;
+            UpdateActiveStates(-1);
+        }
+
+        return isRunning;
     }
 
     public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null, bool? softwareDecode = null)
     {
+        DiagnosticsService.SetAction($"Wallpaper Service Launching Wallpaper: Index {index}");
+
+        if (DebugFlags.SafeDebugMode)
+        {
+            Debug.WriteLine($"[ISOLATE] LaunchWallpaperAsync requested for index: {index}, pauseMode: {pauseMode}, softwareDecode: {softwareDecode}");
+            _activeWallpaperIndex = index;
+            UpdateActiveStates(index);
+            _mockEngineRunning = true;
+            DiagnosticsService.SetAction("Wallpaper Service Idle / Launch complete (SafeDebugMode)");
+            return await Task.FromResult(true);
+        }
+
         if (!File.Exists(_appRunnerExePath))
         {
             Debug.WriteLine($"AppRunner executable not found at: {_appRunnerExePath}");
+            DiagnosticsService.SetAction("Wallpaper Service Idle / Launch failed (Exe missing)");
             return false;
         }
 
         _activeWallpaperIndex = index;
+        UpdateActiveStates(index);
 
         string mode = pauseMode ?? ActivePauseProfile;
         bool softDecode = softwareDecode ?? UseSoftwareDecoding;
@@ -175,12 +403,14 @@ public class WallpaperService
             mode = "None";
         }
 
-        return await Task.Run(() =>
+        bool result = await Task.Run(() =>
         {
             try
             {
                 string decodeArg = softDecode ? " --software-decode" : string.Empty;
                 string args = $"--detach --wallpaper {index} --silent --pause-mode {mode}{decodeArg}";
+
+                DiagnosticsService.SetAction($"Wallpaper Service Starting process: {args}");
 
                 var psi = new ProcessStartInfo
                 {
@@ -201,19 +431,40 @@ public class WallpaperService
                 return false;
             }
         });
+
+        DiagnosticsService.SetAction("Wallpaper Service Idle / Launch complete");
+        return result;
     }
 
     public async Task<bool> StopPlaybackAsync()
     {
+        DiagnosticsService.SetAction("Wallpaper Service Stopping Playback");
+
+        if (DebugFlags.SafeDebugMode)
+        {
+            Debug.WriteLine("[ISOLATE] StopPlaybackAsync requested.");
+            _activeWallpaperIndex = -1;
+            UpdateActiveStates(-1);
+            _mockEngineRunning = false;
+            DiagnosticsService.SetAction("Wallpaper Service Idle / Stop complete (SafeDebugMode)");
+            return await Task.FromResult(true);
+        }
+
         if (!File.Exists(_appRunnerExePath))
+        {
+            DiagnosticsService.SetAction("Wallpaper Service Idle / Stop failed (Exe missing)");
             return false;
+        }
 
         _activeWallpaperIndex = -1;
+        UpdateActiveStates(-1);
 
-        return await Task.Run(() =>
+        bool result = await Task.Run(() =>
         {
             try
             {
+                DiagnosticsService.SetAction("Wallpaper Service Starting stop process");
+
                 var psi = new ProcessStartInfo
                 {
                     FileName = _appRunnerExePath,
@@ -225,6 +476,7 @@ public class WallpaperService
                 };
 
                 using var p = Process.Start(psi);
+                DiagnosticsService.SetAction("Wallpaper Service Waiting for stop process exit");
                 p?.WaitForExit(3000);
                 return true;
             }
@@ -234,7 +486,11 @@ public class WallpaperService
                 return false;
             }
         });
+
+        DiagnosticsService.SetAction("Wallpaper Service Idle / Stop complete");
+        return result;
     }
 
     public int GetActiveWallpaperIndex() => _activeWallpaperIndex;
 }
+

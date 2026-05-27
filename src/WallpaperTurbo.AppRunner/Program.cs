@@ -31,6 +31,7 @@ internal static class Program
     private static WallpaperSessionManager? _sessionManager;
     private static IMediaPipeline? _activePipeline;
     private static IntPtr _hwnd = IntPtr.Zero;
+    private static List<WallpaperEntry> _mergedWallpapers = new();
 
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     private static extern bool SetConsoleCtrlHandler(ConsoleCtrlDelegate handler, bool add);
@@ -259,12 +260,32 @@ internal static class Program
             return 1;
         }
 
-        WallpaperManifest manifest = WallpaperLibrary.Load(manifestPath);
+        WallpaperManifest defaultManifest = WallpaperLibrary.Load(manifestPath);
+        _mergedWallpapers.AddRange(defaultManifest.Wallpapers);
+
+        // Load user manifest from LocalAppData if present to maintain identical index offsets
+        string userManifestPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo", "WallpaperManifest.json");
+        if (File.Exists(userManifestPath))
+        {
+            try
+            {
+                WallpaperManifest userManifest = WallpaperLibrary.Load(userManifestPath);
+                if (userManifest.Wallpapers != null)
+                {
+                    _mergedWallpapers.AddRange(userManifest.Wallpapers);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Manifest] Failed to merge user manifest: {ex.Message}");
+            }
+        }
+
         int finalWallpaperIndex = 1;
 
         if (wallpaperIndex.HasValue)
         {
-            finalWallpaperIndex = Math.Clamp(wallpaperIndex.Value, 1, manifest.Wallpapers.Count);
+            finalWallpaperIndex = Math.Clamp(wallpaperIndex.Value, 1, _mergedWallpapers.Count);
         }
         else
         {
@@ -275,9 +296,9 @@ internal static class Program
             else
             {
                 Console.WriteLine("Available Wallpapers:\n");
-                for (int i = 0; i < manifest.Wallpapers.Count; i++)
+                for (int i = 0; i < _mergedWallpapers.Count; i++)
                 {
-                    WallpaperEntry item = manifest.Wallpapers[i];
+                    WallpaperEntry item = _mergedWallpapers[i];
                     Console.WriteLine($"[{i + 1}] {item.Title}  —  {item.Author}");
                 }
                 Console.Write("\nSelect wallpaper number: ");
@@ -286,7 +307,7 @@ internal static class Program
                 {
                     selection = 1;
                 }
-                finalWallpaperIndex = Math.Clamp(selection, 1, manifest.Wallpapers.Count);
+                finalWallpaperIndex = Math.Clamp(selection, 1, _mergedWallpapers.Count);
             }
         }
 
@@ -487,7 +508,7 @@ internal static class Program
             //
             // SELECT WALLPAPER
             //
-            WallpaperEntry wallpaper = manifest.Wallpapers[finalWallpaperIndex - 1];
+            WallpaperEntry wallpaper = _mergedWallpapers[finalWallpaperIndex - 1];
 
             string videoPath =
                 Path.Combine(
@@ -696,7 +717,7 @@ internal static class Program
                         var freshPipeline = new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule);
                         freshPipeline.Initialize(_hwnd);
 
-                        var freshWallpaper = manifest.Wallpapers[finalWallpaperIndex - 1];
+                        var freshWallpaper = _mergedWallpapers[finalWallpaperIndex - 1];
                         string freshVideoPath = Path.Combine(AppContext.BaseDirectory, freshWallpaper.Video);
                         if (File.Exists(freshVideoPath))
                         {
@@ -1165,7 +1186,7 @@ internal static class Program
                         break;
                     }
 
-                    await ProcessCommandAsync(line, manifest, _sessionManager, _hwnd, cts.Token);
+                    await ProcessCommandAsync(line, _mergedWallpapers, _sessionManager, _hwnd, cts.Token);
                 }
             }
 
@@ -1255,7 +1276,7 @@ internal static class Program
 
     private static async Task ProcessCommandAsync(
         string commandLine,
-        WallpaperManifest manifest,
+        List<WallpaperEntry> wallpapers,
         WallpaperSessionManager? sessionManager,
         IntPtr hwnd,
         CancellationToken cancellationToken)
@@ -1271,7 +1292,7 @@ internal static class Program
             case "swap":
                 if (int.TryParse(args, out int newIndex))
                 {
-                    await HandleSwapCommandAsync(newIndex, manifest, sessionManager, hwnd);
+                    await HandleSwapCommandAsync(newIndex, wallpapers, sessionManager, hwnd);
                 }
                 else
                 {
@@ -1338,7 +1359,7 @@ internal static class Program
 
     private static async Task HandleSwapCommandAsync(
         int newIndex,
-        WallpaperManifest manifest,
+        List<WallpaperEntry> wallpapers,
         WallpaperSessionManager? sessionManager,
         IntPtr hwnd)
     {
@@ -1350,15 +1371,15 @@ internal static class Program
             return;
         }
 
-        if (newIndex < 1 || newIndex > manifest.Wallpapers.Count)
+        if (newIndex < 1 || newIndex > wallpapers.Count)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"Error: Invalid wallpaper index. Must be between 1 and {manifest.Wallpapers.Count}.");
+            Console.WriteLine($"Error: Invalid wallpaper index. Must be between 1 and {wallpapers.Count}.");
             Console.ResetColor();
             return;
         }
 
-        WallpaperEntry newWallpaper = manifest.Wallpapers[newIndex - 1];
+        WallpaperEntry newWallpaper = wallpapers[newIndex - 1];
         string videoPath = Path.Combine(AppContext.BaseDirectory, newWallpaper.Video);
 
         if (!File.Exists(videoPath))
@@ -1722,7 +1743,19 @@ internal static class Program
                     }
                     else
                     {
-                        isWallpaperProcess = true;
+                        try
+                        {
+                            string exePath = process.MainModule?.FileName ?? string.Empty;
+                            if (exePath.Contains("WallpaperTurbo", StringComparison.OrdinalIgnoreCase))
+                            {
+                                isWallpaperProcess = true;
+                            }
+                        }
+                        catch
+                        {
+                            // Fallback to true if access is denied to read process main module
+                            isWallpaperProcess = true;
+                        }
                     }
 
                     if (isWallpaperProcess)

@@ -79,6 +79,57 @@ public class TelemetryService
 
     private async Task PollMetricsAsync()
     {
+        if (DebugFlags.SafeDebugMode)
+        {
+            try
+            {
+                bool isRunning = false;
+                try
+                {
+                    isRunning = App.GetService<WallpaperService>().IsEngineRunning();
+                }
+                catch { }
+
+                if (isRunning)
+                {
+                    _metrics.Uptime = DateTime.UtcNow - _startTime;
+                    _metrics.RamUsageGb = 0.08;
+                    _metrics.CpuUsage = Math.Round(1.0 + (_rand.NextDouble() * 0.5), 1);
+                    _metrics.GpuUsage = Math.Round(6.0 + (_rand.NextDouble() * 3.0), 1);
+                    _metrics.VideoDecodeUsage = Math.Round(4.0 + (_rand.NextDouble() * 2.0), 1);
+                    _metrics.VramUsageGb = 0.28;
+                    _metrics.Fps = 60;
+                    _metrics.Renderer = "VLC (D3D11VA)";
+                    _metrics.HardwareDecodeStatus = "Enabled";
+                    _metrics.IsWorkerWAttached = true;
+                }
+                else
+                {
+                    _metrics.Uptime = TimeSpan.Zero;
+                    _metrics.RamUsageGb = 0.0;
+                    _metrics.CpuUsage = Math.Round(1.0 + (_rand.NextDouble() * 1.5), 1);
+                    _metrics.GpuUsage = 0.0;
+                    _metrics.VideoDecodeUsage = 0.0;
+                    _metrics.VramUsageGb = 0.0;
+                    _metrics.Fps = 0;
+                    _metrics.Renderer = "None";
+                    _metrics.HardwareDecodeStatus = "Inactive";
+                    _metrics.IsWorkerWAttached = false;
+                }
+                _metrics.IsDwmCompositionEnabled = true;
+
+                var snapshot = _metrics;
+                System.Windows.Application.Current?.Dispatcher?.BeginInvoke(
+                    new Action(() => MetricsUpdated?.Invoke(snapshot)),
+                    System.Windows.Threading.DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ISOLATE] Telemetry mock error: {ex.Message}");
+            }
+            return;
+        }
+
         try
         {
             // 1. Detect if AppRunner process is active and retrieve its uptime
@@ -211,7 +262,13 @@ public class TelemetryService
                 }
             });
 
-            MetricsUpdated?.Invoke(_metrics);
+            // Always marshal MetricsUpdated to the UI dispatcher.
+            // TelemetryService fires from System.Timers.Timer (background thread).
+            // ObservableObject.SetProperty raises PropertyChanged; WPF bindings require UI thread.
+            var snapshot = _metrics;
+            System.Windows.Application.Current?.Dispatcher?.BeginInvoke(
+                new Action(() => MetricsUpdated?.Invoke(snapshot)),
+                System.Windows.Threading.DispatcherPriority.Background);
         }
         catch (Exception ex)
         {

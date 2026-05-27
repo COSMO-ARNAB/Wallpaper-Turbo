@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\WallpaperTurbo.Core\WallpaperTurbo.Core.csproj" />
@@ -17,6 +17,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\Branding\wallpaper-turbo.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Branding\wallpaper-turbo.ico" />
+    <Resource Include="Assets\Branding\wallpaper-turbo.png" />
+  </ItemGroup>
 
 </Project>

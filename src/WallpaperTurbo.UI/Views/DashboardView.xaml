@@ -5,8 +5,24 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:ctrl="clr-namespace:WallpaperTurbo.UI.Controls"
+             xmlns:conv="clr-namespace:WallpaperTurbo.UI.Converters"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="1100">
+    
+    <UserControl.Resources>
+        <conv:ThumbnailImageConverter x:Key="ThumbnailConverter" />
+        
+        <!-- Premium ListBoxItem container styling to remove default selections -->
+        <Style x:Key="PremiumCardContainerStyle" TargetType="ListBoxItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
     
     <Grid>
         <Grid.ColumnDefinitions>
@@ -14,196 +30,267 @@
             <ColumnDefinition Width="340" />
         </Grid.ColumnDefinitions>
 
-        <!-- ========================================== -->
-        <!-- LEFT MAIN CONTENT REGION                   -->
-        <!-- ========================================== -->
-        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
-            <StackPanel Margin="0,0,8,0">
+        <!-- LEFT MAIN CONTENT REGION -->
+        <!-- Grid row layout so ListBox gets a FINITE height → WPF virtualization works.
+             ScrollViewer+StackPanel gives ListBox infinite height → ALL items rendered simultaneously. -->
+        <Grid Grid.Column="0" Margin="0,0,16,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />  <!-- Featured header -->
+                <RowDefinition Height="*" />     <!-- Hero/Featured Grid: fills remaining space! -->
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Margin="0,0,8,0">
                 
                 <!-- FEATURED TITLE -->
                 <TextBlock Text="Featured" Style="{StaticResource HeaderLargeStyle}" Margin="0,0,0,12" />
+            </StackPanel>
 
-                <!-- HERO DISPLAY GRID -->
-                <Grid Height="240" Margin="0,0,0,24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*" />
-                        <ColumnDefinition Width="1*" />
-                    </Grid.ColumnDefinitions>
+            <!-- HERO DISPLAY GRID -->
+            <Grid Grid.Row="1" Height="360" Margin="0,0,8,24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
 
-                    <!-- Large Primary Hero Card -->
-                    <Border Grid.Column="0" Style="{StaticResource NeonCardStyle}" Margin="0,0,12,0" ClipToBounds="True">
+                <!-- Large Primary Hero Card -->
+                <Border Grid.Column="0" Style="{StaticResource NeonCardStyle}" Margin="0,0,12,0" ClipToBounds="True">
+                    <Grid>
+                        <!-- Hero thumbnail: bound directly to LoadedThumbnail (async-loaded ImageSource, no converter) -->
+                        <Image Source="{Binding HeroWallpaper.LoadedThumbnail}" 
+                               Stretch="UniformToFill" 
+                               x:Name="HeroBgImage"
+                               Opacity="0.75" 
+                               RenderOptions.BitmapScalingMode="HighQuality">
+                            <Image.RenderTransform>
+                                <ScaleTransform ScaleX="1.0" ScaleY="1.0" CenterX="260" CenterY="180" />
+                            </Image.RenderTransform>
+                        </Image>
+                        
+                        <!-- Premium Cybernetic Dark Gradient Overlay for Typographical Contrast -->
+                        <Border>
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                    <GradientStop Color="#00000000" Offset="0.0" />
+                                    <GradientStop Color="#80000000" Offset="0.5" />
+                                    <GradientStop Color="#E00A0B10" Offset="1.0" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <!-- Cyber neon vectors overlay inside Hero Card -->
+                        <Path Data="M 0,80 Q 200,20 400,60 T 800,20" 
+                              Stroke="{StaticResource NeonPurpleCyanGradient}" 
+                              StrokeThickness="1" 
+                              Opacity="0.2"
+                              VerticalAlignment="Center" 
+                              HorizontalAlignment="Stretch" />
+
+                        <!-- Details Overlay -->
+                        <StackPanel VerticalAlignment="Bottom" Margin="24">
+                            <TextBlock Text="FEATURED EXPERIENCE" FontSize="9" FontWeight="ExtraBold" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,0,4"/>
+                            <TextBlock Text="{Binding HeroWallpaper.Title, FallbackValue='Astral Horizon'}" 
+                                       FontSize="26" FontWeight="ExtraBold" Foreground="#FFFFFF" />
+                            <TextBlock Text="{Binding HeroWallpaper.Resolution, StringFormat={}{0} • 60 FPS • PRE-RENDERED, FallbackValue='3840 x 2160 • 60 FPS • PRE-RENDERED'}" 
+                                       FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <!-- Play Overlay Button -->
+                        <ui:Button Icon="Play24" 
+                                   Command="{Binding PlayWallpaperCommand}" 
+                                   CommandParameter="{Binding HeroWallpaper}"
+                                   Appearance="Primary" 
+                                   Foreground="#000000" 
+                                   Background="{StaticResource ActiveCyanBrush}"
+                                   HorizontalAlignment="Right" 
+                                   VerticalAlignment="Bottom" 
+                                   Margin="24"
+                                   Width="48" Height="48"
+                                   CornerRadius="24">
+                            <ui:Button.Effect>
+                                <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="12" Opacity="0.5" ShadowDepth="0" />
+                            </ui:Button.Effect>
+                        </ui:Button>
+                    </Grid>
+                    <Border.Triggers>
+                        <EventTrigger RoutedEvent="Mouse.MouseEnter">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetName="HeroBgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.03" Duration="0:0:0.35" />
+                                    <DoubleAnimation Storyboard.TargetName="HeroBgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.03" Duration="0:0:0.35" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                        <EventTrigger RoutedEvent="Mouse.MouseLeave">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetName="HeroBgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.3" />
+                                    <DoubleAnimation Storyboard.TargetName="HeroBgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.3" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Border.Triggers>
+                </Border>
+
+                <!-- Small Right Stacked Cards -->
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Upper Sub Card (SubHero1) -->
+                    <Border Grid.Row="0" Style="{StaticResource NeonCardStyle}" Margin="0,0,0,4" ClipToBounds="True">
                         <Grid>
-                            <!-- Ambient glowing placeholder visual matching 'Astral Horizon' -->
-                            <Border CornerRadius="{StaticResource RadiusMedium}">
+                            <!-- Sub1 thumbnail bound to LoadedThumbnail -->
+                            <Image Source="{Binding SubHero1.LoadedThumbnail}" 
+                                   Stretch="UniformToFill" 
+                                   x:Name="SubHero1BgImage"
+                                   Opacity="0.6" 
+                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.RenderTransform>
+                                    <ScaleTransform ScaleX="1.0" ScaleY="1.0" CenterX="130" CenterY="60" />
+                                </Image.RenderTransform>
+                            </Image>
+                            
+                            <Border>
                                 <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                        <GradientStop Color="#0D0E15" Offset="0" />
-                                        <GradientStop Color="#1A0D36" Offset="0.5" />
-                                        <GradientStop Color="#0A1828" Offset="1" />
+                                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                        <GradientStop Color="#00000000" Offset="0.2" />
+                                        <GradientStop Color="#C00A0B10" Offset="1.0" />
                                     </LinearGradientBrush>
                                 </Border.Background>
                             </Border>
-                            
-                            <!-- Star Favoriting Icon (Glowing outline) -->
-                            <ui:Button Icon="Star24" 
-                                       Appearance="Transparent" 
-                                       Foreground="{StaticResource ActiveCyanBrush}" 
-                                       HorizontalAlignment="Right" 
-                                       VerticalAlignment="Top" 
-                                       Margin="16" />
 
-                            <!-- Glowing abstract neon vectors in center (to simulate wallpaper thumb premium vibe) -->
-                            <Path Data="M 10,100 Q 100,20 200,80 T 300,10" 
-                                  Stroke="{StaticResource NeonPurpleCyanGradient}" 
-                                  StrokeThickness="1.5" 
-                                  Opacity="0.4"
-                                  VerticalAlignment="Center" 
-                                  HorizontalAlignment="Center" 
-                                  Width="200" Height="100" />
-                            
-                            <!-- Details Overlay -->
-                            <StackPanel VerticalAlignment="Bottom" Margin="24">
-                                <TextBlock Text="{Binding HeroWallpaper.Title, FallbackValue='Astral Horizon'}" 
-                                           FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" />
-                                <TextBlock Text="{Binding HeroWallpaper.Resolution, StringFormat={}{0} • 60 FPS • 4K, FallbackValue='3840 x 2160 • 60 FPS • 4K'}" 
-                                           FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,0" />
+                            <StackPanel VerticalAlignment="Bottom" Margin="12">
+                                <TextBlock Text="{Binding SubHero1.Title, FallbackValue='Retrowave Drive'}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" />
+                                <TextBlock Text="{Binding SubHero1.Resolution, StringFormat={}{0} • 60 FPS, FallbackValue='3440 x 1440 • 60 FPS'}" FontSize="10" Foreground="{StaticResource MutedTextBrush}" />
                             </StackPanel>
-                            
-                            <!-- Play Overlay Button -->
-                            <ui:Button Icon="Play24" 
-                                       Command="{Binding PlayWallpaperCommand}" 
-                                       CommandParameter="{Binding HeroWallpaper}"
-                                       Appearance="Primary" 
-                                       Foreground="#000000" 
-                                       Background="{StaticResource ActiveCyanBrush}"
-                                       HorizontalAlignment="Center" 
-                                       VerticalAlignment="Center" 
-                                       Width="48" Height="48"
-                                       CornerRadius="24">
-                                <ui:Button.Effect>
-                                    <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="12" Opacity="0.4" ShadowDepth="0" />
-                                </ui:Button.Effect>
-                            </ui:Button>
+
+                            <ui:Button Icon="Play16" Command="{Binding PlayWallpaperCommand}" CommandParameter="{Binding SubHero1}" Appearance="Secondary" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12" Width="32" Height="32" CornerRadius="16" />
                         </Grid>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="Mouse.MouseEnter">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="SubHero1BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.04" Duration="0:0:0.3" />
+                                        <DoubleAnimation Storyboard.TargetName="SubHero1BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.04" Duration="0:0:0.3" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <EventTrigger RoutedEvent="Mouse.MouseLeave">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="SubHero1BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.25" />
+                                        <DoubleAnimation Storyboard.TargetName="SubHero1BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.25" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
                     </Border>
 
-                    <!-- Small Right Stacked Cards -->
-                    <Grid Grid.Column="1">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
+                    <!-- Middle Sub Card (SubHero2) -->
+                    <Border Grid.Row="1" Style="{StaticResource NeonCardStyle}" Margin="0,4,0,4" ClipToBounds="True">
+                        <Grid>
+                            <!-- Sub2 thumbnail bound to LoadedThumbnail -->
+                            <Image Source="{Binding SubHero2.LoadedThumbnail}" 
+                                   Stretch="UniformToFill" 
+                                   x:Name="SubHero2BgImage"
+                                   Opacity="0.6" 
+                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.RenderTransform>
+                                    <ScaleTransform ScaleX="1.0" ScaleY="1.0" CenterX="130" CenterY="60" />
+                                </Image.RenderTransform>
+                            </Image>
+                            
+                            <Border>
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                        <GradientStop Color="#00000000" Offset="0.2" />
+                                        <GradientStop Color="#C00A0B10" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
 
-                        <!-- Upper Sub Card -->
-                        <Border Grid.Row="0" Style="{StaticResource NeonCardStyle}" Margin="0,0,0,6" ClipToBounds="True">
-                            <Grid>
-                                <ui:Button Icon="Star24" Appearance="Transparent" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" />
-                                <StackPanel VerticalAlignment="Bottom" Margin="12">
-                                    <TextBlock Text="{Binding SubHero1.Title, FallbackValue='Retrowave Drive'}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" />
-                                    <TextBlock Text="{Binding SubHero1.Resolution, StringFormat={}{0} • 60 FPS, FallbackValue='3440 x 1440 • 60 FPS'}" FontSize="10" Foreground="{StaticResource MutedTextBrush}" />
-                                </StackPanel>
-                                <ui:Button Icon="Play16" Command="{Binding PlayWallpaperCommand}" CommandParameter="{Binding SubHero1}" Appearance="Secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" CornerRadius="16" />
-                            </Grid>
-                        </Border>
+                            <StackPanel VerticalAlignment="Bottom" Margin="12">
+                                <TextBlock Text="{Binding SubHero2.Title, FallbackValue='Forest Serenity'}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" />
+                                <TextBlock Text="{Binding SubHero2.Resolution, StringFormat={}{0} • 30 FPS, FallbackValue='3840 x 2160 • 30 FPS'}" FontSize="10" Foreground="{StaticResource MutedTextBrush}" />
+                            </StackPanel>
 
-                        <!-- Lower Sub Card -->
-                        <Border Grid.Row="1" Style="{StaticResource NeonCardStyle}" Margin="0,6,0,0" ClipToBounds="True">
-                            <Grid>
-                                <ui:Button Icon="Star24" Appearance="Transparent" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" />
-                                <StackPanel VerticalAlignment="Bottom" Margin="12">
-                                    <TextBlock Text="{Binding SubHero2.Title, FallbackValue='Forest Serenity'}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" />
-                                    <TextBlock Text="{Binding SubHero2.Resolution, StringFormat={}{0} • 30 FPS, FallbackValue='3840 x 2160 • 30 FPS'}" FontSize="10" Foreground="{StaticResource MutedTextBrush}" />
-                                </StackPanel>
-                                <ui:Button Icon="Play16" Command="{Binding PlayWallpaperCommand}" CommandParameter="{Binding SubHero2}" Appearance="Secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" CornerRadius="16" />
-                            </Grid>
-                        </Border>
-                    </Grid>
+                            <ui:Button Icon="Play16" Command="{Binding PlayWallpaperCommand}" CommandParameter="{Binding SubHero2}" Appearance="Secondary" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12" Width="32" Height="32" CornerRadius="16" />
+                        </Grid>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="Mouse.MouseEnter">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="SubHero2BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.04" Duration="0:0:0.3" />
+                                        <DoubleAnimation Storyboard.TargetName="SubHero2BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.04" Duration="0:0:0.3" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <EventTrigger RoutedEvent="Mouse.MouseLeave">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="SubHero2BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.25" />
+                                        <DoubleAnimation Storyboard.TargetName="SubHero2BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.25" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
+                    </Border>
+
+                    <!-- Lower Sub Card (SubHero3) -->
+                    <Border Grid.Row="2" Style="{StaticResource NeonCardStyle}" Margin="0,4,0,0" ClipToBounds="True">
+                        <Grid>
+                            <!-- Sub3 thumbnail bound to LoadedThumbnail -->
+                            <Image Source="{Binding SubHero3.LoadedThumbnail}" 
+                                   Stretch="UniformToFill" 
+                                   x:Name="SubHero3BgImage"
+                                   Opacity="0.6" 
+                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.RenderTransform>
+                                    <ScaleTransform ScaleX="1.0" ScaleY="1.0" CenterX="130" CenterY="60" />
+                                </Image.RenderTransform>
+                            </Image>
+                            
+                            <Border>
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                        <GradientStop Color="#00000000" Offset="0.2" />
+                                        <GradientStop Color="#C00A0B10" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+
+                            <StackPanel VerticalAlignment="Bottom" Margin="12">
+                                <TextBlock Text="{Binding SubHero3.Title, FallbackValue='Sukuna Madness'}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" />
+                                <TextBlock Text="{Binding SubHero3.Resolution, StringFormat={}{0} • 60 FPS, FallbackValue='3840 x 2160 • 60 FPS'}" FontSize="10" Foreground="{StaticResource MutedTextBrush}" />
+                            </StackPanel>
+
+                            <ui:Button Icon="Play16" Command="{Binding PlayWallpaperCommand}" CommandParameter="{Binding SubHero3}" Appearance="Secondary" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12" Width="32" Height="32" CornerRadius="16" />
+                        </Grid>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="Mouse.MouseEnter">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="SubHero3BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.04" Duration="0:0:0.3" />
+                                        <DoubleAnimation Storyboard.TargetName="SubHero3BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.04" Duration="0:0:0.3" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <EventTrigger RoutedEvent="Mouse.MouseLeave">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="SubHero3BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.25" />
+                                        <DoubleAnimation Storyboard.TargetName="SubHero3BgImage" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.25" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
+                    </Border>
                 </Grid>
-
-                <!-- LIBRARY REGION -->
-                <TextBlock Text="Library" Style="{StaticResource HeaderLargeStyle}" Margin="0,0,0,8" />
-
-                <!-- FILTERS & SEARCH ROW -->
-                <Grid Margin="0,0,0,16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="220" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Filter Pill Buttons -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal">
-                        <RadioButton Content="All" IsChecked="True" Style="{StaticResource {x:Type ToggleButton}}" Height="28" Padding="12,2" Margin="0,0,6,0" Background="#1A1E2D" Foreground="#FFFFFF"/>
-                        <RadioButton Content="4K" Style="{StaticResource {x:Type ToggleButton}}" Height="28" Padding="12,2" Margin="0,0,6,0" Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
-                        <RadioButton Content="Ultrawide" Style="{StaticResource {x:Type ToggleButton}}" Height="28" Padding="12,2" Margin="0,0,6,0" Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
-                        <RadioButton Content="Abstract" Style="{StaticResource {x:Type ToggleButton}}" Height="28" Padding="12,2" Margin="0,0,6,0" Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
-                        <RadioButton Content="Nature" Style="{StaticResource {x:Type ToggleButton}}" Height="28" Padding="12,2" Margin="0,0,6,0" Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
-                        <RadioButton Content="Sci-Fi" Style="{StaticResource {x:Type ToggleButton}}" Height="28" Padding="12,2" Margin="0,0,6,0" Background="#10FFFFFF" Foreground="{StaticResource MutedTextBrush}"/>
-                    </StackPanel>
-
-                    <!-- Premium Cybernetic Search Bar -->
-                    <ui:TextBox Grid.Column="1" 
-                                PlaceholderText="Search wallpapers..." 
-                                Icon="Search24"
-                                Height="30"
-                                Background="#121622"
-                                BorderBrush="#2066FCF1"
-                                Foreground="#FFFFFF" />
-                </Grid>
-
-                <!-- STATIC FALLBACK GRID OF CARDS (MATCHES REFERENCE LAYOUT SYSTEM WITH ABSOLUTE RESPONSIVENESS) -->
-                <UniformGrid Columns="4" VerticalAlignment="Top">
-                    
-                    <!-- Card 1 -->
-                    <Border Style="{StaticResource NeonCardStyle}" Margin="4" Height="150" ClipToBounds="True">
-                        <Grid>
-                            <ui:Button Icon="Star16" Appearance="Transparent" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" />
-                            <StackPanel VerticalAlignment="Bottom" Margin="10">
-                                <TextBlock Text="Cosmic Drift" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
-                                <TextBlock Text="3840 x 2160 • 60 FPS" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
-                            </StackPanel>
-                            <ui:Button Icon="Play16" Appearance="Secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Width="30" Height="30" CornerRadius="15"/>
-                        </Grid>
-                    </Border>
-
-                    <!-- Card 2 -->
-                    <Border Style="{StaticResource NeonCardStyle}" Margin="4" Height="150" ClipToBounds="True">
-                        <Grid>
-                            <ui:Button Icon="Star16" Appearance="Transparent" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" />
-                            <StackPanel VerticalAlignment="Bottom" Margin="10">
-                                <TextBlock Text="Cyberpunk City" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
-                                <TextBlock Text="3440 x 1440 • 60 FPS" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
-                            </StackPanel>
-                            <ui:Button Icon="Play16" Appearance="Secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Width="30" Height="30" CornerRadius="15"/>
-                        </Grid>
-                    </Border>
-
-                    <!-- Card 3 -->
-                    <Border Style="{StaticResource NeonCardStyle}" Margin="4" Height="150" ClipToBounds="True">
-                        <Grid>
-                            <ui:Button Icon="Star16" Appearance="Transparent" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" />
-                            <StackPanel VerticalAlignment="Bottom" Margin="10">
-                                <TextBlock Text="Ocean Depths" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
-                                <TextBlock Text="3840 x 2160 • 30 FPS" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
-                            </StackPanel>
-                            <ui:Button Icon="Play16" Appearance="Secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Width="30" Height="30" CornerRadius="15"/>
-                        </Grid>
-                    </Border>
-
-                    <!-- Card 4 -->
-                    <Border Style="{StaticResource NeonCardStyle}" Margin="4" Height="150" ClipToBounds="True">
-                        <Grid>
-                            <ui:Button Icon="Star16" Appearance="Transparent" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" />
-                            <StackPanel VerticalAlignment="Bottom" Margin="10">
-                                <TextBlock Text="Minimal Waves" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
-                                <TextBlock Text="3840 x 2160 • 60 FPS" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
-                            </StackPanel>
-                            <ui:Button Icon="Play16" Appearance="Secondary" HorizontalAlignment="Center" VerticalAlignment="Center" Width="30" Height="30" CornerRadius="15"/>
-                        </Grid>
-                    </Border>
-
-                </UniformGrid>
-            </StackPanel>
-        </ScrollViewer>
+            </Grid>
+        </Grid>
+        <!-- End Left Content Grid -->
 
         <!-- ========================================== -->
         <!-- RIGHT DIAGNOSTICS & TELEMETRY PANEL        -->
@@ -361,7 +448,7 @@
                                                         <!-- Monitor Number -->
                                                         <TextBlock Text="{Binding Number}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                             <TextBlock.Effect>
-                                                                <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.3"/>
+                                                                 <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.3"/>
                                                             </TextBlock.Effect>
                                                         </TextBlock>
                                                         
@@ -381,6 +468,102 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- DEVELOPER DIAGNOSTICS & SANDBOX -->
+                    <Border Visibility="{Binding DevOverlayVisibility}" BorderBrush="#25EA1B63" BorderThickness="1" CornerRadius="8" Background="#0C0E17" Padding="12" Margin="0,12,0,0">
+                        <StackPanel>
+                            <!-- Header with neon pink drop shadow effect -->
+                            <TextBlock Text="DEVELOPER DIAGNOSTICS &amp; SANDBOX" FontSize="10" FontWeight="Bold" Foreground="#FF007F" Margin="0,0,0,12">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="#FF007F" BlurRadius="4" ShadowDepth="0" Opacity="0.5"/>
+                                </TextBlock.Effect>
+                            </TextBlock>
+
+                            <!-- Diagnostics Counters -->
+                            <StackPanel Margin="0,0,0,12">
+                                <!-- Active Containers -->
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="Active UI Containers" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="{Binding Diagnostics.ActiveContainers}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
+                                </Grid>
+                                <!-- Loaded Thumbnails -->
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="Loaded Thumbnails" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="{Binding Diagnostics.ActiveBitmaps}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
+                                </Grid>
+                                <!-- Active Previews -->
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="Active Preview Sessions" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="{Binding Diagnostics.ActivePreviewSessions}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
+                                </Grid>
+                                <!-- Dispatcher Latency -->
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="Dispatcher Latency" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <TextBlock Text="{Binding Diagnostics.DispatcherLatency}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
+                                        <TextBlock Text=" ms" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                                <!-- Memory Usage -->
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="Memory Profile" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="{Binding Diagnostics.MemoryUsageText}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
+                                </Grid>
+                                <!-- GPU Usage -->
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="GPU Load (Diagnostics)" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="{Binding Diagnostics.GpuUsage, StringFormat={}{0:F1}%}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
+                                </Grid>
+                                <!-- Health Indicator -->
+                                <Grid Margin="0,0,0,0">
+                                    <TextBlock Text="Virtualization Health" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Ellipse Width="6" Height="6" Margin="0,2,6,0">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Diagnostics.IsHealthy}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource ActiveGreenBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Diagnostics.IsHealthy}" Value="False">
+                                                            <Setter Property="Fill" Value="#FF007F" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                        <TextBlock FontSize="11" FontWeight="Bold" Foreground="#FFFFFF">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Diagnostics.IsHealthy}" Value="True">
+                                                            <Setter Property="Text" Value="Healthy" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Diagnostics.IsHealthy}" Value="False">
+                                                            <Setter Property="Text" Value="Warning" />
+                                                            <Setter Property="Foreground" Value="#FF007F" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+
+                            <Separator Background="#15FFFFFF" Margin="0,4,0,12" Height="1" />
+
+                            <!-- Interactive Crash Isolation Toggles -->
+                            <TextBlock Text="CRASH ISOLATION ACTIVE SWITCHES" FontSize="9" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,8" />
+                            <StackPanel>
+                                <ui:ToggleSwitch Content="Enable Panel Virtualization" IsChecked="{Binding Diagnostics.EnableVirtualization, Mode=TwoWay}" Margin="0,0,0,4" Foreground="{StaticResource MutedTextBrush}"/>
+                                <ui:ToggleSwitch Content="Enable Async Thumbnails" IsChecked="{Binding Diagnostics.EnableAsyncThumbnailLoading, Mode=TwoWay}" Margin="0,0,0,4" Foreground="{StaticResource MutedTextBrush}"/>
+                                <ui:ToggleSwitch Content="Enable Hover Previews" IsChecked="{Binding Diagnostics.EnableHoverPreviews, Mode=TwoWay}" Margin="0,0,0,4" Foreground="{StaticResource MutedTextBrush}"/>
+                                <ui:ToggleSwitch Content="Enable Thumbnail Eviction" IsChecked="{Binding Diagnostics.EnableThumbnailEviction, Mode=TwoWay}" Margin="0,0,0,4" Foreground="{StaticResource MutedTextBrush}"/>
+                                <ui:ToggleSwitch Content="Enable Graph Interpolation" IsChecked="{Binding Diagnostics.EnableTelemetryInterpolation, Mode=TwoWay}" Margin="0,0,0,0" Foreground="{StaticResource MutedTextBrush}"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

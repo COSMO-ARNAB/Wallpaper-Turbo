@@ -20,6 +20,13 @@ public class MonitorTopologyItem
 public partial class DashboardViewModel : ObservableObject
 {
     private readonly WallpaperService _wallpaperService;
+    private List<WallpaperEntry> _allWallpapers = new();
+
+    // Collection of dynamic wallpapers bound to the Library grid
+    public ObservableCollection<WallpaperEntry> FilteredWallpapers { get; } = new();
+
+    [ObservableProperty] private string _searchText = string.Empty;
+    [ObservableProperty] private string _selectedCategory = "All";
 
     // Real-Time Telemetry Properties
     [ObservableProperty] private double _gpuValue = 18;
@@ -49,6 +56,7 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private WallpaperEntry? _heroWallpaper;
     [ObservableProperty] private WallpaperEntry? _subHero1;
     [ObservableProperty] private WallpaperEntry? _subHero2;
+    [ObservableProperty] private WallpaperEntry? _subHero3;
 
     // Collection of active monitors
     public ObservableCollection<MonitorTopologyItem> Monitors { get; } = new();
@@ -59,32 +67,110 @@ public partial class DashboardViewModel : ObservableObject
     private double _lastRam = -1;
     private double _lastVram = -1;
 
-    public DashboardViewModel(WallpaperService wallpaperService)
+    public DiagnosticsService Diagnostics { get; }
+
+    public System.Windows.Visibility DevOverlayVisibility
+    {
+        get
+        {
+#if DEBUG
+            return System.Windows.Visibility.Visible;
+#else
+            return System.Windows.Visibility.Collapsed;
+#endif
+        }
+    }
+
+    public DashboardViewModel(WallpaperService wallpaperService, DiagnosticsService diagnosticsService)
     {
         _wallpaperService = wallpaperService;
+        Diagnostics = diagnosticsService;
 
         // Add mock monitor layouts matching reference image (3840x2160 Primary, 2560x1440 Secondary)
         Monitors.Add(new MonitorTopologyItem { Number = 1, Resolution = "3840 x 2160", Type = "Primary" });
         Monitors.Add(new MonitorTopologyItem { Number = 2, Resolution = "2560 x 1440", Type = "Secondary" });
 
-        // Load Hero wallpapers asynchronous
-        _ = LoadFeaturedWallpapersAsync();
+        // Load dynamic library
+        _ = LoadLibraryAsync();
+    }
+
+    public async Task LoadLibraryAsync()
+    {
+        _allWallpapers = await _wallpaperService.GetWallpapersAsync();
+        await LoadFeaturedWallpapersAsync();
+        ApplyFilter();
     }
 
     public async Task LoadFeaturedWallpapersAsync()
     {
-        var list = await _wallpaperService.GetWallpapersAsync();
-        if (list.Count >= 3)
+        if (_allWallpapers.Count >= 4)
         {
-            HeroWallpaper = list[0]; // Astral Horizon / Crimson Blind
-            SubHero1 = list[1];      // Retrowave Drive / Red Leaves
-            SubHero2 = list[2];      // Forest Serenity / Rapi Red
+            HeroWallpaper = _allWallpapers[0]; // Astral Horizon / Crimson Blind
+            SubHero1 = _allWallpapers[1];      // Retrowave Drive / Red Leaves
+            SubHero2 = _allWallpapers[2];      // Forest Serenity / Rapi Red
+            SubHero3 = _allWallpapers[3];      // Sukuna Madness
         }
-        else if (list.Count > 0)
+        else if (_allWallpapers.Count >= 3)
         {
-            HeroWallpaper = list[0];
-            SubHero1 = list[0];
-            SubHero2 = list[0];
+            HeroWallpaper = _allWallpapers[0];
+            SubHero1 = _allWallpapers[1];
+            SubHero2 = _allWallpapers[2];
+            SubHero3 = _allWallpapers[0];
+        }
+        else if (_allWallpapers.Count > 0)
+        {
+            HeroWallpaper = _allWallpapers[0];
+            SubHero1 = _allWallpapers[0];
+            SubHero2 = _allWallpapers[0];
+            SubHero3 = _allWallpapers[0];
+        }
+        await Task.CompletedTask;
+    }
+
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSelectedCategoryChanged(string value) => ApplyFilter();
+
+    [RelayCommand]
+    private void SelectCategory(string category)
+    {
+        SelectedCategory = category;
+    }
+
+    public void ApplyFilter()
+    {
+        FilteredWallpapers.Clear();
+        var query = _allWallpapers.AsEnumerable();
+
+        // 1. Search text filter
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            string searchLower = SearchText.ToLowerInvariant();
+            query = query.Where(w => w.Title.Contains(searchLower, StringComparison.OrdinalIgnoreCase) ||
+                                     w.Author.Contains(searchLower, StringComparison.OrdinalIgnoreCase) ||
+                                     w.Tags.Any(t => t.Contains(searchLower, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        // 2. Selected Category filter
+        if (!string.Equals(SelectedCategory, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            string categoryLower = SelectedCategory.ToLowerInvariant();
+            if (categoryLower == "4k")
+            {
+                query = query.Where(w => w.Resolution.Contains("3840"));
+            }
+            else if (categoryLower == "ultrawide")
+            {
+                query = query.Where(w => w.Resolution.Contains("3440"));
+            }
+            else
+            {
+                query = query.Where(w => w.Tags.Any(t => t.Equals(categoryLower, StringComparison.OrdinalIgnoreCase)));
+            }
+        }
+
+        foreach (var wp in query)
+        {
+            FilteredWallpapers.Add(wp);
         }
     }
 

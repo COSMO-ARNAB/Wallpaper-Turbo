@@ -67,10 +67,24 @@ public partial class PerformanceGraph : UserControl
         StopInterpolationLoop();
     }
 
+    private DateTime _lastTickTime = DateTime.MinValue;
+
     private void StartInterpolationLoop()
     {
-        if (!_isRenderingHooked)
+        if (DebugFlags.SafeDebugMode && !DebugFlags.EnableTelemetryInterpolation)
         {
+            // If interpolation is disabled, copy history to displayHistory immediately and Redraw
+            for (int i = 0; i < Math.Min(_history.Count, _displayHistory.Count); i++)
+            {
+                _displayHistory[i] = _history[i];
+            }
+            Redraw();
+            return;
+        }
+
+        if (!_isRenderingHooked && IsLoaded)
+        {
+            _lastTickTime = DateTime.UtcNow;
             CompositionTarget.Rendering += OnCompositionTargetRendering;
             _isRenderingHooked = true;
         }
@@ -87,8 +101,24 @@ public partial class PerformanceGraph : UserControl
 
     private void OnCompositionTargetRendering(object? sender, EventArgs e)
     {
-        // Smoothly interpolate display points toward target history points
+        var now = DateTime.UtcNow;
+        if (_lastTickTime == DateTime.MinValue)
+        {
+            _lastTickTime = now;
+            return;
+        }
+
+        double dt = (now - _lastTickTime).TotalSeconds;
+        _lastTickTime = now;
+
+        // Cap dt to avoid massive jumps during thread pauses
+        dt = Math.Min(dt, 0.1);
+
+        // Smoothly interpolate display points toward target history points using time-based decay
         bool needsRedraw = false;
+        double k = 6.0; // Decay speed factor for graphs
+        double decayFactor = 1.0 - Math.Exp(-k * dt);
+
         for (int i = 0; i < MaxPoints; i++)
         {
             double target = _history[i];
@@ -97,8 +127,7 @@ public partial class PerformanceGraph : UserControl
 
             if (Math.Abs(delta) > 0.01)
             {
-                // Exponential moving average for fluid organic ease-out motion (10% step per frame)
-                _displayHistory[i] = current + (delta * 0.1);
+                _displayHistory[i] = current + (delta * decayFactor);
                 needsRedraw = true;
             }
             else
@@ -110,6 +139,10 @@ public partial class PerformanceGraph : UserControl
         if (needsRedraw)
         {
             Redraw();
+        }
+        else
+        {
+            StopInterpolationLoop(); // Pause rendering loop when converged for zero CPU overhead!
         }
     }
 

@@ -110,4 +110,11 @@ public partial class LibraryViewModel : ObservableObject
             mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
         }
     }
+
+    [RelayCommand]
+    private async Task ImportWallpaperAsync()
+    {
+        var mainVm = App.GetService<MainViewModel>();
+        await mainVm.ImportWallpaperCommand.ExecuteAsync(null);
+    }
 }

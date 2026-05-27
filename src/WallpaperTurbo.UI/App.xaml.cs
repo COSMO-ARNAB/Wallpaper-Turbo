@@ -16,8 +16,12 @@ public partial class App : Application
         var services = new ServiceCollection();
 
         // Core Business Logic Services
+        services.AddSingleton<Services.IThumbnailExtractor, Services.WpfThumbnailExtractor>();
+        services.AddSingleton<Services.IWallpaperLibraryService, Services.WallpaperLibraryService>();
         services.AddSingleton<Services.WallpaperService>();
         services.AddSingleton<Services.TelemetryService>();
+        services.AddSingleton<Services.IWallpaperPreviewService, Services.WallpaperPreviewService>();
+        services.AddSingleton<Services.DiagnosticsService>(); // Development-time stability counters
 
         // ViewModels
         services.AddSingleton<ViewModels.MainViewModel>();
