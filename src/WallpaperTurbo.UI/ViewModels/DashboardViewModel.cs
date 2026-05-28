@@ -138,7 +138,6 @@ public partial class DashboardViewModel : ObservableObject
 
     public void ApplyFilter()
     {
-        FilteredWallpapers.Clear();
         var query = _allWallpapers.AsEnumerable();
 
         // 1. Search text filter
@@ -168,9 +167,31 @@ public partial class DashboardViewModel : ObservableObject
             }
         }
 
-        foreach (var wp in query)
+        var targetList = query.ToList();
+
+        // 3. Incremental synchronization to avoid list-level resetting
+        // Remove items no longer present
+        for (int i = FilteredWallpapers.Count - 1; i >= 0; i--)
         {
-            FilteredWallpapers.Add(wp);
+            if (!targetList.Contains(FilteredWallpapers[i]))
+            {
+                FilteredWallpapers.RemoveAt(i);
+            }
+        }
+
+        // Add or move items to match targetList exactly in order
+        for (int i = 0; i < targetList.Count; i++)
+        {
+            var targetItem = targetList[i];
+            int currentIndex = FilteredWallpapers.IndexOf(targetItem);
+            if (currentIndex == -1)
+            {
+                FilteredWallpapers.Insert(i, targetItem);
+            }
+            else if (currentIndex != i)
+            {
+                FilteredWallpapers.Move(currentIndex, i);
+            }
         }
     }
 

@@ -208,19 +208,14 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                                 if (meta != null && meta.TryGetValue("SourceLastWriteTimeUtc", out var storedTimeObj))
                                 {
                                     string storedTimeStr = storedTimeObj?.ToString() ?? string.Empty;
-                                    if (DateTime.TryParse(storedTimeStr, out var storedTime))
+                                    if (DateTime.TryParse(storedTimeStr, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var storedTime))
                                     {
                                         var currentWriteTime = File.GetLastWriteTimeUtc(wp.Video);
                                         // If mismatch > 1 second, invalidate cached thumbnail
                                         if (Math.Abs((currentWriteTime - storedTime).TotalSeconds) > 1.0)
                                         {
-                                            System.Diagnostics.Debug.WriteLine($"[Cache Invalidate] Media file modified for '{wp.Title}'. Invalidating thumbnail cache.");
+                                            System.Diagnostics.Debug.WriteLine($"[Cache Invalidate] Media file modified for '{wp.Title}'. Invalidation triggered.");
                                             needsRegen = true;
-                                            
-                                            if (File.Exists(wp.Thumbnail) && !wp.Thumbnail.StartsWith("pack://"))
-                                            {
-                                                File.Delete(wp.Thumbnail);
-                                            }
                                         }
                                     }
                                 }
@@ -237,8 +232,16 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                             string fallbackReason = !File.Exists(wp.Thumbnail) ? "Thumbnail file not found on disk" : (needsRegen ? "Source video write timestamp modified" : "Thumbnail path is pack placeholder");
                             System.Diagnostics.Debug.WriteLine($"[Thumbnail Start] Auto-recovery triggered for '{wp.Title}' (Reason: {fallbackReason}).");
                             
-                            wp.Thumbnail = "pack://application:,,,/Assets/Branding/wallpaper-turbo.ico"; // Temporary default placeholder
-                            wp.IsFallbackThumbnail = true;
+                            bool hasExisting = File.Exists(wp.Thumbnail) && !wp.Thumbnail.StartsWith("pack://");
+                            if (!hasExisting)
+                            {
+                                wp.Thumbnail = "pack://application:,,,/Assets/Branding/wallpaper-turbo.ico"; // Temporary default placeholder
+                                wp.IsFallbackThumbnail = true;
+                            }
+                            else
+                            {
+                                wp.IsFallbackThumbnail = false;
+                            }
                             
                             // Queue thumbnail regeneration in sequentially bounded background queue (concurrency = 1)
                             var wpCopy = wp;

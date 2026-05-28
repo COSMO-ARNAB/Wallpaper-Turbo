@@ -1,4 +1,5 @@
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      using System;
+#if FALSE
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -292,3 +293,4 @@ public sealed class MonitorSessionManager : IDisposable
         ShutdownAll();
     }
 }
+#endif

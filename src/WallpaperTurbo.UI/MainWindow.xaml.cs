@@ -140,6 +140,21 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Header_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == System.Windows.Input.MouseButton.Left)
+        {
+            if (e.ClickCount == 2)
+            {
+                this.WindowState = this.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            }
+            else
+            {
+                this.DragMove();
+            }
+        }
+    }
+
     protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         e.Cancel = true; // Block initial closing to allow background tasks to complete safely

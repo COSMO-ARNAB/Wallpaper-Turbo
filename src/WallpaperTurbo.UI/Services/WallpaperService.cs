@@ -126,10 +126,10 @@ public class WallpaperEntry : ObservableObject
 
     private async Task LoadThumbnailInternalAsync(string path)
     {
-        // Pack URIs and empty paths → show fallback immediately (no disk I/O)
+        // Pack URIs and empty paths → show no image immediately (no disk I/O)
         if (string.IsNullOrWhiteSpace(path) || path.StartsWith("pack://", StringComparison.OrdinalIgnoreCase))
         {
-            await ApplyThumbnailToUI(EnsureFallback());
+            await ApplyThumbnailToUI(null);
             return;
         }
 
@@ -155,7 +155,7 @@ public class WallpaperEntry : ObservableObject
             {
                 Debug.WriteLine($"[ISOLATE] Sync load error: {ex.Message}");
             }
-            LoadedThumbnail = result ?? EnsureFallback();
+            LoadedThumbnail = result;
             return;
         }
 
@@ -184,7 +184,7 @@ public class WallpaperEntry : ObservableObject
                 }
             });
 
-            await ApplyThumbnailToUI(result ?? EnsureFallback());
+            await ApplyThumbnailToUI(result);
         }
         finally
         {
@@ -192,7 +192,7 @@ public class WallpaperEntry : ObservableObject
         }
     }
 
-    private async Task ApplyThumbnailToUI(ImageSource source)
+    private async Task ApplyThumbnailToUI(ImageSource? source)
     {
         var dispatcher = Application.Current?.Dispatcher;
         if (dispatcher == null || dispatcher.CheckAccess())
@@ -325,7 +325,35 @@ public class WallpaperService
     public async Task<List<WallpaperEntry>> GetWallpapersAsync()
     {
         var list = await _libraryService.GetWallpapersAsync();
-        _wallpapers = list.ToList();
+        
+        // Merge list with _wallpapers in-place to preserve original WallpaperEntry instances
+        var mergedList = new List<WallpaperEntry>();
+        foreach (var incoming in list)
+        {
+            var existing = _wallpapers.FirstOrDefault(w => w.Id == incoming.Id);
+            if (existing != null)
+            {
+                // In-place update to preserve the reference (and LoadedThumbnail!)
+                existing.Title = incoming.Title;
+                existing.Video = incoming.Video;
+                existing.Author = incoming.Author;
+                existing.Tags = incoming.Tags;
+                existing.IsFallbackThumbnail = incoming.IsFallbackThumbnail;
+                
+                // Only update Thumbnail path if it has actually changed, to avoid re-triggering disk I/O
+                if (existing.Thumbnail != incoming.Thumbnail)
+                {
+                    existing.Thumbnail = incoming.Thumbnail;
+                }
+                mergedList.Add(existing);
+            }
+            else
+            {
+                mergedList.Add(incoming);
+            }
+        }
+        
+        _wallpapers = mergedList;
         
         // Sync active states on reload
         bool running = IsEngineRunning();
