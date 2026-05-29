@@ -20,6 +20,11 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Restore NuGet Packages
+      run: |
+        dotnet restore src/WallpaperTurbo.UI/WallpaperTurbo.UI.csproj -p:Platform=x64
+        dotnet restore src/WallpaperTurbo.AppRunner/WallpaperTurbo.AppRunner.csproj -p:Platform=x64
+
     - name: Compile and Publish WPF App
       run: |
         dotnet publish src/WallpaperTurbo.UI/WallpaperTurbo.UI.csproj -c Release -r win-x64 -p:Platform=x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -o ${{ github.workspace }}/publish/
