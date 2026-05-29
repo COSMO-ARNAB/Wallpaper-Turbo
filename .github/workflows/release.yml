@@ -26,7 +26,7 @@ jobs:
       run: choco install innosetup
 
     - name: Build Installer (Inno Setup)
-      run: iscc src/WallpaperTurbo.Installer/installer.iss
+      run: '"C:\Program Files (x86)\Inno Setup 6\iscc.exe" src/WallpaperTurbo.Installer/installer.iss'
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
