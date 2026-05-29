@@ -31,6 +31,7 @@ jobs:
       run: choco install innosetup
 
     - name: Build Installer (Inno Setup)
+      shell: cmd
       run: '"C:\Program Files (x86)\Inno Setup 6\iscc.exe" src/WallpaperTurbo.Installer/installer.iss'
 
     - name: Create GitHub Release
