@@ -257,6 +257,20 @@ internal static class Program
             catch { }
         }
 
+        Mutex? appRunnerMutex = null;
+        if (!isStop && !isDetach)
+        {
+            appRunnerMutex = new Mutex(true, "WallpaperTurbo_AppRunner_Mutex", out bool createdNew);
+            if (!createdNew)
+            {
+                if (!isSilent)
+                {
+                    Console.WriteLine("Wallpaper Turbo background engine is already running.");
+                }
+                return 0;
+            }
+        }
+
         if (isStop)
         {
             StopRunningInstances();
@@ -1328,6 +1342,12 @@ internal static class Program
             }
 
             _sessionManager?.Dispose();
+
+            try
+            {
+                appRunnerMutex?.Dispose();
+            }
+            catch { }
         }
     }
 

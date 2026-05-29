@@ -1,0 +1,36 @@
+name: Compile & Create Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger whenever you push a version tag like v1.1.0
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Compile and Publish WPF App
+      run: |
+        dotnet publish src/WallpaperTurbo.UI/WallpaperTurbo.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -o publish/
+
+    - name: Install Inno Setup
+      run: choco install innosetup
+
+    - name: Build Installer (Inno Setup)
+      run: iscc src/WallpaperTurbo.Installer/installer.iss
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: setup/Wallpaper_Turbo_Setup.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

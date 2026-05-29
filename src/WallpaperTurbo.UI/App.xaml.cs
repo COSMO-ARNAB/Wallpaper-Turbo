@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +11,7 @@ namespace WallpaperTurbo.UI;
 public partial class App : Application
 {
     private static readonly IServiceProvider _serviceProvider = ConfigureServices();
+    private static Mutex? _appMutex;
 
     private static IServiceProvider ConfigureServices()
     {
@@ -42,6 +44,14 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out bool createdNew);
+        if (!createdNew)
+        {
+            MessageBox.Show("Wallpaper Turbo is already running.", "Wallpaper Turbo", MessageBoxButton.OK, MessageBoxImage.Information);
+            Application.Current.Shutdown();
+            return;
+        }
+
         // Apply global application dark theme
         Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
 

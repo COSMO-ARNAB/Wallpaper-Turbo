@@ -5,3 +5,5 @@ obj/
 *.user
 *.suo
 src/WallpaperTurbo.AppRunner/Assets/*.mp4
+publish/
+setup/
