@@ -20,6 +20,9 @@ public partial class MainViewModel : ObservableObject
     private bool _isEngineRunning;
 
     [ObservableProperty]
+    private bool _isPlaying = true;
+
+    [ObservableProperty]
     private string _engineStatusText = "ENGINE STOPPED";
 
     [ObservableProperty]
@@ -45,6 +48,24 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string _activeWallpaperSpecs = "3840 x 2160 • 60 FPS";
+
+    [ObservableProperty]
+    private bool _isDialogVisible;
+
+    [ObservableProperty]
+    private string _dialogTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _dialogMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isDialogCancelVisible;
+
+    [ObservableProperty]
+    private ICommand? _dialogConfirmCommand;
+
+    [ObservableProperty]
+    private ICommand? _dialogCancelCommand;
 
     // ViewModels injection
     private readonly DashboardViewModel _dashboardViewModel;
@@ -151,10 +172,47 @@ public partial class MainViewModel : ObservableObject
         UpdateEngineStatus();
     }
 
+    [RelayCommand]
+    private async Task PlayAsync()
+    {
+        if (IsEngineRunning)
+        {
+            bool success = await _wallpaperService.ResumePlaybackAsync();
+            if (success) IsPlaying = true;
+        }
+    }
+
+    [RelayCommand]
+    private async Task PauseAsync()
+    {
+        if (IsEngineRunning)
+        {
+            bool success = await _wallpaperService.PausePlaybackAsync();
+            if (success) IsPlaying = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task StopAsync()
+    {
+        if (IsEngineRunning)
+        {
+            await _wallpaperService.StopPlaybackAsync();
+            ActiveWallpaperTitle = "No Active Wallpaper";
+            ActiveWallpaperSpecs = "None";
+            IsPlaying = true;
+            UpdateEngineStatus();
+        }
+    }
+
     public void UpdateEngineStatus()
     {
         IsEngineRunning = _wallpaperService.IsEngineRunning();
         EngineStatusText = IsEngineRunning ? "ENGINE RUNNING" : "ENGINE STOPPED";
+        if (!IsEngineRunning)
+        {
+            IsPlaying = true;
+        }
     }
 
     public void SetActiveWallpaperInfo(string title, string specs)
@@ -196,11 +254,11 @@ public partial class MainViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show(
-                    $"Failed to import wallpaper:\n{ex.Message}",
-                    "Import Failure",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
+                DialogTitle = "Import Failure";
+                DialogMessage = $"Failed to import wallpaper:\n{ex.Message}";
+                IsDialogCancelVisible = false;
+                DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
+                IsDialogVisible = true;
             }
         }
     }

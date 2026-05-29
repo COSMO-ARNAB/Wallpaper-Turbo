@@ -10,7 +10,7 @@ public static class DebugFlags
     /// WorkerW attachment, and VLC initialization.
     /// When true, replaces all background operations with logs and mock behaviors.
     /// </summary>
-    public const bool SafeDebugMode = true;
+    public const bool SafeDebugMode = false;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Runtime-Adjustable Crash Isolation Toggles (Active when SafeDebugMode = true)

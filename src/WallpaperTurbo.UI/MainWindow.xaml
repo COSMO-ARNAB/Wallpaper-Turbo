@@ -24,6 +24,7 @@
 
     <!-- MVVM Content DataTemplate Mappings -->
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
         <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
             <views:DashboardView />
         </DataTemplate>
@@ -98,14 +99,14 @@
 
                 <!-- NAVIGATION BUTTON LIST -->
                 <StackPanel Grid.Row="1">
-                    <RadioButton Content="Dashboard" IsChecked="True" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Library" Command="{Binding NavigateCommand}" CommandParameter="Library" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Playlists" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Monitor Setup" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Engine" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Performance" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Settings" Command="{Binding NavigateCommand}" CommandParameter="Settings" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="About" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Dashboard" Tag="Home24" IsChecked="True" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Library" Tag="Library24" Command="{Binding NavigateCommand}" CommandParameter="Library" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Playlists" Tag="Play24" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Monitor Setup" Tag="Desktop24" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Engine" Tag="Power24" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Performance" Tag="Flash24" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="Settings" Tag="Settings24" Command="{Binding NavigateCommand}" CommandParameter="Settings" Style="{StaticResource SidebarButtonStyle}" />
+                    <RadioButton Content="About" Tag="Info24" Style="{StaticResource SidebarButtonStyle}" />
                 </StackPanel>
 
                 <!-- SUBTLE SEPARATOR FOR LOWER SIDEBAR -->
@@ -115,6 +116,7 @@
                 <Border Grid.Row="3" Style="{StaticResource NeonCardStyle}" Margin="12,0,12,16" Padding="12" ClipToBounds="True">
                     <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -155,6 +157,68 @@
                             </ProgressBar>
                             
                             <TextBlock Grid.Column="2" Text="03:47" FontSize="9" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <!-- Real-time Playback Media Controls -->
+                        <Grid Grid.Row="3" Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Play/Pause Toggle button with cyber-active styling -->
+                            <ui:Button Grid.Column="1" 
+                                       Width="38" 
+                                       Height="38" 
+                                       CornerRadius="19" 
+                                       Padding="0"
+                                       Background="#15FFFFFF" 
+                                       BorderBrush="#3066FCF1"
+                                       BorderThickness="1"
+                                       HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center">
+                                <ui:Button.Style>
+                                    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                <Setter Property="Command" Value="{Binding PauseCommand}" />
+                                                <Setter Property="Icon" Value="Pause24" />
+                                                <Setter Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsPlaying}" Value="False">
+                                                <Setter Property="Command" Value="{Binding PlayCommand}" />
+                                                <Setter Property="Icon" Value="Play24" />
+                                                <Setter Property="Foreground" Value="{StaticResource ActiveGreenBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Button.Style>
+                                <ui:Button.Effect>
+                                    <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.15" />
+                                </ui:Button.Effect>
+                            </ui:Button>
+
+                            <!-- Stop/Cancel Playback button styled with WarningRed -->
+                            <ui:Button Grid.Column="3" 
+                                       Command="{Binding StopCommand}"
+                                       Icon="Dismiss24"
+                                       Width="38" 
+                                       Height="38" 
+                                       CornerRadius="19" 
+                                       Padding="0"
+                                       Background="#15FFFFFF" 
+                                       BorderBrush="#30FF3366"
+                                       BorderThickness="1"
+                                       Foreground="{StaticResource WarningRedBrush}"
+                                       HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center">
+                                <ui:Button.Effect>
+                                    <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.15" />
+                                </ui:Button.Effect>
+                            </ui:Button>
                         </Grid>
                     </Grid>
                 </Border>
@@ -367,6 +431,57 @@
                         
                         <!-- Version Tag -->
                         <TextBlock Text="v2.1.0" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- PREMIUM GLOWING IN-APP MODAL OVERLAY -->
+        <Grid Grid.Column="0" Grid.ColumnSpan="2" Panel.ZIndex="1000" Visibility="{Binding IsDialogVisible, Converter={StaticResource BoolToVisConverter}}">
+            <Border Background="#D8080A10" />
+            <Border Width="400" HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="16" Background="#0F121D" BorderBrush="{StaticResource WarningRedBrush}" BorderThickness="1.5">
+                <Border.Effect>
+                    <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="30" ShadowDepth="0" Opacity="0.4" />
+                </Border.Effect>
+                <Grid Margin="24">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Title with cyber icon -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                        <ui:SymbolIcon Symbol="AlertUrgent24" Foreground="{StaticResource WarningRedBrush}" Margin="0,0,10,0" VerticalAlignment="Center" Filled="True"/>
+                        <TextBlock Text="{Binding DialogTitle}" FontSize="16" FontWeight="ExtraBold" Foreground="{StaticResource WhiteTextBrush}" VerticalAlignment="Center" FontFamily="Segoe UI Variable Display, Inter, Segoe UI"/>
+                    </StackPanel>
+                    
+                    <!-- Dialog Message -->
+                    <TextBlock Grid.Row="1" Text="{Binding DialogMessage}" FontSize="12" Foreground="#C8D2E6" TextWrapping="Wrap" Margin="0,0,0,24" LineHeight="18" FontFamily="Segoe UI Variable Text, Inter, Segoe UI"/>
+                    
+                    <!-- Dynamic Cancel/Confirm Action buttons styled with scifi transitions -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <!-- Cancel Button (Only shown when IsDialogCancelVisible is True) -->
+                        <ui:Button Content="Cancel" 
+                                   Command="{Binding DialogCancelCommand}" 
+                                   Width="90" 
+                                   Height="34" 
+                                   Margin="0,0,12,0" 
+                                   Appearance="Secondary" 
+                                   Background="#15FFFFFF" 
+                                   Foreground="{StaticResource WhiteTextBrush}" 
+                                   BorderThickness="0" 
+                                   CornerRadius="8"
+                                   Visibility="{Binding IsDialogCancelVisible, Converter={StaticResource BoolToVisConverter}}" />
+                        <!-- Confirm/Yes Button -->
+                        <ui:Button Content="Confirm" 
+                                   Command="{Binding DialogConfirmCommand}" 
+                                   Width="100" 
+                                   Height="34" 
+                                   Background="{StaticResource WarningRedBrush}" 
+                                   Foreground="{StaticResource WhiteTextBrush}" 
+                                   BorderThickness="0"
+                                   CornerRadius="8" />
                     </StackPanel>
                 </Grid>
             </Border>

@@ -132,45 +132,76 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Sidebar Button Navigation Style -->
+    <!-- Sidebar Button Navigation Style with Premium Cyber Icons -->
     <Style x:Key="SidebarButtonStyle" TargetType="RadioButton">
-        <Setter Property="Height" Value="48" />
-        <Setter Property="Margin" Value="8,2,8,2" />
+        <Setter Property="Height" Value="46" />
+        <Setter Property="Margin" Value="12,3,12,3" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="FontFamily" Value="Segoe UI Variable Display, Inter, Segoe UI" />
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="Border" 
                             Background="{TemplateBinding Background}" 
-                            CornerRadius="8" 
-                            BorderThickness="4,0,0,0" 
-                            BorderBrush="Transparent">
+                            CornerRadius="10" 
+                            BorderThickness="0" 
+                            Padding="12,0">
                         <Grid>
-                            <!-- Highlight Bar on Left -->
-                            <Border x:Name="Indicator" Width="4" Height="24" Background="Transparent" HorizontalAlignment="Left" CornerRadius="2" Margin="-4,0,0,0"/>
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0,0,0" 
-                                              TextBlock.FontFamily="{TemplateBinding FontFamily}"
-                                              TextBlock.FontSize="{TemplateBinding FontSize}"
-                                              TextBlock.FontWeight="{TemplateBinding FontWeight}"
-                                              TextBlock.Foreground="{TemplateBinding Foreground}"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- Glowing Highlight indicator on checked -->
+                            <Border x:Name="Indicator" 
+                                    Width="3" 
+                                    Height="16" 
+                                    Background="Transparent" 
+                                    HorizontalAlignment="Left" 
+                                    CornerRadius="1.5" 
+                                    Margin="-12,0,0,0"/>
+
+                            <StackPanel Orientation="Horizontal" Grid.Column="1" VerticalAlignment="Center">
+                                <!-- Dynamic Icon bound to Tag -->
+                                <ui:SymbolIcon x:Name="Icon" 
+                                               Symbol="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" 
+                                               FontSize="16" 
+                                               Foreground="{TemplateBinding Foreground}"
+                                               Margin="4,0,12,0" 
+                                               VerticalAlignment="Center"/>
+                                
+                                <!-- Navigation Title -->
+                                <ContentPresenter VerticalAlignment="Center" 
+                                                  TextBlock.FontFamily="{TemplateBinding FontFamily}"
+                                                  TextBlock.FontSize="{TemplateBinding FontSize}"
+                                                  TextBlock.FontWeight="{TemplateBinding FontWeight}"
+                                                  TextBlock.Foreground="{TemplateBinding Foreground}"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Border" Property="Background" Value="{StaticResource SidebarSelectionGradient}" />
                             <Setter TargetName="Indicator" Property="Background" Value="{StaticResource ActivePurpleBrush}" />
-                            <Setter Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
-                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter TargetName="Icon" Property="Filled" Value="True" />
+                            <Setter TargetName="Icon" Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource WhiteTextBrush}" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Border" Property="Background" Value="#10FFFFFF" />
+                            <Setter TargetName="Border" Property="Background" Value="#12FFFFFF" />
                             <Setter Property="Foreground" Value="#FFFFFF" />
                         </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True" />
+                                <Condition Property="IsChecked" Value="False" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Icon" Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
+                        </MultiTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>

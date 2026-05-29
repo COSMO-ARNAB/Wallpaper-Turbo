@@ -32,6 +32,7 @@ internal static class Program
     private static IMediaPipeline? _activePipeline;
     private static IntPtr _hwnd = IntPtr.Zero;
     private static List<WallpaperEntry> _mergedWallpapers = new();
+    private static int _uiPid = 0;
 
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     private static extern bool SetConsoleCtrlHandler(ConsoleCtrlDelegate handler, bool add);
@@ -85,7 +86,7 @@ internal static class Program
             }
 
             string decodeArgument = _useSoftwareDecode ? " --software-decode" : string.Empty;
-            string arguments = $"--wallpaper {_finalWallpaperIndex} --silent --pause-mode {_pauseMode}{decodeArgument}";
+            string arguments = $"--wallpaper {_finalWallpaperIndex} --silent --pause-mode {_pauseMode}{decodeArgument}{(_uiPid > 0 ? $" --ui-pid {_uiPid}" : string.Empty)}";
 
             if (string.IsNullOrEmpty(processPath) || 
                 processPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase) || 
@@ -161,6 +162,7 @@ internal static class Program
         bool memoryDiagnostics = false;
         bool noDetachOnStdinClose = false;
         bool skipDesktopAttach = false;
+        int uiPid = 0;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -227,6 +229,14 @@ internal static class Program
                 pauseMode = PauseMode.Focused;
                 pauseModeExplicitlySet = true;
             }
+            else if (args[i].Equals("--ui-pid", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 < args.Length && int.TryParse(args[i + 1], out int parsedUiPid))
+                {
+                    uiPid = parsedUiPid;
+                    i++;
+                }
+            }
             else if (int.TryParse(args[i], out int index))
             {
                 wallpaperIndex = index;
@@ -254,14 +264,25 @@ internal static class Program
         }
 
         string manifestPath = Path.Combine(AppContext.BaseDirectory, "Assets", "WallpaperManifest.json");
-        if (!File.Exists(manifestPath))
+        if (File.Exists(manifestPath))
         {
-            Console.Error.WriteLine($"Manifest file not found: {manifestPath}");
-            return 1;
+            try
+            {
+                WallpaperManifest defaultManifest = WallpaperLibrary.Load(manifestPath);
+                if (defaultManifest.Wallpapers != null)
+                {
+                    _mergedWallpapers.AddRange(defaultManifest.Wallpapers);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Manifest] Failed to load default manifest: {ex.Message}");
+            }
         }
-
-        WallpaperManifest defaultManifest = WallpaperLibrary.Load(manifestPath);
-        _mergedWallpapers.AddRange(defaultManifest.Wallpapers);
+        else
+        {
+            Console.WriteLine("[Manifest] Default installation manifest not found. Proceeding with user-imported wallpapers.");
+        }
 
         // Load user manifest from LocalAppData if present to maintain identical index offsets
         string userManifestPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo", "WallpaperManifest.json");
@@ -279,6 +300,13 @@ internal static class Program
             {
                 Console.Error.WriteLine($"[Manifest] Failed to merge user manifest: {ex.Message}");
             }
+        }
+
+        if (_mergedWallpapers.Count == 0)
+        {
+            Console.Error.WriteLine("[Error] No wallpapers found in either default assets or user-imported manifests.");
+            Console.Error.WriteLine("Please import a wallpaper using the UI first, or restore default assets.");
+            return 1;
         }
 
         int finalWallpaperIndex = 1;
@@ -341,7 +369,7 @@ internal static class Program
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = processPath,
-                Arguments = $"--wallpaper {finalWallpaperIndex} --silent --pause-mode {pauseMode}{(useSoftwareDecode ? " --software-decode" : string.Empty)}",
+                Arguments = $"--wallpaper {finalWallpaperIndex} --silent --pause-mode {pauseMode}{(useSoftwareDecode ? " --software-decode" : string.Empty)}{(uiPid > 0 ? $" --ui-pid {uiPid}" : string.Empty)}",
                 UseShellExecute = true,
                 CreateNoWindow = true,
                 WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
@@ -375,6 +403,7 @@ internal static class Program
         _useSoftwareDecode = useSoftwareDecode;
         _videoOutputModule = videoOutputModule;
         _memoryDiagnostics = memoryDiagnostics;
+        _uiPid = uiPid;
         LogMemory("startup.after-args");
 
         _consoleCtrlHandler = OnConsoleCtrl;
@@ -932,6 +961,7 @@ internal static class Program
             };
 
             foregroundWatcher = new ForegroundWindowWatcher(pauseMode);
+            foregroundWatcher.ExcludedPid = _uiPid;
             Console.WriteLine($"[Performance] Active Performance Pause Mode: {pauseMode}");
             LogMemory("watchers.started");
             foregroundWatcher.VisibilityChanged += (isObscured) =>
@@ -1128,6 +1158,33 @@ internal static class Program
                     catch
                     {
                         // Safe failure
+                    }
+                }
+            });
+
+            // Start Named Pipe IPC Server for real-time UI control
+            _ = Task.Run(async () =>
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        using var server = new System.IO.Pipes.NamedPipeServerStream("WallpaperTurbo_IPC", System.IO.Pipes.PipeDirection.In, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
+                        await server.WaitForConnectionAsync(cts.Token);
+                        using var reader = new System.IO.StreamReader(server);
+                        string? cmd = await reader.ReadLineAsync(cts.Token);
+                        if (!string.IsNullOrEmpty(cmd))
+                        {
+                            await ProcessCommandAsync(cmd.Trim(), _mergedWallpapers, _sessionManager, _hwnd, cts.Token);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch
+                    {
+                        await Task.Delay(1000, cts.Token);
                     }
                 }
             });

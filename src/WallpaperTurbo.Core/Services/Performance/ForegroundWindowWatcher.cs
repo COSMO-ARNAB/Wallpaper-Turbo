@@ -22,6 +22,13 @@ public sealed class ForegroundWindowWatcher : IDisposable
 
     public PauseMode PauseMode { get; set; }
 
+    /// <summary>
+    /// Process ID of the managing UI application. Windows owned by this PID are
+    /// never treated as obscuring the desktop, so the wallpaper keeps playing
+    /// while the WallpaperTurbo UI is in the foreground.
+    /// </summary>
+    public int ExcludedPid { get; set; } = 0;
+
     public ForegroundWindowWatcher(PauseMode mode = PauseMode.Maximized)
     {
         PauseMode = mode;
@@ -81,6 +88,16 @@ public sealed class ForegroundWindowWatcher : IDisposable
         if (hwnd == GetDesktopWindow() || hwnd == GetShellWindow())
         {
             return false;
+        }
+
+        // Exclude the WallpaperTurbo UI process from triggering pause.
+        // Without this, the management UI window (which can be maximized) would
+        // immediately suspend the wallpaper every time the user interacts with it.
+        if (ExcludedPid > 0)
+        {
+            GetWindowThreadProcessId(hwnd, out uint ownerPid);
+            if (ownerPid == (uint)ExcludedPid)
+                return false;
         }
 
         // Verify class name of foreground window to avoid pausing when on desktop, taskbar or widgets
@@ -173,4 +190,7 @@ public sealed class ForegroundWindowWatcher : IDisposable
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 }

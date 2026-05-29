@@ -257,4 +257,29 @@ public partial class DashboardViewModel : ObservableObject
             App.GetService<MainViewModel>().SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
         }
     }
+
+    [RelayCommand]
+    private async Task TripleClickPlayWallpaperAsync(WallpaperEntry? wp)
+    {
+        if (wp == null) return;
+        var list = await _wallpaperService.GetWallpapersAsync();
+        int index = list.IndexOf(wp) + 1;
+        if (index > 0)
+        {
+            // 1. Force close any previous wallpaper completely first
+            var mainVm = App.GetService<MainViewModel>();
+            if (mainVm.IsEngineRunning)
+            {
+                await _wallpaperService.StopPlaybackAsync();
+                await Task.Delay(500); // Give it a short delay for OS process cleanup
+            }
+
+            // 2. Play the new wallpaper fresh from scratch (forcing fresh process)
+            await _wallpaperService.LaunchWallpaperAsync(index, PauseOnMaximized ? "Maximized" : "None", forceFreshLaunch: true);
+
+            // 3. Update main status details
+            mainVm.UpdateEngineStatus();
+            mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
+        }
+    }
 }

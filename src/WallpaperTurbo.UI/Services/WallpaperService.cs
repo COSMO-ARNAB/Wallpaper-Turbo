@@ -259,6 +259,8 @@ public class WallpaperEntry : ObservableObject
     public string Resolution => Id.Contains("frieren") || Id.Contains("crimson") ? "3840 x 2160" : "3440 x 1440";
     public string Fps => Id.Contains("frieren") || Id.Contains("crimson") ? "60 FPS" : "30 FPS";
     public string TagsDisplay => string.Join(" • ", Tags).ToUpperInvariant();
+    [JsonIgnore]
+    public bool IsDeletable => true;
 }
 
 public class WallpaperManifest
@@ -398,18 +400,27 @@ public class WallpaperService
         return isRunning;
     }
 
-    public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null, bool? softwareDecode = null)
+    public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null, bool? softwareDecode = null, bool forceFreshLaunch = false)
     {
-        DiagnosticsService.SetAction($"Wallpaper Service Launching Wallpaper: Index {index}");
+        DiagnosticsService.SetAction($"Wallpaper Service Launching Wallpaper: Index {index} (ForceFresh: {forceFreshLaunch})");
 
         if (DebugFlags.SafeDebugMode)
         {
-            Debug.WriteLine($"[ISOLATE] LaunchWallpaperAsync requested for index: {index}, pauseMode: {pauseMode}, softwareDecode: {softwareDecode}");
+            Debug.WriteLine($"[ISOLATE] LaunchWallpaperAsync requested for index: {index}, pauseMode: {pauseMode}, softwareDecode: {softwareDecode}, forceFreshLaunch: {forceFreshLaunch}");
             _activeWallpaperIndex = index;
             UpdateActiveStates(index);
             _mockEngineRunning = true;
             DiagnosticsService.SetAction("Wallpaper Service Idle / Launch complete (SafeDebugMode)");
             return await Task.FromResult(true);
+        }
+
+        // Try to swap in real-time over IPC Named Pipe first (skip if fresh launch is forced)
+        if (!forceFreshLaunch && await SendIpcCommandAsync($"swap {index}"))
+        {
+            _activeWallpaperIndex = index;
+            UpdateActiveStates(index);
+            DiagnosticsService.SetAction("Wallpaper Service Idle / Swap via IPC complete");
+            return true;
         }
 
         if (!File.Exists(_appRunnerExePath))
@@ -436,7 +447,8 @@ public class WallpaperService
             try
             {
                 string decodeArg = softDecode ? " --software-decode" : string.Empty;
-                string args = $"--detach --wallpaper {index} --silent --pause-mode {mode}{decodeArg}";
+                int currentPid = System.Diagnostics.Process.GetCurrentProcess().Id;
+                string args = $"--detach --wallpaper {index} --silent --pause-mode {mode}{decodeArg} --ui-pid {currentPid}";
 
                 DiagnosticsService.SetAction($"Wallpaper Service Starting process: {args}");
 
@@ -520,5 +532,52 @@ public class WallpaperService
     }
 
     public int GetActiveWallpaperIndex() => _activeWallpaperIndex;
+
+    public async Task<bool> DeleteWallpaperAsync(WallpaperEntry wp)
+    {
+        // 1. If currently playing, stop playback first
+        int index = _wallpapers.IndexOf(wp);
+        if (wp.IsActive || _activeWallpaperIndex == index + 1)
+        {
+            await StopPlaybackAsync();
+        }
+
+        // 2. Call library service to delete manifest entry & disk folder
+        bool success = await _libraryService.DeleteWallpaperAsync(wp.Id);
+        if (success)
+        {
+            // Remove from the local cache list
+            _wallpapers.Remove(wp);
+        }
+        return success;
+    }
+
+    public async Task<bool> PausePlaybackAsync()
+    {
+        DiagnosticsService.SetAction("Wallpaper Service Pausing Playback via IPC");
+        return await SendIpcCommandAsync("pause");
+    }
+
+    public async Task<bool> ResumePlaybackAsync()
+    {
+        DiagnosticsService.SetAction("Wallpaper Service Resuming Playback via IPC");
+        return await SendIpcCommandAsync("play");
+    }
+
+    private async Task<bool> SendIpcCommandAsync(string command)
+    {
+        try
+        {
+            using var client = new System.IO.Pipes.NamedPipeClientStream(".", "WallpaperTurbo_IPC", System.IO.Pipes.PipeDirection.Out);
+            await client.ConnectAsync(150); // 150ms timeout for instant responsiveness
+            using var writer = new StreamWriter(client) { AutoFlush = true };
+            await writer.WriteLineAsync(command);
+            return true;
+        }
+        catch
+        {
+            return false; // Engine not running or IPC not responsive
+        }
+    }
 }
 

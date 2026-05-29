@@ -52,7 +52,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Large Primary Hero Card -->
-                <Border Grid.Column="0" Style="{StaticResource NeonCardStyle}" Margin="0,0,12,0" ClipToBounds="True">
+                <Border Grid.Column="0" Style="{StaticResource NeonCardStyle}" Margin="0,0,12,0" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown" Tag="Hero">
                     <Grid>
                         <!-- Hero thumbnail: bound directly to LoadedThumbnail (async-loaded ImageSource, no converter) -->
                         <Image Source="{Binding HeroWallpaper.LoadedThumbnail}" 
@@ -139,7 +139,7 @@
                     </Grid.RowDefinitions>
 
                     <!-- Upper Sub Card (SubHero1) -->
-                    <Border Grid.Row="0" Style="{StaticResource NeonCardStyle}" Margin="0,0,0,4" ClipToBounds="True">
+                    <Border Grid.Row="0" Style="{StaticResource NeonCardStyle}" Margin="0,0,0,4" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown" Tag="SubHero1">
                         <Grid>
                             <!-- Sub1 thumbnail bound to LoadedThumbnail -->
                             <Image Source="{Binding SubHero1.LoadedThumbnail}" 
@@ -189,7 +189,7 @@
                     </Border>
 
                     <!-- Middle Sub Card (SubHero2) -->
-                    <Border Grid.Row="1" Style="{StaticResource NeonCardStyle}" Margin="0,4,0,4" ClipToBounds="True">
+                    <Border Grid.Row="1" Style="{StaticResource NeonCardStyle}" Margin="0,4,0,4" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown" Tag="SubHero2">
                         <Grid>
                             <!-- Sub2 thumbnail bound to LoadedThumbnail -->
                             <Image Source="{Binding SubHero2.LoadedThumbnail}" 
@@ -239,7 +239,7 @@
                     </Border>
 
                     <!-- Lower Sub Card (SubHero3) -->
-                    <Border Grid.Row="2" Style="{StaticResource NeonCardStyle}" Margin="0,4,0,0" ClipToBounds="True">
+                    <Border Grid.Row="2" Style="{StaticResource NeonCardStyle}" Margin="0,4,0,0" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown" Tag="SubHero3">
                         <Grid>
                             <!-- Sub3 thumbnail bound to LoadedThumbnail -->
                             <Image Source="{Binding SubHero3.LoadedThumbnail}" 

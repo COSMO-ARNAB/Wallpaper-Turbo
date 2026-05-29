@@ -94,7 +94,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <!-- Simple, clean card -->
-                        <Border Margin="8" Width="230" Height="200" CornerRadius="8" Background="#131622" BorderBrush="#2066FCF1" BorderThickness="1" ClipToBounds="True">
+                        <Border Margin="8" Width="230" Height="200" CornerRadius="8" Background="#131622" BorderBrush="#2066FCF1" BorderThickness="1" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="124" />
@@ -103,6 +103,44 @@
 
                                 <!-- Thumbnail -->
                                 <Image Grid.Row="0" Source="{Binding LoadedThumbnail}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                 <!-- Floating Trash delete button (premium hover reveal) -->
+                                <Button x:Name="DeleteButton"
+                                        Grid.Row="0"
+                                        Command="{Binding DataContext.DeleteWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Width="28" Height="28"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        Margin="8">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="btnBorder" Background="#FF3B30" CornerRadius="14" BorderThickness="0">
+                                                <ui:SymbolIcon x:Name="btnIcon" Symbol="Delete20" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="btnBorder" Property="Background" Value="Transparent" />
+                                                    <Setter TargetName="btnIcon" Property="Foreground" Value="#FF3B30" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsDeletable}" Value="True"/>
+                                                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
 
                                 <!-- Metadata & Control footer -->
                                 <Grid Grid.Row="1" Margin="10">

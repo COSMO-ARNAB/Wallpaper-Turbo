@@ -25,4 +25,11 @@
     <Resource Include="Assets\Branding\wallpaper-turbo.png" />
   </ItemGroup>
 
+  <!-- Automatically publish the AppRunner background engine to the same directory when UI is published -->
+  <Target Name="PublishAppRunner" AfterTargets="Publish">
+    <MSBuild Projects="..\WallpaperTurbo.AppRunner\WallpaperTurbo.AppRunner.csproj"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$(PublishDir)" />
+  </Target>
+
 </Project>

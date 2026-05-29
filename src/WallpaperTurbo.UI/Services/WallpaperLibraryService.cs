@@ -661,4 +661,123 @@ public class WallpaperLibraryService : IWallpaperLibraryService
             await Task.WhenAll(tasksToAwait).ConfigureAwait(false);
         }
     }
+
+    public async Task<bool> DeleteWallpaperAsync(string guid, CancellationToken cancellationToken = default)
+    {
+        bool deleted = false;
+
+        // 1. Try deleting from User Manifest
+        await _manifestLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (File.Exists(_manifestPath))
+            {
+                string json = await File.ReadAllTextAsync(_manifestPath, cancellationToken);
+                var manifest = JsonSerializer.Deserialize<UserWallpaperManifest>(json);
+                if (manifest != null)
+                {
+                    var wp = manifest.Wallpapers.FirstOrDefault(w => w.Id == guid);
+                    if (wp != null)
+                    {
+                        manifest.Wallpapers.Remove(wp);
+                        await SaveManifestAtomicAsync(manifest, cancellationToken);
+                        
+                        // Delete user wallpaper folder on disk in the background
+                        _ = Task.Run(() =>
+                        {
+                            try
+                            {
+                                string targetDir = Path.Combine(_wallpapersDir, guid);
+                                if (Directory.Exists(targetDir))
+                                {
+                                    Directory.Delete(targetDir, true);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Failed to delete user wallpaper folder for '{guid}': {ex.Message}");
+                            }
+                        }, CancellationToken.None);
+
+                        deleted = true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error deleting from user manifest: {ex.Message}");
+        }
+        finally
+        {
+            _manifestLock.Release();
+        }
+
+        if (deleted) return true;
+
+        // 2. Try deleting from Default Manifest
+        string defaultManifestPath = Path.Combine(_appRunnerDir, "Assets", "WallpaperManifest.json");
+        if (File.Exists(defaultManifestPath))
+        {
+            try
+            {
+                await _manifestLock.WaitAsync(cancellationToken);
+                
+                string json = await File.ReadAllTextAsync(defaultManifestPath, cancellationToken);
+                var manifest = JsonSerializer.Deserialize<WallpaperManifest>(json);
+                if (manifest != null)
+                {
+                    var wp = manifest.Wallpapers.FirstOrDefault(w => w.Id == guid);
+                    if (wp != null)
+                    {
+                        manifest.Wallpapers.Remove(wp);
+                        
+                        // Save default manifest atomically
+                        string tempFile = Path.Combine(_localAppDir, $"{Guid.NewGuid()}.tmp");
+                        string outputJson = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
+                        await File.WriteAllTextAsync(tempFile, outputJson, cancellationToken);
+                        
+                        if (File.Exists(defaultManifestPath)) File.Delete(defaultManifestPath);
+                        File.Move(tempFile, defaultManifestPath);
+
+                        // Try to delete default wallpaper video and local thumbnail if they exist
+                        _ = Task.Run(() =>
+                        {
+                            try
+                            {
+                                string absoluteVideo = Path.Combine(_appRunnerDir, wp.Video);
+                                if (File.Exists(absoluteVideo))
+                                {
+                                    File.Delete(absoluteVideo);
+                                }
+
+                                string localThumbDir = Path.Combine(_localAppDir, "Thumbnails");
+                                string localThumbPath = Path.Combine(localThumbDir, $"{wp.Id}.jpg");
+                                if (File.Exists(localThumbPath))
+                                {
+                                    File.Delete(localThumbPath);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Could not delete default assets for '{guid}': {ex.Message}");
+                            }
+                        });
+
+                        deleted = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error deleting from default manifest: {ex.Message}");
+            }
+            finally
+            {
+                _manifestLock.Release();
+            }
+        }
+
+        return deleted;
+    }
 }

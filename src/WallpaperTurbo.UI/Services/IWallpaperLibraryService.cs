@@ -28,4 +28,9 @@ public interface IWallpaperLibraryService
     /// Gracefully cancels outstanding background tasks and awaits manifest writes before app process exits.
     /// </summary>
     Task ShutdownAsync();
+
+    /// <summary>
+    /// Deletes an imported wallpaper by removing it from the user manifest and deleting its folder on disk.
+    /// </summary>
+    Task<bool> DeleteWallpaperAsync(string guid, CancellationToken cancellationToken = default);
 }
