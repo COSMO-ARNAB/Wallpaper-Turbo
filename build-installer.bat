@@ -5,7 +5,7 @@ if exist publish rmdir /s /q publish
 if exist setup rmdir /s /q setup
 
 echo [2/3] Publishing Wallpaper Turbo in Release Mode (Self-Contained win-x64)...
-dotnet publish src\WallpaperTurbo.UI\WallpaperTurbo.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -o publish/
+dotnet publish src\WallpaperTurbo.UI\WallpaperTurbo.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -o "%~dp0publish\"
 
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Publishing failed!

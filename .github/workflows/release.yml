@@ -20,7 +20,7 @@ jobs:
 
     - name: Compile and Publish WPF App
       run: |
-        dotnet publish src/WallpaperTurbo.UI/WallpaperTurbo.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -o publish/
+        dotnet publish src/WallpaperTurbo.UI/WallpaperTurbo.UI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -o ${{ github.workspace }}/publish/
 
     - name: Install Inno Setup
       run: choco install innosetup
