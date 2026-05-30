@@ -93,35 +93,90 @@
                 
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <!-- Simple, clean card -->
-                        <Border Margin="8" Width="230" Height="200" CornerRadius="8" Background="#131622" BorderBrush="#2066FCF1" BorderThickness="1" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown">
+                        <!-- Premium media card with hover-reveal play overlay -->
+                        <Border Margin="8" Width="230" Height="200" CornerRadius="10" Background="#131622" BorderBrush="#2066FCF1" BorderThickness="1" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown" Cursor="Hand">
                             <Grid>
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="124" />
+                                    <RowDefinition Height="136" />
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
 
                                 <!-- Thumbnail -->
-                                <Image Grid.Row="0" Source="{Binding LoadedThumbnail}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Image x:Name="CardThumb" Grid.Row="0" Source="{Binding LoadedThumbnail}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Image.RenderTransform>
+                                        <ScaleTransform ScaleX="1.0" ScaleY="1.0" CenterX="115" CenterY="68" />
+                                    </Image.RenderTransform>
+                                </Image>
 
-                                 <!-- Floating Trash delete button (premium hover reveal) -->
+                                <!-- Hover scrim overlay -->
+                                <Border x:Name="HoverScrim" Grid.Row="0" Opacity="0">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                            <GradientStop Color="#00000000" Offset="0" />
+                                            <GradientStop Color="#CC060811" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+
+                                <!-- Centered play button (neon-bordered hollow circle, hover reveal) -->
+                                <Button x:Name="HoverPlayBtn"
+                                        Grid.Row="0"
+                                        Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Width="44" Height="44"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Opacity="0"
+                                        Panel.ZIndex="10">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="PlayRing"
+                                                    Width="44" Height="44"
+                                                    CornerRadius="22"
+                                                    Background="#2566FCF1"
+                                                    BorderBrush="{StaticResource ActiveCyanBrush}"
+                                                    BorderThickness="1.5">
+                                                <Border.Effect>
+                                                    <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="14" ShadowDepth="0" Opacity="0.6" />
+                                                </Border.Effect>
+                                                <ui:SymbolIcon x:Name="PlayIcon"
+                                                               Symbol="Play16"
+                                                               Foreground="{StaticResource ActiveCyanBrush}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               FontSize="14" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="PlayRing" Property="Background" Value="{StaticResource ActiveCyanBrush}" />
+                                                    <Setter TargetName="PlayIcon" Property="Foreground" Value="#060811" />
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="PlayRing" Property="Background" Value="#AAFCF1" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+
+                                <!-- Floating Trash delete button (premium hover reveal, top-right) -->
                                 <Button x:Name="DeleteButton"
                                         Grid.Row="0"
                                         Command="{Binding DataContext.DeleteWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}"
-                                        Width="28" Height="28"
+                                        Width="26" Height="26"
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Top"
-                                        Margin="8">
+                                        Margin="8"
+                                        Panel.ZIndex="20">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
-                                            <Border x:Name="btnBorder" Background="#FF3B30" CornerRadius="14" BorderThickness="0">
-                                                <ui:SymbolIcon x:Name="btnIcon" Symbol="Delete20" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Border x:Name="btnBorder" Background="#CC1A1E2D" CornerRadius="13" BorderBrush="#50FF3366" BorderThickness="1">
+                                                <ui:SymbolIcon x:Name="btnIcon" Symbol="Delete20" Foreground="#FF3366" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" />
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="btnBorder" Property="Background" Value="Transparent" />
-                                                    <Setter TargetName="btnIcon" Property="Foreground" Value="#FF3B30" />
+                                                    <Setter TargetName="btnBorder" Property="Background" Value="#FF3366" />
+                                                    <Setter TargetName="btnIcon" Property="Foreground" Value="#FFFFFF" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -142,30 +197,48 @@
                                     </Button.Style>
                                 </Button>
 
-                                <!-- Metadata & Control footer -->
-                                <Grid Grid.Row="1" Margin="10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Resolution}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0" />
-                                    </StackPanel>
-
-                                    <ui:Button Grid.Column="1" 
-                                               Icon="Play16" 
-                                               Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                                               CommandParameter="{Binding}" 
-                                               Appearance="Primary" 
-                                               Background="{StaticResource ActiveCyanBrush}" 
-                                               Foreground="#000000"
-                                               Width="32" Height="32" 
-                                               CornerRadius="16" 
-                                               VerticalAlignment="Center"/>
-                                </Grid>
+                                <!-- Card footer: title + resolution only (cleaner) -->
+                                <Border Grid.Row="1" Padding="12,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="SemiBold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Resolution}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                        <!-- Resolution tag pill -->
+                                        <Border Grid.Column="1" Background="#15FFFFFF" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Fps}" FontSize="8" FontWeight="Bold" Foreground="{StaticResource ActiveCyanBrush}" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
                             </Grid>
+
+                            <!-- Hover animations for the entire card -->
+                            <Border.Triggers>
+                                <EventTrigger RoutedEvent="Mouse.MouseEnter">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="HoverScrim" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.18" />
+                                            <DoubleAnimation Storyboard.TargetName="HoverPlayBtn" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.18" />
+                                            <DoubleAnimation Storyboard.TargetName="CardThumb" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.05" Duration="0:0:0.25" />
+                                            <DoubleAnimation Storyboard.TargetName="CardThumb" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.05" Duration="0:0:0.25" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                                <EventTrigger RoutedEvent="Mouse.MouseLeave">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="HoverScrim" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2" />
+                                            <DoubleAnimation Storyboard.TargetName="HoverPlayBtn" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2" />
+                                            <DoubleAnimation Storyboard.TargetName="CardThumb" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.2" />
+                                            <DoubleAnimation Storyboard.TargetName="CardThumb" Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.2" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Border.Triggers>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

@@ -148,18 +148,35 @@
                                                CornerRadius="8"
                                                Margin="0,0,12,0" />
 
-                                    <ui:Button Icon="Play24" 
-                                               Command="{Binding PlayWallpaperCommand}" 
-                                               CommandParameter="{Binding CurrentWallpaper}"
-                                               Appearance="Primary" 
-                                               Foreground="#000000" 
-                                               Background="{StaticResource ActiveCyanBrush}"
-                                               Width="48" Height="48"
-                                               CornerRadius="24">
-                                        <ui:Button.Effect>
-                                            <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="12" Opacity="0.5" ShadowDepth="0" />
-                                        </ui:Button.Effect>
-                                    </ui:Button>
+                                    <!-- Pill-shaped PLAY button (Fluent 2 style — wider, labeled, no raw circle) -->
+                                    <Button Command="{Binding PlayWallpaperCommand}" 
+                                            CommandParameter="{Binding CurrentWallpaper}"
+                                            Height="38">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="PlayPill"
+                                                        Background="{StaticResource ActiveCyanBrush}"
+                                                        CornerRadius="8"
+                                                        Padding="16,0">
+                                                    <Border.Effect>
+                                                        <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="14" ShadowDepth="0" Opacity="0.45" />
+                                                    </Border.Effect>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <ui:SymbolIcon x:Name="PillIcon" Symbol="Play24" Foreground="#060811" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                        <TextBlock x:Name="PillText" Text="PLAY" FontSize="11" FontWeight="Bold" Foreground="#060811" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="PlayPill" Property="Background" Value="#AAFCF1" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Setter TargetName="PlayPill" Property="Background" Value="#66FCF1" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
                                 </StackPanel>
                             </Grid>
 
@@ -303,20 +320,43 @@
                                                     <TextBlock Text="{Binding Resolution, StringFormat={}{0} • 60 FPS}" FontSize="8" Foreground="{StaticResource MutedTextBrush}" />
                                                 </StackPanel>
 
-                                                <ui:Button Icon="Play12" 
-                                                           Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                                <!-- Mini-card neon ring play button (hover reveal, bottom-right) -->
+                                                <Button Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
                                                            CommandParameter="{Binding}"
                                                            HorizontalAlignment="Right" 
                                                            VerticalAlignment="Bottom" 
                                                            Margin="8" 
-                                                           Width="22" 
-                                                           Height="22" 
-                                                           CornerRadius="11" 
-                                                           Background="{StaticResource ActiveCyanBrush}" 
-                                                           Foreground="#000000"
-                                                           Padding="0"
+                                                           Width="26" 
+                                                           Height="26" 
                                                            Visibility="Collapsed"
-                                                           x:Name="HoverPlayBtn" />
+                                                           x:Name="HoverPlayBtn">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="MiniRing"
+                                                                    Width="26" Height="26"
+                                                                    CornerRadius="13"
+                                                                    Background="#3066FCF1"
+                                                                    BorderBrush="{StaticResource ActiveCyanBrush}"
+                                                                    BorderThickness="1.5">
+                                                                <Border.Effect>
+                                                                    <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="10" ShadowDepth="0" Opacity="0.55" />
+                                                                </Border.Effect>
+                                                                <ui:SymbolIcon x:Name="MiniIcon"
+                                                                               Symbol="Play12"
+                                                                               Foreground="{StaticResource ActiveCyanBrush}"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"
+                                                                               FontSize="9" />
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="MiniRing" Property="Background" Value="{StaticResource ActiveCyanBrush}" />
+                                                                    <Setter TargetName="MiniIcon" Property="Foreground" Value="#060811" />
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
                                             </Grid>
                                             <Border.Triggers>
                                                 <EventTrigger RoutedEvent="Mouse.MouseEnter">
