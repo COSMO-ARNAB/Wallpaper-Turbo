@@ -274,6 +274,7 @@ internal static class Program
         if (isStop)
         {
             StopRunningInstances();
+            UpdateActiveStateFile(-1, "No Active Wallpaper", false);
             return 0;
         }
 
@@ -603,6 +604,7 @@ internal static class Program
             //
             LogMemory("playback.before-play");
             session.Play();
+            UpdateActiveStateFile(finalWallpaperIndex, wallpaper.Title, true);
             LogMemory("playback.after-play");
 
             //
@@ -1269,6 +1271,7 @@ internal static class Program
 
             _sessionManager?.ShutdownAll();
             _activePipeline = null;
+            UpdateActiveStateFile(-1, "No Active Wallpaper", false);
 
             Console.WriteLine(
                 "Shutting down render window...");
@@ -1387,6 +1390,12 @@ internal static class Program
                         s.Pause();
                     }
                     Console.WriteLine("Playback paused.");
+                    string activeTitle = "No Active Wallpaper";
+                    if (_finalWallpaperIndex > 0 && _finalWallpaperIndex <= wallpapers.Count)
+                    {
+                        activeTitle = wallpapers[_finalWallpaperIndex - 1].Title;
+                    }
+                    UpdateActiveStateFile(_finalWallpaperIndex, activeTitle, false);
                 }
                 break;
 
@@ -1398,6 +1407,12 @@ internal static class Program
                         s.Play();
                     }
                     Console.WriteLine("Playback resumed.");
+                    string activeTitle = "No Active Wallpaper";
+                    if (_finalWallpaperIndex > 0 && _finalWallpaperIndex <= wallpapers.Count)
+                    {
+                        activeTitle = wallpapers[_finalWallpaperIndex - 1].Title;
+                    }
+                    UpdateActiveStateFile(_finalWallpaperIndex, activeTitle, true);
                 }
                 break;
 
@@ -1509,6 +1524,7 @@ internal static class Program
                 _finalWallpaperIndex = newIndex;
 
                 newSession.Play();
+                UpdateActiveStateFile(newIndex, newWallpaper.Title, true);
 
                 await Task.Delay(1500);
                 WindowUtil.MakeChildrenTransparent(hwnd);
@@ -1878,6 +1894,30 @@ internal static class Program
         catch (Exception ex)
         {
             Console.WriteLine($"Error terminating processes: {ex.Message}");
+        }
+    }
+
+    private static void UpdateActiveStateFile(int index, string title, bool isPlaying)
+    {
+        try
+        {
+            string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo");
+            Directory.CreateDirectory(appDataDir);
+            string stateFilePath = Path.Combine(appDataDir, "active_state.json");
+            
+            var state = new Dictionary<string, object>
+            {
+                { "ActiveWallpaperIndex", index },
+                { "ActiveWallpaperTitle", title },
+                { "IsPlaying", isPlaying }
+            };
+            
+            string json = System.Text.Json.JsonSerializer.Serialize(state);
+            File.WriteAllText(stateFilePath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[State] Failed to write active state file: {ex.Message}");
         }
     }
 }

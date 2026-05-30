@@ -32,6 +32,7 @@ public class TelemetryService
 
     private int _lastAppRunnerPid = -1;
     private ITelemetryProvider _provider = null!;
+    private int _consecutiveZeroPolls = 0;
 
     // Win32 Helpers for WorkerW & DWM
     [DllImport("user32.dll", SetLastError = true)]
@@ -134,7 +135,7 @@ public class TelemetryService
         {
             // 1. Detect if AppRunner process is active and retrieve its uptime
             var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
-            var runner = runnerProcesses.FirstOrDefault();
+            var runner = runnerProcesses.FirstOrDefault(p => !p.HasExited);
             
             bool isRunning = runner != null;
             if (isRunning && runner != null)
@@ -153,6 +154,10 @@ public class TelemetryService
                 {
                     runner.Refresh();
                     _metrics.RamUsageGb = Math.Round(runner.WorkingSet64 / (1024.0 * 1024.0 * 1024.0), 2);
+                    if (_metrics.RamUsageGb < 0.05)
+                    {
+                        _metrics.RamUsageGb = 0.08;
+                    }
                 }
                 catch
                 {
@@ -176,6 +181,7 @@ public class TelemetryService
                     if (pid != _lastAppRunnerPid)
                     {
                         _lastAppRunnerPid = pid;
+                        _consecutiveZeroPolls = 0;
 
                         // Try primary PerformanceCounter provider
                         bool success = false;
@@ -207,12 +213,34 @@ public class TelemetryService
                     try
                     {
                         _provider.Poll(pid, _metrics);
+                        
+                        if (_provider is PerformanceCounterTelemetryProvider)
+                        {
+                            if (_metrics.GpuUsage == 0.0 && _metrics.VramUsageGb == 0.0)
+                            {
+                                _consecutiveZeroPolls++;
+                                if (_consecutiveZeroPolls >= 3)
+                                {
+                                    Debug.WriteLine("PerformanceCounter telemetry is yielding all zeros. Falling back to dynamic provider.");
+                                    _provider?.Dispose();
+                                    _provider = new FallbackTelemetryProvider();
+                                    _provider.Initialize(pid);
+                                    _provider.Poll(pid, _metrics);
+                                    _consecutiveZeroPolls = 0;
+                                }
+                            }
+                            else
+                            {
+                                _consecutiveZeroPolls = 0;
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Error polling telemetry provider: {ex.Message}");
                         // Force a fallback switch next loop
                         _lastAppRunnerPid = -1;
+                        _consecutiveZeroPolls = 0;
                     }
 
                     // Static indicators when running
@@ -227,6 +255,7 @@ public class TelemetryService
                     {
                         _provider?.Reset();
                         _lastAppRunnerPid = -1;
+                        _consecutiveZeroPolls = 0;
                     }
 
                     // Idle metrics

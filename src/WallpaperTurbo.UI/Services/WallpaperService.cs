@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using WallpaperTurbo.UI.ViewModels;
 
 namespace WallpaperTurbo.UI.Services;
 
@@ -391,13 +392,89 @@ public class WallpaperService
         // Win32 syscall that can stall for 100-300ms per process, causing UI freezes when 
         // called on the telemetry timer callback. Named process check is sufficient.
 
-        if (!isRunning && _activeWallpaperIndex != -1)
+        if (isRunning)
+        {
+            SyncActiveStateFromFile();
+        }
+        else if (_activeWallpaperIndex != -1)
         {
             _activeWallpaperIndex = -1;
             UpdateActiveStates(-1);
         }
 
         return isRunning;
+    }
+
+    private void SyncActiveStateFromFile()
+    {
+        try
+        {
+            string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo");
+            string stateFilePath = Path.Combine(appDataDir, "active_state.json");
+            if (File.Exists(stateFilePath))
+            {
+                using var fs = new FileStream(stateFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var doc = JsonDocument.Parse(fs);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("ActiveWallpaperIndex", out var idxProp))
+                {
+                    int index = idxProp.GetInt32();
+                    if (index != _activeWallpaperIndex)
+                    {
+                        _activeWallpaperIndex = index;
+                        UpdateActiveStates(index);
+                        
+                        if (index > 0 && index <= _wallpapers.Count)
+                        {
+                            var wp = _wallpapers[index - 1];
+                            var mainVm = App.GetService<MainViewModel>();
+                            if (mainVm != null)
+                            {
+                                Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                                {
+                                    mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
+                                }));
+                            }
+                        }
+                    }
+                }
+                
+                if (root.TryGetProperty("ActiveWallpaperTitle", out var titleProp))
+                {
+                    string title = titleProp.GetString() ?? string.Empty;
+                    if (!string.IsNullOrEmpty(title))
+                    {
+                        var mainVm = App.GetService<MainViewModel>();
+                        if (mainVm != null && mainVm.ActiveWallpaperTitle != title)
+                        {
+                            Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                            {
+                                var wp = _wallpapers.FirstOrDefault(w => w.Title == title);
+                                string specs = wp != null ? $"{wp.Resolution} • {wp.Fps}" : "3840 x 2160 • 60 FPS";
+                                mainVm.SetActiveWallpaperInfo(title, specs);
+                            }));
+                        }
+                    }
+                }
+
+                if (root.TryGetProperty("IsPlaying", out var playingProp))
+                {
+                    bool isPlaying = playingProp.GetBoolean();
+                    var mainVm = App.GetService<MainViewModel>();
+                    if (mainVm != null && mainVm.IsPlaying != isPlaying)
+                    {
+                        Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                        {
+                            mainVm.IsPlaying = isPlaying;
+                        }));
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore file read/parse errors during polling
+        }
     }
 
     public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null, bool? softwareDecode = null, bool forceFreshLaunch = false)

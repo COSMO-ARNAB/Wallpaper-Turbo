@@ -155,9 +155,17 @@ public partial class MainWindow : Window
         }
     }
 
+    private bool _isShuttingDown = false;
+
     protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
+        if (_isShuttingDown)
+        {
+            return;
+        }
+
         e.Cancel = true; // Block initial closing to allow background tasks to complete safely
+        _isShuttingDown = true;
         this.Hide();     // Instantly hide the window to maintain fluid responsive visual UX
 
         try
@@ -172,6 +180,6 @@ public partial class MainWindow : Window
             System.Diagnostics.Debug.WriteLine($"Error during safe shutdown: {ex.Message}");
         }
 
-        Application.Current.Shutdown(); // Clean process exit
+        this.Close(); // Trigger OnClosing again, which will now fall through and close normally
     }
 }

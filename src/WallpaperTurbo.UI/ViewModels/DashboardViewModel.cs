@@ -28,12 +28,18 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private string _selectedCategory = "All";
 
+    // Dynamic Greeting Banner Properties
+    [ObservableProperty] private string _greetingHeader = "Good Evening 👋";
+    [ObservableProperty] private string _greetingSubtext = "Your engine is running smoothly.";
+
     // Real-Time Telemetry Properties
     [ObservableProperty] private double _gpuValue = 18;
     [ObservableProperty] private double _videoDecodeValue = 11;
     [ObservableProperty] private double _cpuValue = 6;
     [ObservableProperty] private string _ramValueText = "5.1 / 32 GB";
     [ObservableProperty] private string _vramValueText = "1.2 / 8 GB";
+    [ObservableProperty] private string _ramGbText = "3.1 GB";
+    [ObservableProperty] private string _vramGbText = "1.2 GB";
 
     [ObservableProperty] private double _ramPercentage = 16;
     [ObservableProperty] private double _vramPercentage = 15;
@@ -57,6 +63,12 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private WallpaperEntry? _subHero1;
     [ObservableProperty] private WallpaperEntry? _subHero2;
     [ObservableProperty] private WallpaperEntry? _subHero3;
+    [ObservableProperty] private WallpaperEntry? _activeWallpaper;
+
+    public WallpaperEntry? CurrentWallpaper => ActiveWallpaper ?? HeroWallpaper;
+
+    partial void OnActiveWallpaperChanged(WallpaperEntry? value) => OnPropertyChanged(nameof(CurrentWallpaper));
+    partial void OnHeroWallpaperChanged(WallpaperEntry? value) => OnPropertyChanged(nameof(CurrentWallpaper));
 
     // Collection of active monitors
     public ObservableCollection<MonitorTopologyItem> Monitors { get; } = new();
@@ -90,8 +102,34 @@ public partial class DashboardViewModel : ObservableObject
         Monitors.Add(new MonitorTopologyItem { Number = 1, Resolution = "3840 x 2160", Type = "Primary" });
         Monitors.Add(new MonitorTopologyItem { Number = 2, Resolution = "2560 x 1440", Type = "Secondary" });
 
+        UpdateGreeting();
+
         // Load dynamic library
         _ = LoadLibraryAsync();
+    }
+
+    public void UpdateGreeting()
+    {
+        var hour = DateTime.Now.Hour;
+        if (hour >= 5 && hour < 12)
+        {
+            GreetingHeader = "Good Morning 👋";
+        }
+        else if (hour >= 12 && hour < 17)
+        {
+            GreetingHeader = "Good Afternoon 👋";
+        }
+        else
+        {
+            GreetingHeader = "Good Evening 👋";
+        }
+
+        if (_wallpaperService != null)
+        {
+            GreetingSubtext = _wallpaperService.IsEngineRunning()
+                ? "Your engine is running smoothly."
+                : "Start the engine to activate live desktop.";
+        }
     }
 
     public async Task LoadLibraryAsync()
@@ -197,6 +235,26 @@ public partial class DashboardViewModel : ObservableObject
 
     public void UpdateTelemetry(TelemetryMetrics m)
     {
+        UpdateGreeting();
+
+        // Sync ActiveWallpaper property based on running state and active title
+        var mainVm = App.GetService<MainViewModel>();
+        if (mainVm != null)
+        {
+            if (!mainVm.IsEngineRunning)
+            {
+                if (ActiveWallpaper != null) ActiveWallpaper = null;
+            }
+            else
+            {
+                string activeTitle = mainVm.ActiveWallpaperTitle;
+                if (ActiveWallpaper == null || ActiveWallpaper.Title != activeTitle)
+                {
+                    ActiveWallpaper = _allWallpapers.FirstOrDefault(w => w.Title == activeTitle);
+                }
+            }
+        }
+
         // 0.5% dead-band filter to prevent layout over-refresh stutters for micro-changes
         if (Math.Abs(m.GpuUsage - _lastGpu) >= 0.5 || m.GpuUsage == 0.0)
         {
@@ -220,6 +278,7 @@ public partial class DashboardViewModel : ObservableObject
         if (Math.Abs(m.RamUsageGb - _lastRam) >= 0.1 || m.RamUsageGb == 0.0)
         {
             RamValueText = $"{m.RamUsageGb:0.0} / {m.RamTotalGb:0} GB";
+            RamGbText = $"{m.RamUsageGb:0.0} GB";
             RamPercentage = (m.RamUsageGb / m.RamTotalGb) * 100.0;
             _lastRam = m.RamUsageGb;
         }
@@ -228,6 +287,7 @@ public partial class DashboardViewModel : ObservableObject
         if (Math.Abs(m.VramUsageGb - _lastVram) >= 0.05 || m.VramUsageGb == 0.0)
         {
             VramValueText = $"{m.VramUsageGb:0.0} / {m.VramTotalGb:0} GB";
+            VramGbText = $"{m.VramUsageGb:0.0} GB";
             VramPercentage = (m.VramUsageGb / m.VramTotalGb) * 100.0;
             _lastVram = m.VramUsageGb;
         }
