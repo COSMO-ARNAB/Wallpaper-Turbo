@@ -249,18 +249,28 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <ListBox Grid.Column="0" 
-                                     ItemsSource="{Binding FilteredWallpapers}" 
+                            <ListBox x:Name="RecentlyUsedListBox"
+                                     Grid.Column="0"
+                                     ItemsSource="{Binding FilteredWallpapers}"
                                      ItemContainerStyle="{StaticResource PremiumCardContainerStyle}"
                                      Background="Transparent"
                                      BorderThickness="0"
                                      Padding="0"
                                      ScrollViewer.HorizontalScrollBarVisibility="Hidden"
                                      ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling"
+                                     VirtualizingPanel.ScrollUnit="Pixel"
                                      PreviewMouseWheel="OnRecentlyUsedMouseWheel">
                                 <ListBox.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" />
+                                        <!-- VirtualizingStackPanel enables container recycling.
+                                             Only ~5 cards are realized at a time instead of all items.
+                                             ScrollUnit=Pixel (set on ListBox) enables sub-pixel smooth scroll.
+                                             To verify virtualization is active at runtime:
+                                               listBox.ItemContainerGenerator.ContainerFromIndex(N) == null
+                                             for any N that is not currently visible. -->
+                                        <VirtualizingStackPanel Orientation="Horizontal" />
                                     </ItemsPanelTemplate>
                                 </ListBox.ItemsPanel>
                                 
