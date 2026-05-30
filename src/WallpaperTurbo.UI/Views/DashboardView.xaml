@@ -67,16 +67,21 @@
 
         <!-- COLUMN 0: MAIN CONTENT PANEL -->
         <Grid Grid.Column="0" Margin="0,0,24,0">
-            <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 1. GREETING BANNER -->
+            <Grid Grid.Row="0" Margin="0,4,0,20">
+                <StackPanel>
+                    <TextBlock Text="{Binding GreetingHeader, FallbackValue='Good Evening 👋'}" FontSize="28" FontWeight="ExtraBold" Foreground="#FFFFFF" />
+                    <TextBlock Text="{Binding GreetingSubtext, FallbackValue='Your engine is running smoothly.'}" FontSize="13" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,0" />
+                </StackPanel>
+            </Grid>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,0,8,12">
-                    
-                    <!-- 1. GREETING BANNER -->
-                    <Grid Margin="0,4,0,20">
-                        <StackPanel>
-                            <TextBlock Text="{Binding GreetingHeader, FallbackValue='Good Evening 👋'}" FontSize="28" FontWeight="ExtraBold" Foreground="#FFFFFF" />
-                            <TextBlock Text="{Binding GreetingSubtext, FallbackValue='Your engine is running smoothly.'}" FontSize="13" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,0" />
-                        </StackPanel>
-                    </Grid>
 
                     <!-- 2. HERO CINEMATIC CARD -->
                     <Border Style="{StaticResource NeonCardStyle}" Height="330" Margin="0,0,0,24" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown" Tag="Hero">

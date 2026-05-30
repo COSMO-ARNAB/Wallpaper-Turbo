@@ -28,10 +28,12 @@ public sealed class ExplorerRestartMonitor : IDisposable
     private readonly IntPtr _hwnd;
     private readonly Thread _messageThread;
     private readonly CancellationTokenSource _cts = new();
+    private readonly WndProcDelegate _wndProcDelegate;
     private bool _disposed;
 
     public ExplorerRestartMonitor()
     {
+        _wndProcDelegate = WndProc;
         var initSignal = new ManualResetEventSlim(false);
         IntPtr createdHwnd = IntPtr.Zero;
 
@@ -42,7 +44,7 @@ public sealed class ExplorerRestartMonitor : IDisposable
                 var wndClass = new WNDCLASSEX
                 {
                     cbSize = Marshal.SizeOf<WNDCLASSEX>(),
-                    lpfnWndProc = WndProc,
+                    lpfnWndProc = _wndProcDelegate,
                     hInstance = GetModuleHandle(null),
                     lpszClassName = ClassName
                 };

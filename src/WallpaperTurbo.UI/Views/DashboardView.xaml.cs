@@ -19,9 +19,9 @@ public partial class DashboardView : UserControl
 
     // ── Inertia scroll state ──────────────────────────────────────────────────
     // Physics constants — tune here if feel needs adjustment.
-    private const double Friction         = 0.88;  // velocity multiplied per frame
-    private const double StopThreshold    = 0.4;   // px/frame — loop stops below this
-    private const double ScrollSensitivity = 0.45; // input delta → velocity scale
+    private const double Friction         = 0.95;  // velocity multiplied per frame (higher = longer, gentler glide)
+    private const double StopThreshold    = 0.15;  // px/frame — loop stops below this (lower = smoother deceleration tail)
+    private const double ScrollSensitivity = 0.20; // input delta → velocity scale (lower = slower, less abrupt onset)
 
     private double _velocity;           // current scroll velocity (px/frame)
     private double _currentOffset;      // tracked horizontal offset

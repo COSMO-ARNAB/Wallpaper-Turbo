@@ -30,6 +30,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
     
     private readonly List<Task> _activeTasks = new();
     private readonly object _tasksLock = new();
+    private readonly CancellationTokenSource _shutdownCts = new();
 
     public WallpaperLibraryService(IThumbnailExtractor thumbnailExtractor)
     {
@@ -111,36 +112,43 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                             System.Diagnostics.Debug.WriteLine($"[Thumbnail Start] Initiating default thumbnail extraction for '{wpCopy.Title}' (Reason: No cached thumbnail file found on disk)...");
                             TrackTask(Task.Run(async () =>
                             {
-                                await _importQueue.WaitAsync();
                                 try
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Gen] Running video frame extraction for '{wpCopy.Title}' from source '{wpCopy.Video}'...");
-                                    string tempThumb = await _thumbnailExtractor.ExtractThumbnailAsync(wpCopy.Video, localThumbDir, CancellationToken.None);
-                                    
-                                    if (File.Exists(tempThumb))
+                                    await _importQueue.WaitAsync(_shutdownCts.Token);
+                                    try
                                     {
-                                        string finalPath = Path.Combine(localThumbDir, $"{wpCopy.Id}.jpg");
-                                        if (File.Exists(finalPath)) File.Delete(finalPath);
-                                        File.Move(tempThumb, finalPath);
+                                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Gen] Running video frame extraction for '{wpCopy.Title}' from source '{wpCopy.Video}'...");
+                                        string tempThumb = await _thumbnailExtractor.ExtractThumbnailAsync(wpCopy.Video, localThumbDir, _shutdownCts.Token);
                                         
-                                        wpCopy.Thumbnail = finalPath;
-                                        wpCopy.IsFallbackThumbnail = false;
-                                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Success] Successfully saved unique thumbnail for '{wpCopy.Title}' to '{finalPath}'");
+                                        if (File.Exists(tempThumb))
+                                        {
+                                            string finalPath = Path.Combine(localThumbDir, $"{wpCopy.Id}.jpg");
+                                            if (File.Exists(finalPath)) File.Delete(finalPath);
+                                            File.Move(tempThumb, finalPath);
+                                            
+                                            wpCopy.Thumbnail = finalPath;
+                                            wpCopy.IsFallbackThumbnail = false;
+                                            System.Diagnostics.Debug.WriteLine($"[Thumbnail Success] Successfully saved unique thumbnail for '{wpCopy.Title}' to '{finalPath}'");
+                                        }
+                                        else
+                                        {
+                                            wpCopy.IsFallbackThumbnail = true;
+                                            System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Extraction finished but output file not found on disk for '{wpCopy.Title}'. Keeping fallback.");
+                                        }
                                     }
-                                    else
+                                    catch (Exception ex)
                                     {
                                         wpCopy.IsFallbackThumbnail = true;
-                                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Extraction finished but output file not found on disk for '{wpCopy.Title}'. Keeping fallback.");
+                                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Failed to extract thumbnail for default wallpaper '{wpCopy.Title}': {ex.Message}. Fallback Assigned.");
+                                    }
+                                    finally
+                                    {
+                                        _importQueue.Release();
                                     }
                                 }
-                                catch (Exception ex)
+                                catch (OperationCanceledException)
                                 {
-                                    wpCopy.IsFallbackThumbnail = true;
-                                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Failed to extract thumbnail for default wallpaper '{wpCopy.Title}': {ex.Message}. Fallback Assigned.");
-                                }
-                                finally
-                                {
-                                    _importQueue.Release();
+                                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Cancelled] Default thumbnail extraction aborted on shutdown for '{wpCopy.Title}'.");
                                 }
                             }));
                         }
@@ -247,43 +255,51 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                             var wpCopy = wp;
                             TrackTask(Task.Run(async () =>
                             {
-                                // 30s timeout prevents permanent queue stall if a previous extraction hangs
-                                bool acquired = await _importQueue.WaitAsync(TimeSpan.FromSeconds(30));
-                                if (!acquired)
-                                {
-                                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Skipped] Import queue timed out (30s) for '{wpCopy.Title}'. Skipping to prevent permanent stall.");
-                                    return;
-                                }
-                                DiagnosticsService.OnDecodeQueued();
                                 try
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Gen] Running auto-recovery extraction for user wallpaper '{wpCopy.Title}'...");
-                                    string thumb = await _thumbnailExtractor.ExtractThumbnailAsync(wpCopy.Video, dir, CancellationToken.None);
-                                    
-                                    if (File.Exists(thumb))
+                                    // 30s timeout or shutdown cancellation
+                                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdownCts.Token);
+                                    bool acquired = await _importQueue.WaitAsync(TimeSpan.FromSeconds(30), cts.Token);
+                                    if (!acquired)
                                     {
-                                        wpCopy.Thumbnail = thumb;
-                                        wpCopy.IsFallbackThumbnail = false;
-                                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Success] Auto-recovery extraction succeeded for '{wpCopy.Title}'. Saved to: '{thumb}'");
-                                        
-                                        await UpdateUserManifestThumbnailAsync(wpCopy.Id, thumb);
-                                        await WriteMetadataJsonAsync(dir, wpCopy, CancellationToken.None);
+                                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Skipped] Import queue timed out (30s) for '{wpCopy.Title}'. Skipping to prevent permanent stall.");
+                                        return;
                                     }
-                                    else
+                                    DiagnosticsService.OnDecodeQueued();
+                                    try
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Gen] Running auto-recovery extraction for user wallpaper '{wpCopy.Title}'...");
+                                        string thumb = await _thumbnailExtractor.ExtractThumbnailAsync(wpCopy.Video, dir, _shutdownCts.Token);
+                                        
+                                        if (File.Exists(thumb))
+                                        {
+                                            wpCopy.Thumbnail = thumb;
+                                            wpCopy.IsFallbackThumbnail = false;
+                                            System.Diagnostics.Debug.WriteLine($"[Thumbnail Success] Auto-recovery extraction succeeded for '{wpCopy.Title}'. Saved to: '{thumb}'");
+                                            
+                                            await UpdateUserManifestThumbnailAsync(wpCopy.Id, thumb);
+                                            await WriteMetadataJsonAsync(dir, wpCopy, CancellationToken.None);
+                                        }
+                                        else
+                                        {
+                                            wpCopy.IsFallbackThumbnail = true;
+                                            System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Auto-recovery extraction finished but file not found on disk for '{wpCopy.Title}'.");
+                                        }
+                                    }
+                                    catch (Exception rex)
                                     {
                                         wpCopy.IsFallbackThumbnail = true;
-                                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Auto-recovery extraction finished but file not found on disk for '{wpCopy.Title}'.");
+                                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Auto-recovery thumbnail extraction failed for '{wpCopy.Title}': {rex.Message}");
+                                    }
+                                    finally
+                                    {
+                                        DiagnosticsService.OnDecodeCompleted();
+                                        _importQueue.Release();
                                     }
                                 }
-                                catch (Exception rex)
+                                catch (OperationCanceledException)
                                 {
-                                    wpCopy.IsFallbackThumbnail = true;
-                                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Auto-recovery thumbnail extraction failed for '{wpCopy.Title}': {rex.Message}");
-                                }
-                                finally
-                                {
-                                    DiagnosticsService.OnDecodeCompleted();
-                                    _importQueue.Release();
+                                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Cancelled] Auto-recovery thumbnail extraction aborted on shutdown for '{wpCopy.Title}'.");
                                 }
                             }));
                         }
@@ -390,46 +406,53 @@ public class WallpaperLibraryService : IWallpaperLibraryService
             System.Diagnostics.Debug.WriteLine($"[Thumbnail Start] Initiating imported wallpaper thumbnail extraction for '{newWp.Title}'...");
             TrackTask(Task.Run(async () =>
             {
-                // 30s timeout prevents permanent stall if prior extraction hangs
-                bool acquired = await _importQueue.WaitAsync(TimeSpan.FromSeconds(30));
-                if (!acquired)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Skipped] Import queue timed out (30s) for '{newWp.Title}'.");
-                    return;
-                }
-                DiagnosticsService.OnDecodeQueued();
                 try
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Gen] Running extraction for imported wallpaper '{newWp.Title}'...");
-                    string finalThumb = await _thumbnailExtractor.ExtractThumbnailAsync(targetVideoPath, targetDir, CancellationToken.None);
-                    
-                    if (File.Exists(finalThumb))
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdownCts.Token);
+                    bool acquired = await _importQueue.WaitAsync(TimeSpan.FromSeconds(30), cts.Token);
+                    if (!acquired)
                     {
-                        newWp.Thumbnail = finalThumb;
-                        newWp.IsFallbackThumbnail = false;
-                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Success] Imported wallpaper thumbnail generation succeeded for '{newWp.Title}'. Path: '{finalThumb}'");
-
-                        // Update manifest atomically
-                        await UpdateUserManifestThumbnailAsync(guid, finalThumb);
-
-                        // Notify UI ViewModels of completion
-                        onThumbnailCompleted?.Invoke(newWp);
+                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Skipped] Import queue timed out (30s) for '{newWp.Title}'.");
+                        return;
                     }
-                    else
+                    DiagnosticsService.OnDecodeQueued();
+                    try
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Gen] Running extraction for imported wallpaper '{newWp.Title}'...");
+                        string finalThumb = await _thumbnailExtractor.ExtractThumbnailAsync(targetVideoPath, targetDir, _shutdownCts.Token);
+                        
+                        if (File.Exists(finalThumb))
+                        {
+                            newWp.Thumbnail = finalThumb;
+                            newWp.IsFallbackThumbnail = false;
+                            System.Diagnostics.Debug.WriteLine($"[Thumbnail Success] Imported wallpaper thumbnail generation succeeded for '{newWp.Title}'. Path: '{finalThumb}'");
+
+                            // Update manifest atomically
+                            await UpdateUserManifestThumbnailAsync(guid, finalThumb);
+
+                            // Notify UI ViewModels of completion
+                            onThumbnailCompleted?.Invoke(newWp);
+                        }
+                        else
+                        {
+                            newWp.IsFallbackThumbnail = true;
+                            System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Extraction finished but file not found on disk for '{newWp.Title}'. Fallback assigned.");
+                        }
+                    }
+                    catch (Exception ex)
                     {
                         newWp.IsFallbackThumbnail = true;
-                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Extraction finished but file not found on disk for '{newWp.Title}'. Fallback assigned.");
+                        System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Background generation failed for imported wallpaper '{newWp.Title}': {ex.Message}. Fallback assigned.");
+                    }
+                    finally
+                    {
+                        DiagnosticsService.OnDecodeCompleted();
+                        _importQueue.Release();
                     }
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException)
                 {
-                    newWp.IsFallbackThumbnail = true;
-                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Failure] Background generation failed for imported wallpaper '{newWp.Title}': {ex.Message}. Fallback assigned.");
-                }
-                finally
-                {
-                    DiagnosticsService.OnDecodeCompleted();
-                    _importQueue.Release();
+                    System.Diagnostics.Debug.WriteLine($"[Thumbnail Cancelled] Import thumbnail extraction aborted on shutdown for '{newWp.Title}'.");
                 }
             }));
 
@@ -649,6 +672,8 @@ public class WallpaperLibraryService : IWallpaperLibraryService
 
     public async Task ShutdownAsync()
     {
+        _shutdownCts.Cancel();
+
         Task[] tasksToAwait;
         lock (_tasksLock)
         {
@@ -658,7 +683,14 @@ public class WallpaperLibraryService : IWallpaperLibraryService
         if (tasksToAwait.Length > 0)
         {
             System.Diagnostics.Debug.WriteLine($"Awaiting {tasksToAwait.Length} outstanding background tasks during graceful shutdown...");
-            await Task.WhenAll(tasksToAwait).ConfigureAwait(false);
+            try
+            {
+                await Task.WhenAll(tasksToAwait).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Shutdown] Awaiting background tasks resulted in: {ex.Message}");
+            }
         }
     }
 
