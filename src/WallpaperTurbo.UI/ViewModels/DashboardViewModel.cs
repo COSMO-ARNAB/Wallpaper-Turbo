@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -24,6 +26,9 @@ public partial class DashboardViewModel : ObservableObject
 
     // Collection of dynamic wallpapers bound to the Library grid
     public ObservableCollection<WallpaperEntry> FilteredWallpapers { get; } = new();
+
+    // Collection of recently used wallpapers
+    public ObservableCollection<WallpaperEntry> RecentlyUsedWallpapers { get; } = new();
 
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private string _selectedCategory = "All";
@@ -67,7 +72,15 @@ public partial class DashboardViewModel : ObservableObject
 
     public WallpaperEntry? CurrentWallpaper => ActiveWallpaper ?? HeroWallpaper;
 
-    partial void OnActiveWallpaperChanged(WallpaperEntry? value) => OnPropertyChanged(nameof(CurrentWallpaper));
+    partial void OnActiveWallpaperChanged(WallpaperEntry? value)
+    {
+        OnPropertyChanged(nameof(CurrentWallpaper));
+        if (value != null)
+        {
+            RegisterPlayedWallpaper(value);
+        }
+    }
+
     partial void OnHeroWallpaperChanged(WallpaperEntry? value) => OnPropertyChanged(nameof(CurrentWallpaper));
 
     // Collection of active monitors
@@ -136,6 +149,7 @@ public partial class DashboardViewModel : ObservableObject
     {
         _allWallpapers = await _wallpaperService.GetWallpapersAsync();
         await LoadFeaturedWallpapersAsync();
+        await LoadRecentlyUsedHistoryAsync();
         ApplyFilter();
     }
 
@@ -311,6 +325,7 @@ public partial class DashboardViewModel : ObservableObject
         int index = list.IndexOf(wp) + 1;
         if (index > 0)
         {
+            RegisterPlayedWallpaper(wp);
             await _wallpaperService.LaunchWallpaperAsync(index, PauseOnMaximized ? "Maximized" : "None");
             
             // Notify MainViewModel of active wallpaper details
@@ -326,6 +341,8 @@ public partial class DashboardViewModel : ObservableObject
         int index = list.IndexOf(wp) + 1;
         if (index > 0)
         {
+            RegisterPlayedWallpaper(wp);
+            
             // 1. Force close any previous wallpaper completely first
             var mainVm = App.GetService<MainViewModel>();
             if (mainVm.IsEngineRunning)
@@ -341,5 +358,117 @@ public partial class DashboardViewModel : ObservableObject
             mainVm.UpdateEngineStatus();
             mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
         }
+    }
+
+    // ── Persistent Recently Used History Engine ────────────────────────────────
+    
+    private const string HistoryFileName = "recent_history.json";
+    
+    private string GetHistoryPath()
+    {
+        string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo");
+        return Path.Combine(appDataDir, HistoryFileName);
+    }
+
+    private async Task LoadRecentlyUsedHistoryAsync()
+    {
+        try
+        {
+            string path = GetHistoryPath();
+            List<string> ids = new();
+            if (File.Exists(path))
+            {
+                string json = await File.ReadAllTextAsync(path);
+                ids = JsonSerializer.Deserialize<List<string>>(json) ?? new();
+            }
+
+            var list = new List<WallpaperEntry>();
+            foreach (var id in ids)
+            {
+                var wp = _allWallpapers.FirstOrDefault(w => w.Id == id);
+                if (wp != null)
+                {
+                    list.Add(wp);
+                }
+            }
+
+            // Fallback to first 5 wallpapers if history is clean/new
+            if (list.Count == 0 && _allWallpapers.Count > 0)
+            {
+                list = _allWallpapers.Take(5).ToList();
+            }
+
+            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+            {
+                RecentlyUsedWallpapers.Clear();
+                foreach (var wp in list)
+                {
+                    RecentlyUsedWallpapers.Add(wp);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DashboardViewModel] Load history error: {ex.Message}");
+            // Reliable fallback
+            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+            {
+                RecentlyUsedWallpapers.Clear();
+                foreach (var wp in _allWallpapers.Take(5))
+                {
+                    RecentlyUsedWallpapers.Add(wp);
+                }
+            });
+        }
+    }
+
+    private async Task SaveRecentlyUsedHistoryAsync()
+    {
+        try
+        {
+            string path = GetHistoryPath();
+            string dir = Path.GetDirectoryName(path) ?? string.Empty;
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            List<string> ids;
+            lock (RecentlyUsedWallpapers)
+            {
+                ids = RecentlyUsedWallpapers.Select(w => w.Id).ToList();
+            }
+
+            string json = JsonSerializer.Serialize(ids);
+            await File.WriteAllTextAsync(path, json);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DashboardViewModel] Save history error: {ex.Message}");
+        }
+    }
+
+    private void RegisterPlayedWallpaper(WallpaperEntry wp)
+    {
+        if (wp == null) return;
+        
+        System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+        {
+            var existing = RecentlyUsedWallpapers.FirstOrDefault(w => w.Id == wp.Id);
+            if (existing != null)
+            {
+                RecentlyUsedWallpapers.Remove(existing);
+            }
+            
+            RecentlyUsedWallpapers.Insert(0, wp);
+            
+            // Limit to 8 items max
+            while (RecentlyUsedWallpapers.Count > 8)
+            {
+                RecentlyUsedWallpapers.RemoveAt(RecentlyUsedWallpapers.Count - 1);
+            }
+        });
+
+        _ = SaveRecentlyUsedHistoryAsync();
     }
 }

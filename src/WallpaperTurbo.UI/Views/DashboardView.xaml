@@ -86,14 +86,19 @@
                     <!-- 2. HERO CINEMATIC CARD -->
                     <Border Style="{StaticResource NeonCardStyle}" Height="330" Margin="0,0,0,24" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown" Tag="Hero">
                         <Grid>
-                            <!-- Hero thumbnail -->
+                            <!-- Hero thumbnail with lighter BlurEffect and overflow margin to eliminate edge/zoom artifacts -->
                             <Image Source="{Binding CurrentWallpaper.LoadedThumbnail}" 
                                    Stretch="UniformToFill" 
                                    x:Name="HeroBgImage"
                                    Opacity="0.7" 
+                                   Margin="-10"
+                                   RenderTransformOrigin="0.5,0.5"
                                    RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.Effect>
+                                    <BlurEffect Radius="10" KernelType="Gaussian" RenderingBias="Quality" />
+                                </Image.Effect>
                                 <Image.RenderTransform>
-                                    <ScaleTransform ScaleX="1.0" ScaleY="1.0" CenterX="300" CenterY="165" />
+                                    <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
                                 </Image.RenderTransform>
                             </Image>
                             
@@ -273,7 +278,7 @@
 
                             <ListBox x:Name="RecentlyUsedListBox"
                                      Grid.Column="0"
-                                     ItemsSource="{Binding FilteredWallpapers}"
+                                     ItemsSource="{Binding RecentlyUsedWallpapers}"
                                      ItemContainerStyle="{StaticResource PremiumCardContainerStyle}"
                                      Background="Transparent"
                                      BorderThickness="0"
