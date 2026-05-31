@@ -381,8 +381,9 @@ public partial class DashboardViewModel : ObservableObject
         try
         {
             string path = GetHistoryPath();
+            bool hasHistory = File.Exists(path);
             List<string> ids = new();
-            if (File.Exists(path))
+            if (hasHistory)
             {
                 string json = await File.ReadAllTextAsync(path);
                 ids = JsonSerializer.Deserialize<List<string>>(json) ?? new();
@@ -410,6 +411,11 @@ public partial class DashboardViewModel : ObservableObject
                 foreach (var wp in list)
                 {
                     RecentlyUsedWallpapers.Add(wp);
+                }
+
+                if (hasHistory && list.Count > 0)
+                {
+                    LastDisplayedWallpaper = list[0];
                 }
             });
         }

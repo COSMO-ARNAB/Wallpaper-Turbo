@@ -117,8 +117,18 @@
                                   VerticalAlignment="Center" 
                                   HorizontalAlignment="Stretch" />
 
-                            <!-- Current experience tag -->
+                            <!-- Current experience tag (only visible when engine is active and wallpaper is running) -->
                             <Border Background="#1C2132" BorderBrush="#3066FCF1" BorderThickness="1" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24" Padding="10,5">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ActiveWallpaper}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <StackPanel Orientation="Horizontal">
                                     <Ellipse Width="6" Height="6" Fill="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
                                     <TextBlock Text="CURRENT EXPERIENCE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource ActiveCyanBrush}" />
