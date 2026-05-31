@@ -7,3 +7,4 @@ obj/
 src/WallpaperTurbo.AppRunner/Assets/*.mp4
 publish/
 setup/
+.codex-build/

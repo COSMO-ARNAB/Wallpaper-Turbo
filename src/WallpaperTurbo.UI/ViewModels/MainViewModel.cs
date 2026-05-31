@@ -160,13 +160,25 @@ public partial class MainViewModel : ObservableObject
         }
         else
         {
-            // Start default first wallpaper
+            // Resume the last wallpaper shown in the dashboard hero when available.
             var list = await _wallpaperService.GetWallpapersAsync();
             if (list.Any())
             {
-                await _wallpaperService.LaunchWallpaperAsync(1);
-                ActiveWallpaperTitle = list[0].Title;
-                ActiveWallpaperSpecs = $"{list[0].Resolution} • {list[0].Fps}";
+                var preferredWallpaper = _dashboardViewModel.CurrentWallpaper;
+                var wallpaperToLaunch = preferredWallpaper != null
+                    ? list.FirstOrDefault(w => w.Id == preferredWallpaper.Id || w.Title == preferredWallpaper.Title)
+                    : null;
+
+                wallpaperToLaunch ??= list.First();
+
+                int index = list.IndexOf(wallpaperToLaunch) + 1;
+                if (index > 0)
+                {
+                    await _wallpaperService.LaunchWallpaperAsync(index);
+                    ActiveWallpaperTitle = wallpaperToLaunch.Title;
+                    ActiveWallpaperSpecs = $"{wallpaperToLaunch.Resolution} • {wallpaperToLaunch.Fps}";
+                    _dashboardViewModel.LastDisplayedWallpaper = wallpaperToLaunch;
+                }
             }
         }
         UpdateEngineStatus();

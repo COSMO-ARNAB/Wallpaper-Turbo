@@ -69,17 +69,21 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private WallpaperEntry? _subHero2;
     [ObservableProperty] private WallpaperEntry? _subHero3;
     [ObservableProperty] private WallpaperEntry? _activeWallpaper;
+    [ObservableProperty] private WallpaperEntry? _lastDisplayedWallpaper;
 
-    public WallpaperEntry? CurrentWallpaper => ActiveWallpaper ?? HeroWallpaper;
+    public WallpaperEntry? CurrentWallpaper => ActiveWallpaper ?? LastDisplayedWallpaper ?? HeroWallpaper;
 
     partial void OnActiveWallpaperChanged(WallpaperEntry? value)
     {
         OnPropertyChanged(nameof(CurrentWallpaper));
         if (value != null)
         {
+            LastDisplayedWallpaper = value;
             RegisterPlayedWallpaper(value);
         }
     }
+
+    partial void OnLastDisplayedWallpaperChanged(WallpaperEntry? value) => OnPropertyChanged(nameof(CurrentWallpaper));
 
     partial void OnHeroWallpaperChanged(WallpaperEntry? value) => OnPropertyChanged(nameof(CurrentWallpaper));
 
@@ -326,6 +330,7 @@ public partial class DashboardViewModel : ObservableObject
         if (index > 0)
         {
             RegisterPlayedWallpaper(wp);
+            LastDisplayedWallpaper = wp;
             await _wallpaperService.LaunchWallpaperAsync(index, PauseOnMaximized ? "Maximized" : "None");
             
             // Notify MainViewModel of active wallpaper details
@@ -342,6 +347,7 @@ public partial class DashboardViewModel : ObservableObject
         if (index > 0)
         {
             RegisterPlayedWallpaper(wp);
+            LastDisplayedWallpaper = wp;
             
             // 1. Force close any previous wallpaper completely first
             var mainVm = App.GetService<MainViewModel>();
