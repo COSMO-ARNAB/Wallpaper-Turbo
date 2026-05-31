@@ -69,8 +69,6 @@
                     <RowDefinition Height="Auto" />
                     <!-- Now Playing Card -->
                     <RowDefinition Height="Auto" />
-                    <!-- Sidebar Footer Status -->
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <!-- BRAND LOGO HEADER -->
@@ -98,16 +96,18 @@
                 </StackPanel>
 
                 <!-- NAVIGATION BUTTON LIST -->
-                <StackPanel Grid.Row="1">
-                    <RadioButton Content="Dashboard" Tag="Home24" IsChecked="True" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Library" Tag="Library24" Command="{Binding NavigateCommand}" CommandParameter="Library" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Playlists" Tag="Play24" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Monitor Setup" Tag="Desktop24" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Engine" Tag="Power24" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Performance" Tag="Flash24" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="Settings" Tag="Settings24" Command="{Binding NavigateCommand}" CommandParameter="Settings" Style="{StaticResource SidebarButtonStyle}" />
-                    <RadioButton Content="About" Tag="Info24" Style="{StaticResource SidebarButtonStyle}" />
-                </StackPanel>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                    <StackPanel Margin="0,0,0,10">
+                        <RadioButton Content="Dashboard" Tag="Home24" IsChecked="True" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Library" Tag="Library24" Command="{Binding NavigateCommand}" CommandParameter="Library" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Playlists" Tag="Play24" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Monitor Setup" Tag="Desktop24" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Engine" Tag="Power24" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Performance" Tag="Flash24" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Settings" Tag="Settings24" Command="{Binding NavigateCommand}" CommandParameter="Settings" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="About" Tag="Info24" Style="{StaticResource SidebarButtonStyle}" />
+                    </StackPanel>
+                </ScrollViewer>
 
                 <!-- SUBTLE SEPARATOR FOR LOWER SIDEBAR -->
                 <Border Grid.Row="2" Height="1" Background="#12FFFFFF" Margin="20,12,20,16" VerticalAlignment="Center"/>
@@ -185,12 +185,20 @@
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsPlaying}" Value="True">
                                                 <Setter Property="Command" Value="{Binding PauseCommand}" />
-                                                <Setter Property="Icon" Value="Pause24" />
+                                                <Setter Property="Content">
+                                                    <Setter.Value>
+                                                        <ui:SymbolIcon Symbol="Pause24" FontSize="16" />
+                                                    </Setter.Value>
+                                                </Setter>
                                                 <Setter Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsPlaying}" Value="False">
                                                 <Setter Property="Command" Value="{Binding PlayCommand}" />
-                                                <Setter Property="Icon" Value="Play24" />
+                                                <Setter Property="Content">
+                                                    <Setter.Value>
+                                                        <ui:SymbolIcon Symbol="Play24" FontSize="16" />
+                                                    </Setter.Value>
+                                                </Setter>
                                                 <Setter Property="Foreground" Value="{StaticResource ActiveGreenBrush}" />
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -204,7 +212,6 @@
                             <!-- Stop/Cancel Playback button styled with WarningRed -->
                             <ui:Button Grid.Column="3" 
                                        Command="{Binding StopCommand}"
-                                       Icon="Dismiss24"
                                        Width="38" 
                                        Height="38" 
                                        CornerRadius="19" 
@@ -215,32 +222,12 @@
                                        Foreground="{StaticResource WarningRedBrush}"
                                        HorizontalAlignment="Center" 
                                        VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="Dismiss24" FontSize="16" />
                                 <ui:Button.Effect>
                                     <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.15" />
                                 </ui:Button.Effect>
                             </ui:Button>
                         </Grid>
-                    </Grid>
-                </Border>
-
-                <!-- SIDEBAR FOOTER ENGINE INDICATOR -->
-                <Border Grid.Row="4" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="16,12">
-                    <Grid>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <!-- Glowing status dot -->
-                            <Ellipse Width="8" Height="8" Fill="{StaticResource ActiveGreenBrush}" Margin="0,0,8,0">
-                                <Ellipse.Effect>
-                                    <DropShadowEffect Color="{StaticResource ActiveGreenColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.6" />
-                                </Ellipse.Effect>
-                            </Ellipse>
-                            <StackPanel>
-                                <TextBlock Text="{Binding EngineStatusText}" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF" />
-                                <TextBlock Text="{Binding ActiveRendererText}" FontSize="8" Foreground="{StaticResource MutedTextBrush}" />
-                            </StackPanel>
-                        </StackPanel>
-                        
-                        <!-- Sidebar Settings shortcut -->
-                        <ui:Button Icon="Settings24" Appearance="Transparent" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="4" />
                     </Grid>
                 </Border>
             </Grid>
@@ -316,29 +303,12 @@
             <Border Grid.Row="2" Background="#090B12" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="24,14">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Left: Engine Status details -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse Width="10" Height="10" Fill="{StaticResource ActiveGreenBrush}" Margin="0,0,12,0">
-                            <Ellipse.Effect>
-                                <DropShadowEffect Color="{StaticResource ActiveGreenColor}" BlurRadius="8" Opacity="0.5" ShadowDepth="0" />
-                            </Ellipse.Effect>
-                        </Ellipse>
-                        
-                        <StackPanel>
-                            <TextBlock Text="{Binding EngineStatusText}" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF" />
-                            <TextBlock FontSize="8" Foreground="{StaticResource MutedTextBrush}" Margin="0,1,0,0">
-                                <Run Text="VLC (D3D11VA)  •  Hardware Decode: " /><Run Text="Enabled" Foreground="{StaticResource ActiveGreenBrush}" FontWeight="Bold" />
-                            </TextBlock>
-                        </StackPanel>
-                    </StackPanel>
-
-                    <!-- Center: Metrics row separated by thin cyber borders -->
-                    <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0">
+                    <!-- Left/Center: Metrics row separated by thin cyber borders -->
+                    <WrapPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0">
                         <!-- FPS metric -->
                         <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
@@ -418,7 +388,7 @@
                     </WrapPanel>
 
                     <!-- Right: Premium Max Performance Optimized Badge -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border BorderBrush="#2566FCF1" BorderThickness="1" CornerRadius="8" Background="#0866FCF1" Padding="12,6" Margin="0,0,12,0">
                             <StackPanel Orientation="Horizontal">
                                 <Path Data="M 0,6 L 6,6 L 3,12 L 8,4 L 3,4 L 5,0 Z" Fill="{StaticResource ActiveCyanBrush}" Width="8" Height="12" Margin="0,0,8,0" VerticalAlignment="Center" />

@@ -118,7 +118,19 @@
                                   HorizontalAlignment="Stretch" />
 
                             <!-- Current experience tag (only visible when engine is active and wallpaper is running) -->
-                            <Border Background="#1C2132" BorderBrush="#3066FCF1" BorderThickness="1" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24" Padding="10,5">
+                            <Border x:Name="CurrentExperienceTag" 
+                                    BorderThickness="1" 
+                                    CornerRadius="6" 
+                                    HorizontalAlignment="Left" 
+                                    VerticalAlignment="Top" 
+                                    Margin="24" 
+                                    Padding="10,5">
+                                <Border.Background>
+                                    <SolidColorBrush x:Name="TagBackgroundBrush" Color="#1C2132" />
+                                </Border.Background>
+                                <Border.BorderBrush>
+                                    <SolidColorBrush x:Name="TagBorderBrush" Color="#3066FCF1" />
+                                </Border.BorderBrush>
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <Setter Property="Visibility" Value="Visible" />
@@ -129,68 +141,67 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <!-- Pulse the border brush color for premium sharp scifi tech look -->
+                                                <ColorAnimation Storyboard.TargetName="TagBorderBrush"
+                                                                Storyboard.TargetProperty="Color"
+                                                                From="#3066FCF1" To="#FF66FCF1" Duration="0:0:1.5"
+                                                                AutoReverse="True" RepeatBehavior="Forever" />
+                                                <!-- Pulse the border's background opacity for a breathing vector glow (ignoring software rasterization) -->
+                                                <ColorAnimation Storyboard.TargetName="TagBackgroundBrush"
+                                                                Storyboard.TargetProperty="Color"
+                                                                From="#1C2132" To="#451C2132" Duration="0:0:1.5"
+                                                                AutoReverse="True" RepeatBehavior="Forever" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
                                 <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="6" Height="6" Fill="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="CURRENT EXPERIENCE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource ActiveCyanBrush}" />
-                                </StackPanel>
-                            </Border>
+                                    <Ellipse x:Name="GlowingDot" Width="6" Height="6" Fill="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <Ellipse.Effect>
+                                            <DropShadowEffect x:Name="DotGlow" Color="{StaticResource ActiveCyanColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.8" />
+                                        </Ellipse.Effect>
+                                        <Ellipse.Triggers>
+                                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                         <DoubleAnimation Storyboard.TargetName="GlowingDot" 
+                                                                          Storyboard.TargetProperty="Opacity"
+                                                                          From="0.4" To="1.0" Duration="0:0:1.2"
+                                                                          AutoReverse="True" RepeatBehavior="Forever" />
+                                                         <DoubleAnimation Storyboard.TargetName="DotGlow" 
+                                                                          Storyboard.TargetProperty="Opacity"
+                                                                          From="0.3" To="1.0" Duration="0:0:1.2"
+                                                                          AutoReverse="True" RepeatBehavior="Forever" />
+                                                         <DoubleAnimation Storyboard.TargetName="DotGlow" 
+                                                                          Storyboard.TargetProperty="BlurRadius"
+                                                                          From="4" To="14" Duration="0:0:1.2"
+                                                                          AutoReverse="True" RepeatBehavior="Forever" />
+                                                     </Storyboard>
+                                                 </BeginStoryboard>
+                                             </EventTrigger>
+                                         </Ellipse.Triggers>
+                                     </Ellipse>
+                                     <TextBlock Text="CURRENT EXPERIENCE" FontSize="9" FontWeight="Bold" Foreground="{StaticResource ActiveCyanBrush}">
+                                         <TextBlock.Effect>
+                                             <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.3" />
+                                         </TextBlock.Effect>
+                                     </TextBlock>
+                                 </StackPanel>
+                             </Border>
 
-                            <!-- Content details & play buttons -->
+                            <!-- Content details -->
                             <Grid VerticalAlignment="Bottom" Margin="24">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0" VerticalAlignment="Bottom">
-                                    <TextBlock Text="{Binding CurrentWallpaper.Title, FallbackValue='EVENING-DRIVE'}" 
+                                <StackPanel VerticalAlignment="Bottom">
+                                    <TextBlock Text="{Binding CurrentWallpaper.Title, FallbackValue='EVENING-DRIVE'}"
                                                FontSize="28" FontWeight="ExtraBold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding CurrentWallpaper.Resolution, StringFormat={}{0} • 60 FPS • PRE-RENDERED, FallbackValue='3440 x 1440 • 60 FPS • PRE-RENDERED'}" 
+                                    <TextBlock Text="{Binding CurrentWallpaper.Resolution, StringFormat={}{0} • 60 FPS • PRE-RENDERED, FallbackValue='3440 x 1440 • 60 FPS • PRE-RENDERED'}"
                                                FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0" />
                                 </StackPanel>
-
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-                                    <ui:Button Content="View Details" 
-                                               Appearance="Secondary"
-                                               BorderBrush="#25FFFFFF"
-                                               Foreground="#FFFFFF"
-                                               Padding="16,8"
-                                               Height="38"
-                                               CornerRadius="8"
-                                               Margin="0,0,12,0" />
-
-                                    <!-- Pill-shaped PLAY button (Fluent 2 style — wider, labeled, no raw circle) -->
-                                    <Button Command="{Binding PlayWallpaperCommand}" 
-                                            CommandParameter="{Binding CurrentWallpaper}"
-                                            Height="38">
-                                        <Button.Template>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border x:Name="PlayPill"
-                                                        Background="{StaticResource ActiveCyanBrush}"
-                                                        CornerRadius="8"
-                                                        Padding="16,0">
-                                                    <Border.Effect>
-                                                        <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="14" ShadowDepth="0" Opacity="0.45" />
-                                                    </Border.Effect>
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <ui:SymbolIcon x:Name="PillIcon" Symbol="Play24" Foreground="#060811" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                                        <TextBlock x:Name="PillText" Text="PLAY" FontSize="11" FontWeight="Bold" Foreground="#060811" VerticalAlignment="Center" />
-                                                    </StackPanel>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="PlayPill" Property="Background" Value="#AAFCF1" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsPressed" Value="True">
-                                                        <Setter TargetName="PlayPill" Property="Background" Value="#66FCF1" />
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Button.Template>
-                                    </Button>
-                                </StackPanel>
                             </Grid>
-
                             <!-- Carousel Indicators -->
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,12">
                                 <Ellipse Width="16" Height="3" Fill="{StaticResource ActiveCyanBrush}" Margin="3,0" />
@@ -767,3 +778,5 @@
         </Border>
     </Grid>
 </UserControl>
+
+

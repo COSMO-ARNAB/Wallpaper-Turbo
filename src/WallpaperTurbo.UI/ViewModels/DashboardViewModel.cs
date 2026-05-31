@@ -73,9 +73,12 @@ public partial class DashboardViewModel : ObservableObject
 
     public WallpaperEntry? CurrentWallpaper => ActiveWallpaper ?? LastDisplayedWallpaper ?? HeroWallpaper;
 
+    public bool IsCurrentWallpaperPlaying => ActiveWallpaper != null && CurrentWallpaper != null && ActiveWallpaper.Id == CurrentWallpaper.Id;
+
     partial void OnActiveWallpaperChanged(WallpaperEntry? value)
     {
         OnPropertyChanged(nameof(CurrentWallpaper));
+        OnPropertyChanged(nameof(IsCurrentWallpaperPlaying));
         if (value != null)
         {
             LastDisplayedWallpaper = value;
@@ -83,9 +86,17 @@ public partial class DashboardViewModel : ObservableObject
         }
     }
 
-    partial void OnLastDisplayedWallpaperChanged(WallpaperEntry? value) => OnPropertyChanged(nameof(CurrentWallpaper));
+    partial void OnLastDisplayedWallpaperChanged(WallpaperEntry? value)
+    {
+        OnPropertyChanged(nameof(CurrentWallpaper));
+        OnPropertyChanged(nameof(IsCurrentWallpaperPlaying));
+    }
 
-    partial void OnHeroWallpaperChanged(WallpaperEntry? value) => OnPropertyChanged(nameof(CurrentWallpaper));
+    partial void OnHeroWallpaperChanged(WallpaperEntry? value)
+    {
+        OnPropertyChanged(nameof(CurrentWallpaper));
+        OnPropertyChanged(nameof(IsCurrentWallpaperPlaying));
+    }
 
     // Collection of active monitors
     public ObservableCollection<MonitorTopologyItem> Monitors { get; } = new();
@@ -325,6 +336,18 @@ public partial class DashboardViewModel : ObservableObject
     private async Task PlayWallpaperAsync(WallpaperEntry? wp)
     {
         if (wp == null) return;
+
+        // If the wallpaper is already active and playing, toggle it off by stopping playback
+        if (ActiveWallpaper != null && wp.Id == ActiveWallpaper.Id)
+        {
+            var mainVm = App.GetService<MainViewModel>();
+            if (mainVm != null)
+            {
+                await mainVm.StopCommand.ExecuteAsync(null);
+            }
+            return;
+        }
+
         var list = await _wallpaperService.GetWallpapersAsync();
         int index = list.IndexOf(wp) + 1;
         if (index > 0)
@@ -332,7 +355,8 @@ public partial class DashboardViewModel : ObservableObject
             RegisterPlayedWallpaper(wp);
             LastDisplayedWallpaper = wp;
             await _wallpaperService.LaunchWallpaperAsync(index, PauseOnMaximized ? "Maximized" : "None");
-            
+            ActiveWallpaper = wp;
+
             // Notify MainViewModel of active wallpaper details
             App.GetService<MainViewModel>().SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
         }
@@ -359,6 +383,7 @@ public partial class DashboardViewModel : ObservableObject
 
             // 2. Play the new wallpaper fresh from scratch (forcing fresh process)
             await _wallpaperService.LaunchWallpaperAsync(index, PauseOnMaximized ? "Maximized" : "None", forceFreshLaunch: true);
+            ActiveWallpaper = wp;
 
             // 3. Update main status details
             mainVm.UpdateEngineStatus();
@@ -484,3 +509,4 @@ public partial class DashboardViewModel : ObservableObject
         _ = SaveRecentlyUsedHistoryAsync();
     }
 }
+
