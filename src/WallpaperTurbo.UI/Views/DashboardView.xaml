@@ -81,6 +81,20 @@
             </Grid>
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasWallpapers}" Value="True" />
+                                    <Condition Binding="{Binding IsLoading}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
                 <StackPanel Margin="0,0,8,12">
 
                     <!-- 2. HERO CINEMATIC CARD -->
@@ -500,6 +514,71 @@
 
                 </StackPanel>
             </ScrollViewer>
+
+            <!-- GORGEOUS PREMIUM EMPTY STATE PANEL -->
+            <Border Grid.Row="1" Margin="0,0,8,24" Height="480" VerticalAlignment="Top" Padding="24">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource NeonCardStyle}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasWallpapers}" Value="False" />
+                                    <Condition Binding="{Binding IsLoading}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                
+                <Grid VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Glowing Import Emblem -->
+                        <Border Width="96" Height="96" CornerRadius="48" BorderBrush="#3066FCF1" BorderThickness="1.5" Background="#1066FCF1" HorizontalAlignment="Center" Margin="0,0,0,24">
+                            <Border.Effect>
+                                <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="16" ShadowDepth="0" Opacity="0.35" />
+                            </Border.Effect>
+                            <ui:SymbolIcon Symbol="Add24" FontSize="44" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <TextBlock Text="IMPORT YOUR CINEMATIC WALLPAPERS" 
+                                   FontSize="16" 
+                                   FontWeight="ExtraBold" 
+                                   Foreground="#FFFFFF" 
+                                   HorizontalAlignment="Center" 
+                                   Margin="0,0,0,8" 
+                                   FontFamily="Segoe UI Variable Display, Inter, Segoe UI">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.2" />
+                            </TextBlock.Effect>
+                        </TextBlock>
+                        
+                        <TextBlock Text="Your library is currently empty. Bring your desktop to life by importing high-fidelity videos (.mp4, .webm, .mkv) or live animations." 
+                                   FontSize="11" 
+                                   Foreground="{StaticResource MutedTextBrush}" 
+                                   HorizontalAlignment="Center" 
+                                   TextAlignment="Center" 
+                                   TextWrapping="Wrap" 
+                                   MaxWidth="380" 
+                                   Margin="0,0,0,28" 
+                                   LineHeight="16"/>
+
+                        <!-- Large glowing CTA Button -->
+                        <ui:Button Content="+ Import Wallpapers" 
+                                   Command="{Binding DataContext.ImportWallpaperCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Style="{StaticResource NeonImportButtonStyle}" 
+                                   Padding="28,12" 
+                                   FontSize="13" 
+                                   FontWeight="Bold" 
+                                   HorizontalAlignment="Center">
+                            <ui:Button.Effect>
+                                <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="12" ShadowDepth="0" Opacity="0.25" />
+                            </ui:Button.Effect>
+                        </ui:Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
 
         <!-- COLUMN 1: RIGHT SIDEBAR PANEL -->

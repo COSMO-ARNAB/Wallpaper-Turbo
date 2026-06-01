@@ -238,36 +238,50 @@ public partial class MainViewModel : ObservableObject
     {
         var openFileDialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "Import Cinematic Wallpaper",
+            Title = "Import Cinematic Wallpapers",
             Filter = "Supported Formats (*.mp4;*.webm;*.mkv;*.gif;*.jpg;*.jpeg;*.png)|*.mp4;*.webm;*.mkv;*.gif;*.jpg;*.jpeg;*.png",
-            Multiselect = false
+            Multiselect = true
         };
 
         if (openFileDialog.ShowDialog() == true)
         {
-            try
-            {
-                // Trigger the non-blocking import pipeline
-                var newWp = await _libraryService.ImportWallpaperAsync(
-                    openFileDialog.FileName,
-                    async (completedWp) =>
-                    {
-                        // Background dispatcher STA thumbnail finished, refresh UI on Main thread
-                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
-                        {
-                            await _dashboardViewModel.LoadLibraryAsync();
-                            await _libraryViewModel.LoadLibraryAsync();
-                        });
-                    }, CancellationToken.None);
+            var files = openFileDialog.FileNames;
+            int successCount = 0;
 
-                // Instantly load placeholders for transient fluid UI
-                await _dashboardViewModel.LoadLibraryAsync();
-                await _libraryViewModel.LoadLibraryAsync();
-            }
-            catch (Exception ex)
+            foreach (var file in files)
             {
-                DialogTitle = "Import Failure";
-                DialogMessage = $"Failed to import wallpaper:\n{ex.Message}";
+                try
+                {
+                    // Trigger the non-blocking import pipeline for each file
+                    await _libraryService.ImportWallpaperAsync(
+                        file,
+                        async (completedWp) =>
+                        {
+                            // Background dispatcher STA thumbnail finished, refresh UI on Main thread
+                            await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+                            {
+                                await _dashboardViewModel.LoadLibraryAsync();
+                                await _libraryViewModel.LoadLibraryAsync();
+                            });
+                        }, CancellationToken.None);
+
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to import '{file}': {ex.Message}");
+                }
+            }
+
+            // Instantly load placeholders for transient fluid UI
+            await _dashboardViewModel.LoadLibraryAsync();
+            await _libraryViewModel.LoadLibraryAsync();
+
+            // If some or all imports failed, show a helpful status dialog
+            if (successCount < files.Length)
+            {
+                DialogTitle = "Import Status";
+                DialogMessage = $"Successfully imported {successCount} of {files.Length} wallpapers.\n\nSome files could not be imported due to file locks or invalid formats.";
                 IsDialogCancelVisible = false;
                 DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
                 IsDialogVisible = true;

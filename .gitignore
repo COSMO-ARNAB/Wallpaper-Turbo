@@ -9,3 +9,4 @@ publish/
 setup/
 .codex-build/
 .vscode/
+node_modules/

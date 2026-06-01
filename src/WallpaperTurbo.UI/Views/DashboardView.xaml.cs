@@ -231,7 +231,7 @@ public partial class DashboardView : UserControl
             string tag = element.Tag?.ToString() ?? string.Empty;
             wp = tag switch
             {
-                "Hero"     => vm.HeroWallpaper,
+                "Hero"     => vm.CurrentWallpaper,
                 "SubHero1" => vm.SubHero1,
                 "SubHero2" => vm.SubHero2,
                 "SubHero3" => vm.SubHero3,
