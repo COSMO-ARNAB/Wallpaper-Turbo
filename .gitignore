@@ -1,12 +1,57 @@
+# ─────────────────────────────────────────────
+# .NET Build Artifacts
+# ─────────────────────────────────────────────
 bin/
 obj/
-.vs/
-/lively-core-separation/
 *.user
 *.suo
-src/WallpaperTurbo.AppRunner/Assets/*.mp4
+*.dbmdl
+*.jfm
+
+# ─────────────────────────────────────────────
+# IDE & Editor Config
+# ─────────────────────────────────────────────
+.vs/
+.vscode/
+.kilo/
+.codex-build/
+.opencode/
+
+# ─────────────────────────────────────────────
+# Node / npm (not part of .NET project)
+# ─────────────────────────────────────────────
+node_modules/
+package-lock.json
+package.json
+
+# ─────────────────────────────────────────────
+# Publish / Build Outputs
+# ─────────────────────────────────────────────
 publish/
 setup/
-.codex-build/
-.vscode/
-node_modules/
+
+# ─────────────────────────────────────────────
+# Media Assets (large files, not versioned)
+# ─────────────────────────────────────────────
+src/WallpaperTurbo.AppRunner/Assets/*.mp4
+
+# ─────────────────────────────────────────────
+# Scratch / Temp / Dev Notes (root level)
+# ─────────────────────────────────────────────
+scratch/
+decoded-structure.txt
+project-structure.txt
+virtualization_diagnostic.log
+vlc-help.txt
+*.log
+*.tmp
+
+# ─────────────────────────────────────────────
+# AI Agent Skill Bundles (external, not project code)
+# ─────────────────────────────────────────────
+agent-skills/
+
+# ─────────────────────────────────────────────
+# Legacy / Old Directory
+# ─────────────────────────────────────────────
+/lively-core-separation/
