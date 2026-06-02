@@ -49,7 +49,8 @@ vlc-help.txt
 # ─────────────────────────────────────────────
 # AI Agent Skill Bundles (external, not project code)
 # ─────────────────────────────────────────────
-agent-skills/
+AGENTS.md 
+skills/
 
 # ─────────────────────────────────────────────
 # Legacy / Old Directory
