@@ -70,18 +70,15 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
 
         if (channel == ReleaseChannel.Stable && releaseChannel != ReleaseChannel.Stable)
         {
-            return null;
+            return null; // Stable only accepts Stable
         }
 
-        if (channel == ReleaseChannel.Preview && releaseChannel == ReleaseChannel.Stable)
+        if (channel == ReleaseChannel.Preview && releaseChannel == ReleaseChannel.Nightly)
         {
-            return null;
+            return null; // Preview accepts Preview and Stable, but not Nightly
         }
 
-        if (channel == ReleaseChannel.Nightly && releaseChannel == ReleaseChannel.Stable)
-        {
-            return null;
-        }
+        // Nightly accepts Nightly, Preview, and Stable (all channels)
 
         var tagName = release.TryGetProperty("tag_name", out var tagNameElem)
             ? tagNameElem.GetString() 

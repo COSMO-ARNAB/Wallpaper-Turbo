@@ -46,7 +46,7 @@ public sealed class UpdateService : IUpdateService
     {
         try
         {
-            var assembly = Assembly.GetExecutingAssembly();
+            var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
             var version = assembly.GetName().Version;
             return version ?? new Version(1, 0, 0);
         }

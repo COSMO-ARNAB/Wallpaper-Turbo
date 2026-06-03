@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.UI.Services;
 
 namespace WallpaperTurbo.UI.ViewModels;
@@ -12,6 +13,7 @@ public partial class MainViewModel : ObservableObject
     private readonly WallpaperService _wallpaperService;
     private readonly TelemetryService _telemetryService;
     private readonly IWallpaperLibraryService _libraryService;
+    private readonly UpdaterViewModel _updater;
 
     [ObservableProperty]
     private object? _currentPageViewModel;
@@ -72,10 +74,13 @@ public partial class MainViewModel : ObservableObject
     private readonly LibraryViewModel _libraryViewModel;
     private readonly SettingsViewModel _settingsViewModel;
 
+    public UpdaterViewModel Updater => _updater;
+
     public MainViewModel(
         WallpaperService wallpaperService,
         TelemetryService telemetryService,
         IWallpaperLibraryService libraryService,
+        UpdaterViewModel updater,
         DashboardViewModel dashboardViewModel,
         LibraryViewModel libraryViewModel,
         SettingsViewModel settingsViewModel)
@@ -83,6 +88,7 @@ public partial class MainViewModel : ObservableObject
         _wallpaperService = wallpaperService;
         _telemetryService = telemetryService;
         _libraryService = libraryService;
+        _updater = updater;
         _dashboardViewModel = dashboardViewModel;
         _libraryViewModel = libraryViewModel;
         _settingsViewModel = settingsViewModel;
@@ -296,5 +302,35 @@ public partial class MainViewModel : ObservableObject
 
         // Await all background library tasks (saving manifests, finishing thumbnails) safely
         await _libraryService.ShutdownAsync();
+    }
+
+    /// <summary>
+    /// Shows a confirmation dialog before proceeding to install the downloaded update.
+    /// Install will close Wallpaper Turbo and run the Inno Setup installer; user must confirm.
+    /// </summary>
+    [RelayCommand]
+    private void RequestInstallUpdate()
+    {
+        if (_updater.State != UpdateState.ReadyToInstall) return;
+
+        var version = _updater.AvailableVersionText;
+        var channel = _updater.ChannelDisplay;
+
+        DialogTitle = "Install Update";
+        DialogMessage = $"Wallpaper Turbo {version} ({channel}) is ready to install.\n\n" +
+                        "The app will close and the installer will launch automatically. " +
+                        "Any active wallpaper playback will be stopped.\n\n" +
+                        "Continue with installation?";
+        IsDialogCancelVisible = true;
+        DialogConfirmCommand = new RelayCommand(() =>
+        {
+            IsDialogVisible = false;
+            if (_updater.InstallCommand.CanExecute(null))
+            {
+                _updater.InstallCommand.Execute(null);
+            }
+        });
+        DialogCancelCommand = new RelayCommand(() => IsDialogVisible = false);
+        IsDialogVisible = true;
     }
 }

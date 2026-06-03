@@ -240,6 +240,8 @@
             <Grid.RowDefinitions>
                 <!-- Custom Titlebar & Premium Command bar -->
                 <RowDefinition Height="Auto" />
+                <!-- Non-intrusive Update Notification Banner -->
+                <RowDefinition Height="Auto" />
                 <!-- Central Presenter Workspace -->
                 <RowDefinition Height="*" />
                 <!-- Performance Footer -->
@@ -266,7 +268,7 @@
                         <!-- Right Command controls (leaving ~130px on the far right for the native Min/Max/Close buttons inside TitleBar) -->
                         <StackPanel WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,130,0">
                             <!-- Monitor Selector combobox with screen icon -->
-                            <ComboBox Height="30" Width="130" SelectedIndex="0" Margin="0,0,8,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                            <ComboBox Width="130" SelectedIndex="0" Margin="0,0,8,0" WindowChrome.IsHitTestVisibleInChrome="True">
                                 <ComboBoxItem>
                                     <StackPanel Orientation="Horizontal">
                                         <ui:SymbolIcon Symbol="Desktop24" Margin="0,0,8,0"/>
@@ -294,13 +296,114 @@
                 </Border>
             </Grid>
 
+            <!-- ========================================== -->
+            <!-- NON-INTRUSIVE UPDATE NOTIFICATION BANNER  -->
+            <!-- Visible only when IsNotificationVisible is true. -->
+            <!-- ========================================== -->
+            <Border Grid.Row="1"
+                    Margin="24,8,24,0"
+                    Padding="16,12"
+                    CornerRadius="10"
+                    BorderThickness="1"
+                    BorderBrush="#4066FCF1"
+                    Background="#0D1626"
+                    Visibility="{Binding Updater.IsNotificationVisible, Converter={StaticResource BoolToVisConverter}}">
+                <Border.Effect>
+                    <DropShadowEffect Color="#FF66FCF1" BlurRadius="14" ShadowDepth="0" Opacity="0.18" />
+                </Border.Effect>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: state icon + headline -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                        <ui:SymbolIcon Symbol="ArrowSync24"
+                                       FontSize="22"
+                                       Foreground="{StaticResource ActiveCyanBrush}"
+                                       Margin="0,0,12,0"
+                                       VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Updater.AvailableVersionText}"
+                                       FontSize="13"
+                                       FontWeight="Bold"
+                                       Foreground="#FFFFFF" />
+                            <TextBlock Text="{Binding Updater.StatusText}"
+                                       FontSize="10"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Center: progress + speed while downloading/verifying -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Updater.IsBusy}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <ProgressBar Value="{Binding Updater.ProgressPercent, Mode=OneWay}"
+                                     Minimum="0" Maximum="100" Height="4"
+                                     Background="#15FFFFFF"
+                                     Foreground="{StaticResource ActiveCyanBrush}" />
+                        <Grid Margin="0,4,0,0">
+                            <TextBlock Text="{Binding Updater.ProgressText}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
+                            <TextBlock Text="{Binding Updater.DownloadSpeedText}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Right: action buttons -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Download (only when UpdateAvailable) -->
+                        <ui:Button Content="Download"
+                                   Command="{Binding Updater.DownloadCommand}"
+                                   Visibility="{Binding Updater.IsDownloadButtonVisible, Converter={StaticResource BoolToVisConverter}}"
+                                   Icon="ArrowDownload24"
+                                   Appearance="Primary"
+                                   Height="32"
+                                   Margin="0,0,8,0" />
+                        <!-- Install (only when ReadyToInstall) — uses confirmation dialog -->
+                        <ui:Button Content="Install Update"
+                                   Command="{Binding RequestInstallUpdateCommand}"
+                                   Visibility="{Binding Updater.IsInstallButtonVisible, Converter={StaticResource BoolToVisConverter}}"
+                                   Icon="Checkmark24"
+                                   Appearance="Primary"
+                                   Height="32"
+                                   Margin="0,0,8,0" />
+                        <!-- Cancel (only when an operation is in-flight) -->
+                        <ui:Button Content="Cancel"
+                                   Command="{Binding Updater.CancelCommand}"
+                                   Visibility="{Binding Updater.IsCancelButtonVisible, Converter={StaticResource BoolToVisConverter}}"
+                                   Icon="Dismiss24"
+                                   Appearance="Secondary"
+                                   Height="32"
+                                   Margin="0,0,8,0" />
+                        <!-- Dismiss (always available while banner is visible) -->
+                        <ui:Button Command="{Binding Updater.DismissNotificationCommand}"
+                                   Icon="Dismiss24"
+                                   Appearance="Transparent"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Height="32"
+                                   Width="32"
+                                   ToolTip="Dismiss" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
             <!-- CENTRAL DYNAMIC MVVM WORKSPACE -->
-            <ContentPresenter Grid.Row="1" Content="{Binding CurrentPageViewModel}" Margin="24,8,24,12" />
+            <ContentPresenter Grid.Row="2" Content="{Binding CurrentPageViewModel}" Margin="24,8,24,12" />
 
             <!-- ========================================== -->
             <!-- UNIFIED CYBERNETIC FOOTER PANEL            -->
             <!-- ========================================== -->
-            <Border Grid.Row="2" Background="#090B12" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="24,14">
+            <Border Grid.Row="3" Background="#090B12" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="24,14">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -400,7 +503,7 @@
                         </Border>
                         
                         <!-- Version Tag -->
-                        <TextBlock Text="v2.1.0" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Updater.CurrentVersion, StringFormat=v\{0\}, FallbackValue=v1.0.0}" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Grid>
             </Border>

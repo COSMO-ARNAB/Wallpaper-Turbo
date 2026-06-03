@@ -51,15 +51,8 @@ public partial class DashboardView : UserControl
             _hwndSource?.AddHook(WndProc);
         }
 
-        // Cache the ScrollViewer after the visual tree is fully built.
-        // DispatcherPriority.Loaded fires fire after measure/arrange, so the
-        // ListBox template children are guaranteed to exist.
-        Dispatcher.InvokeAsync(() =>
-        {
-            var listBox = FindName("RecentlyUsedListBox") as ListBox;
-            if (listBox != null)
-                _cachedScrollViewer = FindScrollViewer(listBox);
-        }, DispatcherPriority.Loaded);
+        // Initialize rendering hooks if needed, but do NOT cache the ScrollViewer yet.
+        // It may be collapsed if IsLoading is true, causing FindScrollViewer to return null.
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -86,7 +79,7 @@ public partial class DashboardView : UserControl
             // Positive = swipe RIGHT (should increase HorizontalOffset).
             int rawDelta = unchecked((short)((wParam.ToInt64() >> 16) & 0xFFFF));
 
-            var sv = _cachedScrollViewer;
+            var sv = GetScrollViewer();
             if (sv != null && IsMouseOverScrollViewer(sv))
             {
                 // Positive raw delta → scroll RIGHT → positive velocity change.
@@ -132,7 +125,7 @@ public partial class DashboardView : UserControl
     /// </summary>
     private void AccumulateVelocity(double rawDelta)
     {
-        var sv = _cachedScrollViewer;
+        var sv = GetScrollViewer();
         if (sv == null) return;
 
         // If the loop is idle, seed _currentOffset from the actual scroll position
@@ -150,7 +143,7 @@ public partial class DashboardView : UserControl
     /// </summary>
     private void OnRenderFrame(object? sender, EventArgs e)
     {
-        var sv = _cachedScrollViewer;
+        var sv = GetScrollViewer();
         if (sv == null)
         {
             StopRenderLoop();
@@ -215,6 +208,18 @@ public partial class DashboardView : UserControl
             if (result != null) return result;
         }
         return null;
+    }
+
+    private ScrollViewer? GetScrollViewer()
+    {
+        if (_cachedScrollViewer != null)
+            return _cachedScrollViewer;
+
+        if (FindName("RecentlyUsedListBox") is ListBox listBox)
+        {
+            _cachedScrollViewer = FindScrollViewer(listBox);
+        }
+        return _cachedScrollViewer;
     }
 
     // ── Triple-click card handler ─────────────────────────────────────────────

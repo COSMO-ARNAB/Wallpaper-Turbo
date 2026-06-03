@@ -36,7 +36,14 @@ public sealed class HttpDownloadManager : IDownloadManager
 
         if (File.Exists(destinationPath))
         {
-            File.Delete(destinationPath);
+            try
+            {
+                File.Delete(destinationPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[HttpDownloadManager] Could not delete existing file {destinationPath}: {ex.Message}");
+            }
         }
 
         Exception? lastException = null;

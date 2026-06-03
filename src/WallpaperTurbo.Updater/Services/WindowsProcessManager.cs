@@ -9,9 +9,11 @@ namespace WallpaperTurbo.Updater.Services;
 
 public sealed class WindowsProcessManager : IProcessManager
 {
-    public async Task<bool> ShutdownAppRunnerGracefullyAsync(int timeoutMilliseconds)
+    public async Task<bool> ShutdownOtherProcessesGracefullyAsync(int timeoutMilliseconds)
     {
-        var processes = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
+        var processes = new List<Process>();
+        processes.AddRange(Process.GetProcessesByName("WallpaperTurbo.AppRunner"));
+        processes.AddRange(Process.GetProcessesByName("WallpaperTurbo.UI"));
         var currentProcess = Process.GetCurrentProcess();
         var processesToShutdown = new List<Process>();
 
@@ -117,6 +119,25 @@ public sealed class WindowsProcessManager : IProcessManager
         catch (Exception ex)
         {
             Debug.WriteLine($"[WindowsProcessManager] Failed to kill process PID {process.Id}: {ex.Message}");
+        }
+    }
+
+    public void ShutdownCurrentProcessGracefully()
+    {
+        var currentProcess = Process.GetCurrentProcess();
+        try
+        {
+            currentProcess.CloseMainWindow();
+            
+            // Fallback after 5 seconds if graceful shutdown fails
+            Task.Delay(5000).ContinueWith(_ =>
+            {
+                Environment.Exit(0);
+            });
+        }
+        catch
+        {
+            Environment.Exit(0);
         }
     }
 

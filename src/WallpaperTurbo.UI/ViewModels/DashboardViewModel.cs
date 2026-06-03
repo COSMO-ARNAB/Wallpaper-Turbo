@@ -167,12 +167,22 @@ public partial class DashboardViewModel : ObservableObject
 
     public async Task LoadLibraryAsync()
     {
-        _allWallpapers = await _wallpaperService.GetWallpapersAsync();
-        await LoadFeaturedWallpapersAsync();
-        await LoadRecentlyUsedHistoryAsync();
-        ApplyFilter();
-        OnPropertyChanged(nameof(HasWallpapers));
-        IsLoading = false;
+        try
+        {
+            _allWallpapers = await _wallpaperService.GetWallpapersAsync();
+            await LoadFeaturedWallpapersAsync();
+            await LoadRecentlyUsedHistoryAsync();
+            ApplyFilter();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DashboardViewModel] LoadLibraryAsync error: {ex}");
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(HasWallpapers));
+            IsLoading = false;
+        }
 
         // Auto-start engine on startup if configured and offline
         if (AutoStartEngine && !_wallpaperService.IsEngineRunning())

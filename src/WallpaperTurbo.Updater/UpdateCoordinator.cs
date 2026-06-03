@@ -97,6 +97,7 @@ public sealed class UpdateCoordinator : IDisposable
 
     public async Task CheckForUpdatesAsync(ReleaseChannel channel)
     {
+        var newCts = new CancellationTokenSource();
         UpdateState oldState;
         await _stateLock.WaitAsync();
         try
@@ -105,11 +106,19 @@ public sealed class UpdateCoordinator : IDisposable
                 _currentState != UpdateState.Failed && 
                 _currentState != UpdateState.UpToDate)
             {
+                newCts.Dispose();
                 return;
             }
             
             oldState = _currentState;
             _currentState = UpdateState.Checking;
+            var oldCts = _activeCts;
+            _activeCts = newCts;
+            if (oldCts != null)
+            {
+                oldCts.Cancel();
+                oldCts.Dispose();
+            }
         }
         finally
         {
@@ -118,13 +127,6 @@ public sealed class UpdateCoordinator : IDisposable
 
         Debug.WriteLine($"[UpdateCoordinator] State Transition: {oldState} -> {UpdateState.Checking}");
         StateChanged?.Invoke(this, new UpdateStateChangedEventArgs(oldState, UpdateState.Checking, DateTime.UtcNow));
-
-        var oldCts = Interlocked.Exchange(ref _activeCts, new CancellationTokenSource());
-        if (oldCts != null)
-        {
-            oldCts.Cancel();
-            oldCts.Dispose();
-        }
 
         try
         {
@@ -175,7 +177,7 @@ public sealed class UpdateCoordinator : IDisposable
         // Use a standard temp directory for the download
         string tempDir = Path.Combine(Path.GetTempPath(), "WallpaperTurboUpdates");
         Directory.CreateDirectory(tempDir);
-        string destinationPath = Path.Combine(tempDir, $"WallpaperTurbo_Update_{_currentManifest.Version}.exe");
+        string destinationPath = Path.Combine(tempDir, $"WallpaperTurbo_Update_{_currentManifest.Version}_{Guid.NewGuid()}.exe");
 
         try
         {
@@ -213,6 +215,21 @@ public sealed class UpdateCoordinator : IDisposable
 
         try
         {
+            if (!string.IsNullOrEmpty(_currentManifest?.Sha256Hash))
+            {
+                using var sha256 = System.Security.Cryptography.SHA256.Create();
+                using var stream = File.OpenRead(_downloadedFilePath);
+                var hashBytes = sha256.ComputeHash(stream);
+                var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                
+                if (hashString != _currentManifest.Sha256Hash.ToLowerInvariant())
+                {
+                    CleanupPartialDownload(_downloadedFilePath);
+                    await HandleErrorAsync("Security Validation Failed. The downloaded file hash does not match the manifest.", null);
+                    return;
+                }
+            }
+
             // Note: If running on an OS/environment where Authenticode throws immediately,
             // we catch it. Usually IsValidSignature returns a boolean.
             bool isValid = _signatureValidator.IsValidSignature(_downloadedFilePath);
@@ -248,7 +265,7 @@ public sealed class UpdateCoordinator : IDisposable
 
         try
         {
-            bool shutdownSuccess = await _processManager.ShutdownAppRunnerGracefullyAsync(5000);
+            bool shutdownSuccess = await _processManager.ShutdownOtherProcessesGracefullyAsync(5000);
             
             if (!shutdownSuccess)
             {
@@ -260,8 +277,10 @@ public sealed class UpdateCoordinator : IDisposable
             await ForceStateAsync(UpdateState.Installing);
             
             // Handoff to installer.
-            // This is terminal for this process instance.
             _updateApplier.ApplyUpdate(_downloadedFilePath);
+
+            // Shut down current process to release locks
+            _processManager.ShutdownCurrentProcessGracefully();
         }
         catch (Exception ex)
         {

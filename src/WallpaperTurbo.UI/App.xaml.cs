@@ -1,8 +1,13 @@
 using System;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using WallpaperTurbo.Core.Updates.Interfaces;
+using WallpaperTurbo.Updater;
+using WallpaperTurbo.Updater.Services;
 
 namespace WallpaperTurbo.UI;
 
@@ -13,6 +18,11 @@ public partial class App : Application
 {
     private static readonly IServiceProvider _serviceProvider = ConfigureServices();
     private static Mutex? _appMutex;
+
+    // Update source coordinates. Override these for fork or self-hosted release feeds.
+    private const string UpdateRepoOwner = "WallpaperTurbo";
+    private const string UpdateRepoName = "WallpaperTurbo";
+    private const string UpdatePublisherName = "Wallpaper Turbo";
 
     private static IServiceProvider ConfigureServices()
     {
@@ -26,11 +36,42 @@ public partial class App : Application
         services.AddSingleton<Services.IWallpaperPreviewService, Services.WallpaperPreviewService>();
         services.AddSingleton<Services.DiagnosticsService>(); // Development-time stability counters
 
+        // Updater Infrastructure (Phase C integration)
+        services.AddSingleton<HttpClient>(_ =>
+        {
+            var client = new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(10)
+            };
+            client.DefaultRequestHeaders.UserAgent.Add(
+                new ProductInfoHeaderValue("WallpaperTurbo-Updater", "1.0"));
+            client.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            return client;
+        });
+        services.AddSingleton<IUpdaterSettingsStore, Services.JsonUpdaterSettingsStore>();
+        services.AddSingleton<IUpdateSourceProvider>(sp =>
+            new GitHubReleaseProvider(sp.GetRequiredService<HttpClient>(), UpdateRepoOwner, UpdateRepoName));
+        services.AddSingleton<IVersionComparer, VersionComparer>();
+        services.AddSingleton<IUpdateService, UpdateService>();
+        services.AddSingleton<IDownloadManager>(sp =>
+            new HttpDownloadManager(sp.GetRequiredService<HttpClient>()));
+        services.AddSingleton<ISignatureValidator>(_ => new AuthenticodeValidator(UpdatePublisherName));
+        services.AddSingleton<IUpdateApplier>(_ => new InnoSetupApplier());
+        services.AddSingleton<IProcessManager, WindowsProcessManager>();
+        services.AddSingleton<UpdateCoordinator>(sp => new UpdateCoordinator(
+            sp.GetRequiredService<IUpdateService>(),
+            sp.GetRequiredService<IDownloadManager>(),
+            sp.GetRequiredService<ISignatureValidator>(),
+            sp.GetRequiredService<IUpdateApplier>(),
+            sp.GetRequiredService<IProcessManager>()));
+
         // ViewModels
         services.AddSingleton<ViewModels.MainViewModel>();
         services.AddSingleton<ViewModels.DashboardViewModel>();
         services.AddSingleton<ViewModels.LibraryViewModel>();
         services.AddSingleton<ViewModels.SettingsViewModel>();
+        services.AddSingleton<ViewModels.UpdaterViewModel>();
 
         // Windows & Views
         services.AddSingleton<MainWindow>();
@@ -79,7 +120,31 @@ public partial class App : Application
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
         mainWindow.Show();
 
+        // Defer the non-blocking startup update check to after the window is shown,
+        // so it never interferes with first-frame UI rendering. The check is gated
+        // internally by UpdaterViewModel.RunStartupCheckAsync() on CheckOnStartup.
+        var updater = _serviceProvider.GetRequiredService<ViewModels.UpdaterViewModel>();
+        mainWindow.Dispatcher.BeginInvoke(new System.Action(() =>
+        {
+            _ = updater.RunStartupCheckAsync();
+        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
         base.OnStartup(e);
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        try
+        {
+            // Dispose the coordinator so it can unsubscribe from underlying service events
+            if (_serviceProvider.GetService<Updater.UpdateCoordinator>() is IDisposable disposableCoordinator)
+            {
+                disposableCoordinator.Dispose();
+            }
+        }
+        catch { /* best-effort cleanup */ }
+
+        base.OnExit(e);
     }
 
     private static bool ActivateExistingInstanceOrCleanUp()

@@ -5,75 +5,180 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
-    <Grid Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+             d:DesignHeight="600" d:DesignWidth="800">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+    </UserControl.Resources>
 
-        <StackPanel Grid.Row="0">
-            <TextBlock Text="Settings &amp; Preferences" Style="{StaticResource HeaderLargeStyle}" Margin="0,0,0,8" />
-            <TextBlock Text="Adjust engine performance, hardware properties, and system options." FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,24" />
-        </StackPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- Left settings card column -->
-            <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                <Border Style="{StaticResource NeonCardStyle}" Padding="20" Margin="0,0,0,16">
-                    <StackPanel>
-                        <TextBlock Text="Engine Performance Profiles" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,12" />
-                        <ui:ToggleSwitch Content="Use Hardware Accelerated Decoding" IsChecked="{Binding UseHardwareAcceleration}" Margin="0,0,0,12" Foreground="{StaticResource MutedTextBrush}"/>
-                        
-                        <TextBlock Text="Active Performance Pause Profile" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,4" />
-                        <ComboBox SelectedValue="{Binding ActivePauseProfile}" SelectedValuePath="Content" Height="28" Width="200" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="Maximized" />
-                            <ComboBoxItem Content="Focused" />
-                            <ComboBoxItem Content="Disabled" />
-                        </ComboBox>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource NeonCardStyle}" Padding="20">
-                    <StackPanel>
-                        <TextBlock Text="Application Profile" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,8" />
-                        <Grid Margin="0,0,0,4">
-                            <TextBlock Text="Software Version" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
-                            <TextBlock Text="{Binding ActiveAppVersion}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
-                        </Grid>
-                        <Grid Margin="0,0,0,4">
-                            <TextBlock Text="Target Framework" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
-                            <TextBlock Text=".NET 8.0-Windows" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
+            <StackPanel Grid.Row="0">
+                <TextBlock Text="Settings &amp; Preferences" Style="{StaticResource HeaderLargeStyle}" Margin="0,0,0,8" />
+                <TextBlock Text="Adjust engine performance, hardware properties, and system options." FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,24" />
             </StackPanel>
 
-            <!-- Right settings card column (Engine Logs) -->
-            <Border Grid.Column="1" Style="{StaticResource NeonCardStyle}" Padding="20" Margin="12,0,0,0" VerticalAlignment="Stretch">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    
-                    <TextBlock Grid.Row="0" Text="Engine Telemetry Logs" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,12" />
-                    
-                    <Border Grid.Row="1" Background="#0C0E17" CornerRadius="8" BorderBrush="#15FFFFFF" BorderThickness="1" Padding="12" Margin="0,0,0,12">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <TextBlock Text="{Binding EngineLogsText}" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
-                        </ScrollViewer>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left settings card column -->
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <Border Style="{StaticResource NeonCardStyle}" Padding="20" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="Engine Performance Profiles" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,12" />
+                            <ui:ToggleSwitch Content="Use Hardware Accelerated Decoding" IsChecked="{Binding UseHardwareAcceleration}" Margin="0,0,0,12" Foreground="{StaticResource MutedTextBrush}"/>
+                            
+                            <TextBlock Text="Active Performance Pause Profile" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,4" />
+                            <ComboBox SelectedValue="{Binding ActivePauseProfile}" SelectedValuePath="Content" Width="200" HorizontalAlignment="Left">
+                                <ComboBoxItem Content="Maximized" />
+                                <ComboBoxItem Content="Focused" />
+                                <ComboBoxItem Content="Disabled" />
+                            </ComboBox>
+                        </StackPanel>
                     </Border>
-                    
-                    <ui:Button Grid.Row="2" Content="Refresh Logs" Command="{Binding RefreshLogsCommand}" Appearance="Secondary" Icon="ArrowCounterclockwise24" HorizontalAlignment="Right" />
-                </Grid>
-            </Border>
+
+                    <Border Style="{StaticResource NeonCardStyle}" Padding="20" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="Application Profile" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,8" />
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Software Version" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                <TextBlock Text="{Binding ActiveAppVersion}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Release Channel" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                <TextBlock Text="{Binding Updater.ChannelDisplay}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Text="Target Framework" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                <TextBlock Text=".NET 8.0-Windows" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ============================ -->
+                    <!-- UPDATER CARD (Phase C)       -->
+                    <!-- ============================ -->
+                    <Border Style="{StaticResource NeonCardStyle}" Padding="20">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,12">
+                                <TextBlock Text="Software Updates" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Updater.StatusText}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+                            </Grid>
+
+                            <ui:ToggleSwitch Content="Enable Automatic Updates"
+                                             IsChecked="{Binding AutoUpdateEnabled}"
+                                             Margin="0,0,0,8"
+                                             Foreground="{StaticResource MutedTextBrush}" />
+                            <ui:ToggleSwitch Content="Check for Updates on Startup"
+                                             IsChecked="{Binding CheckOnStartup}"
+                                             Margin="0,0,0,12"
+                                             Foreground="{StaticResource MutedTextBrush}" />
+
+                            <TextBlock Text="Release Channel" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,4" />
+                            <ComboBox SelectedValue="{Binding SelectedReleaseChannel}" SelectedValuePath="Content" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12">
+                                <ComboBoxItem Content="Stable" />
+                                <ComboBoxItem Content="Beta" />
+                                <ComboBoxItem Content="Dev" />
+                            </ComboBox>
+
+                            <!-- Progress + speed (only visible while busy) -->
+                            <StackPanel Margin="0,4,0,8">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Updater.IsBusy}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <ProgressBar Value="{Binding Updater.ProgressPercent, Mode=OneWay}"
+                                             Minimum="0" Maximum="100" Height="6"
+                                             Background="#15FFFFFF"
+                                             Foreground="{StaticResource ActiveCyanBrush}" />
+                                <Grid Margin="0,4,0,0">
+                                    <TextBlock Text="{Binding Updater.ProgressText}" FontSize="10" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="{Binding Updater.DownloadSpeedText}" FontSize="10" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Detail / error message line -->
+                            <TextBlock Text="{Binding Updater.StatusDetailText}"
+                                       FontSize="10"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,8">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Updater.StatusDetailText, Converter={StaticResource BoolToVisConverter}}" Value="Visible">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- Action buttons -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,4,0,0">
+                                <ui:Button Content="Check For Updates"
+                                           Command="{Binding Updater.CheckForUpdatesCommand}"
+                                           IsEnabled="{Binding Updater.IsCheckButtonEnabled}"
+                                           Icon="ArrowSync24"
+                                           Appearance="Secondary"
+                                           Margin="0,0,8,0" />
+                                <ui:Button Content="Download"
+                                           Command="{Binding Updater.DownloadCommand}"
+                                           Visibility="{Binding Updater.IsDownloadButtonVisible, Converter={StaticResource BoolToVisConverter}}"
+                                           Icon="ArrowDownload24"
+                                           Appearance="Primary"
+                                           Margin="0,0,8,0" />
+                                <ui:Button Content="Install Update"
+                                           Command="{Binding Updater.InstallCommand}"
+                                           Visibility="{Binding Updater.IsInstallButtonVisible, Converter={StaticResource BoolToVisConverter}}"
+                                           Icon="Checkmark24"
+                                           Appearance="Primary"
+                                           Margin="0,0,8,0" />
+                                <ui:Button Content="Cancel"
+                                           Command="{Binding Updater.CancelCommand}"
+                                           Visibility="{Binding Updater.IsCancelButtonVisible, Converter={StaticResource BoolToVisConverter}}"
+                                           Icon="Dismiss24"
+                                           Appearance="Secondary" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Right settings card column (Engine Logs) -->
+                <Border Grid.Column="1" Style="{StaticResource NeonCardStyle}" Padding="20" Margin="12,0,0,0" VerticalAlignment="Stretch">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Grid.Row="0" Text="Engine Telemetry Logs" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,12" />
+                        
+                        <Border Grid.Row="1" Background="#0C0E17" CornerRadius="8" BorderBrush="#15FFFFFF" BorderThickness="1" Padding="12" Margin="0,0,0,12" MinHeight="280">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding EngineLogsText}" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                            </ScrollViewer>
+                        </Border>
+                        
+                        <ui:Button Grid.Row="2" Content="Refresh Logs" Command="{Binding RefreshLogsCommand}" Appearance="Secondary" Icon="ArrowCounterclockwise24" HorizontalAlignment="Right" />
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
-    </Grid>
+    </ScrollViewer>
 </UserControl>

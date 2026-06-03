@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using WallpaperTurbo.Core.Updates.Interfaces;
 
@@ -9,6 +10,48 @@ namespace WallpaperTurbo.Updater.Services;
 public sealed class AuthenticodeValidator : ISignatureValidator
 {
     private readonly string _expectedPublisher;
+
+    #region WinTrust PInvoke
+    private const uint WTD_UI_NONE = 2;
+    private const uint WTD_REVOKE_NONE = 0;
+    private const uint WTD_CHOICE_FILE = 1;
+    private const uint WTD_STATEACTION_IGNORE = 0;
+    private const uint WTD_CACHE_ONLY_URL_RETRIEVAL = 0x00001000;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WINTRUST_FILE_INFO
+    {
+        public uint cbStruct;
+        [MarshalAs(UnmanagedType.LPWStr)]
+        public string pcwszFilePath;
+        public IntPtr hFile;
+        public IntPtr pgKnownSubject;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINTRUST_DATA
+    {
+        public uint cbStruct;
+        public IntPtr pPolicyCallbackData;
+        public IntPtr pSIPClientData;
+        public uint dwUIChoice;
+        public uint fdwRevocationChecks;
+        public uint dwUnionChoice;
+        public IntPtr pInfoStruct;
+        public uint dwStateAction;
+        public IntPtr hWVTStateData;
+        public IntPtr pwszURLReference;
+        public uint dwProvFlags;
+        public uint dwUIContext;
+    }
+
+    [DllImport("wintrust.dll", ExactSpelling = true, SetLastError = false, CharSet = CharSet.Unicode)]
+    private static extern uint WinVerifyTrust(
+        IntPtr hwnd,
+        [MarshalAs(UnmanagedType.LPStruct)] Guid pgActionID,
+        IntPtr pWVTData
+    );
+    #endregion
 
     public AuthenticodeValidator(string expectedPublisher = "Wallpaper Turbo")
     {
@@ -25,6 +68,12 @@ public sealed class AuthenticodeValidator : ISignatureValidator
 
         try
         {
+            if (!VerifyWinTrust(filePath))
+            {
+                Debug.WriteLine("[AuthenticodeValidator] WinVerifyTrust failed. The file hash does not match the signature or it is untrusted.");
+                return false;
+            }
+
             var (isValid, subjectName, errorMessage) = VerifyAuthenticodeSignature(filePath);
 
             if (!isValid)
@@ -46,6 +95,50 @@ public sealed class AuthenticodeValidator : ISignatureValidator
             Debug.WriteLine($"[AuthenticodeValidator] Exception during validation: {ex.Message}");
             return false;
         }
+    }
+
+    private static bool VerifyWinTrust(string filePath)
+    {
+        var fileInfo = new WINTRUST_FILE_INFO
+        {
+            cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_FILE_INFO)),
+            pcwszFilePath = filePath,
+            hFile = IntPtr.Zero,
+            pgKnownSubject = IntPtr.Zero
+        };
+
+        var fileInfoPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_FILE_INFO)));
+        Marshal.StructureToPtr(fileInfo, fileInfoPtr, false);
+
+        var data = new WINTRUST_DATA
+        {
+            cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_DATA)),
+            pPolicyCallbackData = IntPtr.Zero,
+            pSIPClientData = IntPtr.Zero,
+            dwUIChoice = WTD_UI_NONE,
+            fdwRevocationChecks = WTD_REVOKE_NONE,
+            dwUnionChoice = WTD_CHOICE_FILE,
+            pInfoStruct = fileInfoPtr,
+            dwStateAction = WTD_STATEACTION_IGNORE,
+            hWVTStateData = IntPtr.Zero,
+            pwszURLReference = IntPtr.Zero,
+            dwProvFlags = WTD_CACHE_ONLY_URL_RETRIEVAL,
+            dwUIContext = 0
+        };
+
+        var dataPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_DATA)));
+        Marshal.StructureToPtr(data, dataPtr, false);
+
+        Guid actionId = new Guid("{00AAC56B-CD44-11d0-8CC2-00C04FC295EE}"); // WINTRUST_ACTION_GENERIC_VERIFY_V2
+        
+        uint result = WinVerifyTrust(IntPtr.Zero, actionId, dataPtr);
+
+        Marshal.DestroyStructure(dataPtr, typeof(WINTRUST_DATA));
+        Marshal.FreeHGlobal(dataPtr);
+        Marshal.DestroyStructure(fileInfoPtr, typeof(WINTRUST_FILE_INFO));
+        Marshal.FreeHGlobal(fileInfoPtr);
+
+        return result == 0;
     }
 
     private static (bool IsValid, X500DistinguishedName? SubjectName, string ErrorMessage) VerifyAuthenticodeSignature(string filePath)
