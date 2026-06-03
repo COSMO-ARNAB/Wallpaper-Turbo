@@ -57,8 +57,13 @@ public sealed class HardwareDecodePipeline
 
             _parentWindowHandle = parentWindowHandle;
 
-            string vlcPath =
-                @"C:\Program Files\VideoLAN\VLC";
+            string vlcPath = Path.Combine(
+                AppContext.BaseDirectory,
+                "libvlc",
+                "win-x64");
+
+            Console.WriteLine($"VLC Path: {vlcPath}");
+            Console.WriteLine($"Exists: {Directory.Exists(vlcPath)}");
 
             if (!Directory.Exists(vlcPath))
             {
@@ -119,7 +124,7 @@ public sealed class HardwareDecodePipeline
                 //
                 // Avoid Qt activation behavior.
                 //
-                "--qt-minimal-view",
+                // "--qt-minimal-view",
 
                 //
                 // Reduce unwanted UI hooks.
