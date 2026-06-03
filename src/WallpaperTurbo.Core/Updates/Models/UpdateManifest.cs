@@ -2,13 +2,13 @@ using System;
 
 namespace WallpaperTurbo.Core.Updates.Models;
 
-public record UpdateManifest(
-    Version Version,
+public sealed record UpdateManifest(
+    SemanticVersion Version,
     ReleaseChannel Channel,
     string ReleaseNotes,
     string DownloadUrl,
     string Sha256Hash,
     long FileSizeBytes,
-    Version MinSupportedVersion,
+    SemanticVersion MinSupportedVersion,
     bool IsRollbackEligible
 );

@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
-    <Version>1.2.0</Version>
+    <Version>1.2.1.2</Version>
+    <InformationalVersion>1.2.1-beta.2</InformationalVersion>
     <!-- Prevent the .NET 8 SDK from appending the git commit hash to the informational version -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>

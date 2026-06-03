@@ -52,7 +52,6 @@ public partial class App : Application
         services.AddSingleton<IUpdaterSettingsStore, Services.JsonUpdaterSettingsStore>();
         services.AddSingleton<IUpdateSourceProvider>(sp =>
             new GitHubReleaseProvider(sp.GetRequiredService<HttpClient>(), UpdateRepoOwner, UpdateRepoName));
-        services.AddSingleton<IVersionComparer, VersionComparer>();
         services.AddSingleton<IUpdateService, UpdateService>();
         services.AddSingleton<IDownloadManager>(sp =>
             new HttpDownloadManager(sp.GetRequiredService<HttpClient>()));

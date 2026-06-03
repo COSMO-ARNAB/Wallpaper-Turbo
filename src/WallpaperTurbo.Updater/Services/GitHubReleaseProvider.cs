@@ -84,7 +84,7 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
             ? tagNameElem.GetString() 
             : null;
         
-        if (string.IsNullOrEmpty(tagName) || !TryParseVersionFromTag(tagName, out var version))
+        if (string.IsNullOrEmpty(tagName) || !SemanticVersion.TryParse(tagName, out var version))
         {
             return null;
         }
@@ -141,41 +141,9 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
             DownloadUrl: downloadUrl,
             Sha256Hash: sha256Hash,
             FileSizeBytes: fileSizeBytes,
-            MinSupportedVersion: new Version(1, 0, 0),
+            MinSupportedVersion: new SemanticVersion(1, 0, 0),
             IsRollbackEligible: false
         );
-    }
-
-    private static bool TryParseVersionFromTag(string tagName, out Version version)
-    {
-        version = new Version(0, 0, 0);
-        if (string.IsNullOrEmpty(tagName))
-        {
-            return false;
-        }
-
-        var cleanedTag = tagName.TrimStart('v', 'V');
-        if (Version.TryParse(cleanedTag, out var parsedVersion))
-        {
-            version = parsedVersion;
-            return true;
-        }
-        
-        return TryFallbackParse(cleanedTag, out version);
-    }
-
-    private static bool TryFallbackParse(string input, out Version version)
-    {
-        version = new Version(0, 0, 0);
-        var parts = input.Split('.');
-        if (parts.Length >= 1 && int.TryParse(parts[0], out var major))
-        {
-            int minor = parts.Length > 1 && int.TryParse(parts[1], out var m) ? m : 0;
-            int build = parts.Length > 2 && int.TryParse(parts[2], out var b) ? b : 0;
-            version = new Version(major, minor, build);
-            return true;
-        }
-        return false;
     }
 
     public void Dispose()

@@ -11,13 +11,11 @@ namespace WallpaperTurbo.Updater.Services;
 public sealed class UpdateService : IUpdateService
 {
     private readonly IUpdateSourceProvider _sourceProvider;
-    private readonly IVersionComparer _versionComparer;
-    private readonly Version _currentVersion;
+    private readonly SemanticVersion _currentVersion;
 
-    public UpdateService(IUpdateSourceProvider sourceProvider, IVersionComparer versionComparer)
+    public UpdateService(IUpdateSourceProvider sourceProvider)
     {
         _sourceProvider = sourceProvider ?? throw new ArgumentNullException(nameof(sourceProvider));
-        _versionComparer = versionComparer ?? throw new ArgumentNullException(nameof(versionComparer));
         _currentVersion = GetCurrentVersion();
     }
 
@@ -32,7 +30,7 @@ public sealed class UpdateService : IUpdateService
             return (false, null);
         }
 
-        if (_versionComparer.IsUpdateAvailable(_currentVersion, manifest.Version))
+        if (manifest.Version > _currentVersion)
         {
             Debug.WriteLine($"[UpdateService] Update available: {_currentVersion} -> {manifest.Version}");
             return (true, manifest);
@@ -42,17 +40,28 @@ public sealed class UpdateService : IUpdateService
         return (false, manifest);
     }
 
-    private static Version GetCurrentVersion()
+    private static SemanticVersion GetCurrentVersion()
     {
         try
         {
             var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+            
+            var infoVersionAttr = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+            if (infoVersionAttr != null && SemanticVersion.TryParse(infoVersionAttr.InformationalVersion, out var semVer))
+            {
+                return semVer;
+            }
+
             var version = assembly.GetName().Version;
-            return version ?? new Version(1, 0, 0);
+            if (version != null)
+            {
+                return new SemanticVersion(version.Major, version.Minor, version.Build);
+            }
+            return new SemanticVersion(1, 0, 0);
         }
         catch
         {
-            return new Version(1, 0, 0);
+            return new SemanticVersion(1, 0, 0);
         }
     }
 }
