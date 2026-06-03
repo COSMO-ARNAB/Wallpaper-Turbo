@@ -11,7 +11,7 @@ using WallpaperTurbo.Updater.Events;
 
 namespace WallpaperTurbo.Updater;
 
-public sealed class UpdateCoordinator
+public sealed class UpdateCoordinator : IDisposable
 {
     private readonly IUpdateService _updateService;
     private readonly IDownloadManager _downloadManager;
@@ -119,7 +119,12 @@ public sealed class UpdateCoordinator
         Debug.WriteLine($"[UpdateCoordinator] State Transition: {oldState} -> {UpdateState.Checking}");
         StateChanged?.Invoke(this, new UpdateStateChangedEventArgs(oldState, UpdateState.Checking, DateTime.UtcNow));
 
-        _activeCts = new CancellationTokenSource();
+        var oldCts = Interlocked.Exchange(ref _activeCts, new CancellationTokenSource());
+        if (oldCts != null)
+        {
+            oldCts.Cancel();
+            oldCts.Dispose();
+        }
 
         try
         {
@@ -159,7 +164,12 @@ public sealed class UpdateCoordinator
             return;
         }
 
-        _activeCts = new CancellationTokenSource();
+        var oldCts = Interlocked.Exchange(ref _activeCts, new CancellationTokenSource());
+        if (oldCts != null)
+        {
+            oldCts.Cancel();
+            oldCts.Dispose();
+        }
         var progress = new Progress<UpdateProgress>(p => ProgressChanged?.Invoke(this, p));
 
         // Use a standard temp directory for the download
@@ -262,7 +272,19 @@ public sealed class UpdateCoordinator
 
     public void CancelAsync()
     {
-        _activeCts?.Cancel();
+        var cts = _activeCts;
+        if (cts != null && !cts.IsCancellationRequested)
+        {
+            try { cts.Cancel(); } catch { }
+        }
+    }
+
+    public void Dispose()
+    {
+        try { _activeCts?.Cancel(); } catch { }
+        _activeCts?.Dispose();
+        // Do NOT dispose _stateLock (SemaphoreSlim) to prevent ObjectDisposedException 
+        // for threads currently awaiting it during shutdown.
     }
 
     private async Task HandleErrorAsync(string message, Exception? ex)
