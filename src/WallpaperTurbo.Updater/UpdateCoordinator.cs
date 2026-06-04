@@ -46,6 +46,7 @@ public sealed class UpdateCoordinator : IDisposable
         _signatureValidator = signatureValidator;
         _updateApplier = updateApplier;
         _processManager = processManager;
+        UpdaterDiagnostic.Log("UpdateCoordinator.ctor", "Coordinator constructed");
     }
 
     private async Task<bool> TransitionStateAsync(UpdateState expectedCurrentState, UpdateState newState)
@@ -97,6 +98,7 @@ public sealed class UpdateCoordinator : IDisposable
 
     public async Task CheckForUpdatesAsync(ReleaseChannel channel)
     {
+        UpdaterDiagnostic.Log("UpdateCoordinator.CheckForUpdatesAsync", $"Check requested for channel={channel}");
         var newCts = new CancellationTokenSource();
         UpdateState oldState;
         await _stateLock.WaitAsync();
@@ -131,15 +133,17 @@ public sealed class UpdateCoordinator : IDisposable
         try
         {
             var (isAvailable, manifest) = await _updateService.CheckForUpdatesAsync(channel, _activeCts.Token);
-            
+
             if (isAvailable && manifest != null)
             {
                 _currentManifest = manifest;
+                UpdaterDiagnostic.Log("UpdateCoordinator.CheckForUpdatesAsync", $"FINAL RESULT: IsAvailable=True, manifest={manifest.Version}");
                 await ForceStateAsync(UpdateState.UpdateAvailable);
                 UpdateAvailable?.Invoke(this, manifest);
             }
             else
             {
+                UpdaterDiagnostic.Log("UpdateCoordinator.CheckForUpdatesAsync", $"FINAL RESULT: IsAvailable=False, transitioning to UpToDate.");
                 await ForceStateAsync(UpdateState.UpToDate);
             }
         }

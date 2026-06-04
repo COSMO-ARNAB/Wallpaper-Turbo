@@ -20,8 +20,8 @@ public partial class App : Application
     private static Mutex? _appMutex;
 
     // Update source coordinates. Override these for fork or self-hosted release feeds.
-    private const string UpdateRepoOwner = "WallpaperTurbo";
-    private const string UpdateRepoName = "WallpaperTurbo";
+    private const string UpdateRepoOwner = "COSMO-ARNAB";
+    private const string UpdateRepoName = "Wallpaper-Turbo";
     private const string UpdatePublisherName = "Wallpaper Turbo";
 
     private static IServiceProvider ConfigureServices()
@@ -94,6 +94,8 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        WallpaperTurbo.Updater.UpdaterDiagnostic.Init();
+        WallpaperTurbo.Updater.UpdaterDiagnostic.Log("App.OnStartup", $"WPF app starting. Repo={UpdateRepoOwner}/{UpdateRepoName} Publisher={UpdatePublisherName}");
         _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out bool createdNew);
         if (!createdNew)
         {

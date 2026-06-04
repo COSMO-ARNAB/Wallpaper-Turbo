@@ -71,6 +71,8 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
         _currentVersion = ResolveDisplayVersion();
         _channelDisplay = FormatChannelDisplay(_settings.ReleaseChannel);
 
+        UpdaterDiagnostic.Log("UpdaterViewModel.ctor", $"Display version: {_currentVersion} | Channel (display): {_channelDisplay} | Channel (enum): {_settings.ReleaseChannel} | AutoUpdateEnabled={_settings.AutoUpdateEnabled} | CheckOnStartup={_settings.CheckOnStartup}");
+
         _coordinator.StateChanged += OnCoordinatorStateChanged;
         _coordinator.ProgressChanged += OnCoordinatorProgressChanged;
         _coordinator.UpdateAvailable += OnCoordinatorUpdateAvailable;
@@ -190,18 +192,23 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
 
     public async Task RunStartupCheckAsync()
     {
+        UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"Entry. CheckOnStartup={_settings.CheckOnStartup} Channel={_settings.ReleaseChannel}");
         if (!_settings.CheckOnStartup)
         {
+            UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", "CheckOnStartup is false; skipping.");
             Debug.WriteLine("[UpdaterViewModel] CheckOnStartup disabled; skipping startup check.");
             return;
         }
 
         try
         {
+            UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"Invoking coordinator.CheckForUpdatesAsync(channel={_settings.ReleaseChannel})");
             await _coordinator.CheckForUpdatesAsync(_settings.ReleaseChannel);
+            UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"Returned. State={_coordinator.CurrentState} Manifest={_coordinator.CurrentManifest?.Version.ToString() ?? "null"}");
         }
         catch (Exception ex)
         {
+            UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"EXCEPTION: {ex.GetType().Name}: {ex.Message}");
             Debug.WriteLine($"[UpdaterViewModel] Startup check failed silently: {ex.Message}");
         }
     }
