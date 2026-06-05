@@ -10,5 +10,6 @@ public sealed record UpdateManifest(
     string Sha256Hash,
     long FileSizeBytes,
     SemanticVersion MinSupportedVersion,
-    bool IsRollbackEligible
+    bool IsRollbackEligible,
+    SignatureRequirement MinSignatureRequirement = SignatureRequirement.Sha256Only
 );

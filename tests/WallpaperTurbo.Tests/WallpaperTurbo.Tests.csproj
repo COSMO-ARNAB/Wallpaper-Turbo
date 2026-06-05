@@ -27,7 +27,7 @@
 
   <ItemGroup>
     <!-- DebugScript.cs is a diagnostic scratchpad, not a unit test. Excluded from the
-         test project build. Use tests/WallpaperTurbo.Debug/Program.cs for live diagnostics. -->
+         test project build. -->
     <Compile Remove="DebugScript.cs" />
   </ItemGroup>
 

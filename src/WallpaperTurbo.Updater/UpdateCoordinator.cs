@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using WallpaperTurbo.Core.Updates.Interfaces;
 using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.Updater.Events;
+using WallpaperTurbo.Updater.Services;
 
 namespace WallpaperTurbo.Updater;
 
@@ -25,6 +26,7 @@ public sealed class UpdateCoordinator : IDisposable
     private UpdateState _currentState = UpdateState.Idle;
     private UpdateManifest? _currentManifest;
     private string? _downloadedFilePath;
+    private ReleaseChannel _userChannel = ReleaseChannel.Stable;
 
     public event EventHandler<UpdateStateChangedEventArgs>? StateChanged;
     public event EventHandler<UpdateManifest>? UpdateAvailable;
@@ -99,6 +101,7 @@ public sealed class UpdateCoordinator : IDisposable
     public async Task CheckForUpdatesAsync(ReleaseChannel channel)
     {
         UpdaterDiagnostic.Log("UpdateCoordinator.CheckForUpdatesAsync", $"Check requested for channel={channel}");
+        _userChannel = channel;
         var newCts = new CancellationTokenSource();
         UpdateState oldState;
         await _stateLock.WaitAsync();
@@ -217,33 +220,56 @@ public sealed class UpdateCoordinator : IDisposable
             return;
         }
 
+        UpdaterDiagnostic.Log("UpdateCoordinator.VerifyUpdateAsync", $"Manifest signature requirement: {_currentManifest?.MinSignatureRequirement}");
+
         try
         {
-            if (!string.IsNullOrEmpty(_currentManifest?.Sha256Hash))
+            if (string.IsNullOrEmpty(_currentManifest?.Sha256Hash))
             {
-                using var sha256 = System.Security.Cryptography.SHA256.Create();
-                using var stream = File.OpenRead(_downloadedFilePath);
-                var hashBytes = sha256.ComputeHash(stream);
-                var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-                
-                if (hashString != _currentManifest.Sha256Hash.ToLowerInvariant())
-                {
-                    CleanupPartialDownload(_downloadedFilePath);
-                    await HandleErrorAsync("Security Validation Failed. The downloaded file hash does not match the manifest.", null);
-                    return;
-                }
+                UpdaterDiagnostic.Log("UpdateCoordinator.VerifyUpdateAsync", $"REJECTION: empty SHA256 in manifest. State=Verifying Version={_currentManifest?.Version} Channel={_currentManifest?.Channel}");
+                CleanupPartialDownload(_downloadedFilePath);
+                await HandleErrorAsync("Security Validation Failed. The manifest has no SHA256 hash; integrity cannot be verified.", null);
+                return;
             }
 
-            // Note: If running on an OS/environment where Authenticode throws immediately,
-            // we catch it. Usually IsValidSignature returns a boolean.
-            bool isValid = _signatureValidator.IsValidSignature(_downloadedFilePath);
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            using var stream = File.OpenRead(_downloadedFilePath);
+            var hashBytes = sha256.ComputeHash(stream);
+            var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
 
+            if (hashString != _currentManifest.Sha256Hash.ToLowerInvariant())
+            {
+                CleanupPartialDownload(_downloadedFilePath);
+                await HandleErrorAsync("Security Validation Failed. The downloaded file hash does not match the manifest.", null);
+                return;
+            }
+
+            var userMinSignatureRequirement = GitHubReleaseProvider.DefaultSignatureRequirementForChannel(_userChannel);
+            if (userMinSignatureRequirement == SignatureRequirement.Authenticode &&
+                _currentManifest!.MinSignatureRequirement == SignatureRequirement.Sha256Only)
+            {
+                UpdaterDiagnostic.Log("UpdateCoordinator.VerifyUpdateAsync", $"REJECTION: user channel {_userChannel} requires Authenticode, but manifest MinSignatureRequirement={_currentManifest.MinSignatureRequirement}. State=Verifying Version={_currentManifest.Version}");
+                CleanupPartialDownload(_downloadedFilePath);
+                await HandleErrorAsync("Security Validation Failed. The selected update channel requires stronger signature verification than the manifest provides.", null);
+                return;
+            }
+
+            if (_currentManifest!.MinSignatureRequirement == SignatureRequirement.Sha256Only)
+            {
+                UpdaterDiagnostic.Log("UpdateCoordinator.VerifyUpdateAsync", $"Manifest requires Sha256Only. Skipping Authenticode. State=Verifying Version={_currentManifest.Version} Channel={_currentManifest.Channel}");
+                await ForceStateAsync(UpdateState.ReadyToInstall);
+                return;
+            }
+
+            bool isValid = _signatureValidator.IsValidSignature(_downloadedFilePath);
             if (isValid)
             {
+                UpdaterDiagnostic.Log("UpdateCoordinator.VerifyUpdateAsync", $"Authenticode validation passed. State=Verifying Version={_currentManifest.Version} Channel={_currentManifest.Channel}");
                 await ForceStateAsync(UpdateState.ReadyToInstall);
             }
             else
             {
+                UpdaterDiagnostic.Log("UpdateCoordinator.VerifyUpdateAsync", $"Authenticode validation FAILED. State=Verifying Version={_currentManifest.Version} Channel={_currentManifest.Channel}");
                 CleanupPartialDownload(_downloadedFilePath);
                 await HandleErrorAsync("Security Validation Failed. The downloaded file signature is invalid.", null);
             }

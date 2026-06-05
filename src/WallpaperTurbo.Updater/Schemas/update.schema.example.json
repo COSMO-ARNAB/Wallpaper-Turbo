@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-04T12:34:56Z",
+  "version": "1.2.1-rc.2",
+  "channel": "preview",
+  "release_notes": "Example schema reference. Not consumed at runtime.",
+  "installer_filename": "Wallpaper_Turbo_Setup.exe",
+  "download_url": "https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases/download/v1.2.1-rc.2/Wallpaper_Turbo_Setup.exe",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "file_size_bytes": 50331648,
+  "min_supported_version": "1.0.0",
+  "min_signature_required": "sha256-only",
+  "rollback_eligible": false
+}
