@@ -8,21 +8,19 @@
         xmlns:views="clr-namespace:WallpaperTurbo.UI.Views"
         xmlns:vm="clr-namespace:WallpaperTurbo.UI.ViewModels"
         mc:Ignorable="d"
-        Title="Wallpaper Turbo" 
+        Title="Wallpaper Turbo"
         Icon="Assets/Branding/wallpaper-turbo.png"
         Height="780" Width="1240"
         Background="Transparent"
         WindowStartupLocation="CenterScreen">
 
-    <!-- Configure WindowChrome to remove native OS titlebar while retaining resizing/snap layouts -->
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="64"
+        <WindowChrome CaptionHeight="56"
                       ResizeBorderThickness="6"
                       CornerRadius="0"
                       GlassFrameThickness="-1" />
     </WindowChrome.WindowChrome>
 
-    <!-- MVVM Content DataTemplate Mappings -->
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
         <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
@@ -37,7 +35,6 @@
     </Window.Resources>
 
     <Grid>
-        <!-- Root grid layout trigger to prevent screen clipping when window is maximized -->
         <Grid.Style>
             <Style TargetType="Grid">
                 <Style.Triggers>
@@ -47,270 +44,219 @@
                 </Style.Triggers>
             </Style>
         </Grid.Style>
-        
+
         <Grid.ColumnDefinitions>
-            <!-- Left Sidebar Navigation Column -->
-            <ColumnDefinition Width="250" />
-            <!-- Main Content Area Column -->
+            <ColumnDefinition Width="240" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ========================================== -->
-        <!-- LEFT SIDEBAR PANEL                         -->
-        <!-- ========================================== -->
-        <Border Grid.Column="0" Background="#0A0B10" BorderBrush="#10FFFFFF" BorderThickness="0,0,1,0" Padding="0,16,0,12">
+        <Border Grid.Column="0"
+                Background="{StaticResource Surface0Brush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}"
+                BorderThickness="0,0,1,0">
             <Grid>
                 <Grid.RowDefinitions>
-                    <!-- Brand Logo -->
                     <RowDefinition Height="Auto" />
-                    <!-- Navigation Items -->
                     <RowDefinition Height="*" />
-                    <!-- Spacing Separator -->
-                    <RowDefinition Height="Auto" />
-                    <!-- Now Playing Card -->
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- BRAND LOGO HEADER -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,12,20,16">
-                    <!-- Official brand logo image replacing mockup vector path with crisp HighQuality scaling and snapping -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,18,20,20">
                     <Image Source="Assets/Branding/wallpaper-turbo.png"
-                           Width="42" 
-                           Height="42" 
-                           Margin="0,0,12,0" 
-                           UseLayoutRounding="True"
-                           SnapsToDevicePixels="True"
-                           RenderOptions.BitmapScalingMode="HighQuality">
-                        <Image.Effect>
-                            <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="12" ShadowDepth="0" Opacity="0.4" />
-                        </Image.Effect>
-                    </Image>
-                    
+                           Width="28" Height="28"
+                           Margin="0,0,10,0"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           VerticalAlignment="Center" />
                     <StackPanel VerticalAlignment="Center">
-                        <!-- Main Title -->
-                        <TextBlock Text="WALLPAPER" FontSize="15" FontWeight="ExtraBold" Foreground="#FFFFFF" />
-                        <TextBlock Text="TURBO" FontSize="15" FontWeight="Bold" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,-4,0,0" />
-                        <!-- Subtitle -->
-                        <TextBlock Text="LIVE DESKTOP ENGINE" FontSize="8" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" Margin="0,1,0,0" />
+                        <TextBlock Text="Wallpaper Turbo"
+                                   FontSize="14"
+                                   FontWeight="600"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="Live desktop engine"
+                                   FontSize="10"
+                                   FontWeight="500"
+                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                   Margin="0,1,0,0" />
                     </StackPanel>
                 </StackPanel>
 
-                <!-- NAVIGATION BUTTON LIST -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                    <StackPanel Margin="0,0,0,10">
-                        <RadioButton Content="Dashboard" Tag="Home24" IsChecked="True" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Library" Tag="Library24" Command="{Binding NavigateCommand}" CommandParameter="Library" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Playlists" Tag="Play24" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Monitor Setup" Tag="Desktop24" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Engine" Tag="Power24" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Performance" Tag="Flash24" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Settings" Tag="Settings24" Command="{Binding NavigateCommand}" CommandParameter="Settings" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="About" Tag="Info24" Style="{StaticResource SidebarButtonStyle}" />
+                <ScrollViewer Grid.Row="1"
+                              VerticalScrollBarVisibility="Hidden"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Focusable="False">
+                    <StackPanel>
+                        <RadioButton Content="Dashboard"
+                                     Tag="Home24"
+                                     IsChecked="True"
+                                     Command="{Binding NavigateCommand}"
+                                     CommandParameter="Dashboard"
+                                     Style="{StaticResource NavItem}" />
+                        <RadioButton Content="Library"
+                                     Tag="Library24"
+                                     Command="{Binding NavigateCommand}"
+                                     CommandParameter="Library"
+                                     Style="{StaticResource NavItem}" />
+                        <RadioButton Content="Playlists"
+                                     Tag="Play24"
+                                     Style="{StaticResource NavItem}" />
+                        <RadioButton Content="Monitor setup"
+                                     Tag="Desktop24"
+                                     Style="{StaticResource NavItem}" />
+                        <RadioButton Content="Engine"
+                                     Tag="Power24"
+                                     Style="{StaticResource NavItem}" />
+                        <RadioButton Content="Performance"
+                                     Tag="Flash24"
+                                     Style="{StaticResource NavItem}" />
+                        <RadioButton Content="Settings"
+                                     Tag="Settings24"
+                                     Command="{Binding NavigateCommand}"
+                                     CommandParameter="Settings"
+                                     Style="{StaticResource NavItem}" />
+                        <RadioButton Content="About"
+                                     Tag="Info24"
+                                     Style="{StaticResource NavItem}" />
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- SUBTLE SEPARATOR FOR LOWER SIDEBAR -->
-                <Border Grid.Row="2" Height="1" Background="#12FFFFFF" Margin="20,8,20,12" VerticalAlignment="Center"/>
-
-                <!-- NOW PLAYING CYBER WIDGET -->
-                <Border Grid.Row="3" Style="{StaticResource NeonCardStyle}" Margin="12,0,12,12" Padding="12" ClipToBounds="True">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        
-                        <!-- Mini Artwork / Graphic Placeholder -->
-                        <Border Grid.Row="0" CornerRadius="8" Height="90" Margin="0,0,0,10" ClipToBounds="True">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="#0D0E15" Offset="0" />
-                                    <GradientStop Color="#1A0D36" Offset="1" />
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <!-- Cyber vector animation -->
-                            <Path Data="M 10,45 Q 40,10 80,40 T 150,5" Stroke="{StaticResource NeonPurpleCyanGradient}" StrokeThickness="1" Opacity="0.5" VerticalAlignment="Center" />
-                        </Border>
-
-                        <!-- Media Title & Specs -->
-                        <StackPanel Grid.Row="1" Margin="0,0,0,8">
-                            <TextBlock Text="{Binding ActiveWallpaperTitle}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{Binding ActiveWallpaperSpecs}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
-                        </StackPanel>
-
-                        <!-- Media Progress Scrubber -->
-                        <Grid Grid.Row="2">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="01:24" FontSize="9" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
-                            
-                            <!-- Glowing Scrubber bar -->
-                            <ProgressBar Grid.Column="1" Value="35" Height="3" Margin="8,0" Background="#15FFFFFF" Foreground="{StaticResource ActiveCyanBrush}">
-                                <ProgressBar.Effect>
-                                    <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="4" ShadowDepth="0" Opacity="0.2" />
-                                </ProgressBar.Effect>
-                            </ProgressBar>
-                            
-                            <TextBlock Grid.Column="2" Text="03:47" FontSize="9" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
-                        </Grid>
-
-                        <!-- Real-time Playback Media Controls -->
-                        <Grid Grid.Row="3" Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Play/Pause Toggle button with cyber-active styling -->
-                            <ui:Button Grid.Column="1" 
-                                       Width="38" 
-                                       Height="38" 
-                                       CornerRadius="19" 
-                                       Padding="0"
-                                       Background="#15FFFFFF" 
-                                       BorderBrush="#3066FCF1"
-                                       BorderThickness="1"
-                                       HorizontalAlignment="Center" 
-                                       VerticalAlignment="Center">
-                                <ui:Button.Style>
-                                    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                <Border Grid.Row="2"
+                        Background="{StaticResource Surface1Brush}"
+                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusMedium}"
+                        Margin="12,8,12,12"
+                        Padding="14">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Grid Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center">
+                                <Ellipse Width="8" Height="8">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource TextTertiaryBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsEngineRunning}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource StatusOkBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                            </Grid>
+                            <TextBlock FontSize="11"
+                                       FontWeight="600"
+                                       Foreground="{StaticResource TextPrimaryBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Engine offline" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsPlaying}" Value="True">
-                                                <Setter Property="Command" Value="{Binding PauseCommand}" />
-                                                <Setter Property="Content">
-                                                    <Setter.Value>
-                                                        <ui:SymbolIcon Symbol="Pause24" FontSize="16" />
-                                                    </Setter.Value>
-                                                </Setter>
-                                                <Setter Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsPlaying}" Value="False">
-                                                <Setter Property="Command" Value="{Binding PlayCommand}" />
-                                                <Setter Property="Content">
-                                                    <Setter.Value>
-                                                        <ui:SymbolIcon Symbol="Play24" FontSize="16" />
-                                                    </Setter.Value>
-                                                </Setter>
-                                                <Setter Property="Foreground" Value="{StaticResource ActiveGreenBrush}" />
+                                            <DataTrigger Binding="{Binding IsEngineRunning}" Value="True">
+                                                <Setter Property="Text" Value="Engine running" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </ui:Button.Style>
-                                <ui:Button.Effect>
-                                    <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.15" />
-                                </ui:Button.Effect>
-                            </ui:Button>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
 
-                            <!-- Stop/Cancel Playback button styled with WarningRed -->
-                            <ui:Button Grid.Column="3" 
-                                       Command="{Binding StopCommand}"
-                                       Width="38" 
-                                       Height="38" 
-                                       CornerRadius="19" 
-                                       Padding="0"
-                                       Background="#15FFFFFF" 
-                                       BorderBrush="#30FF3366"
-                                       BorderThickness="1"
-                                       Foreground="{StaticResource WarningRedBrush}"
-                                       HorizontalAlignment="Center" 
-                                       VerticalAlignment="Center">
-                                <ui:SymbolIcon Symbol="Dismiss24" FontSize="16" />
-                                <ui:Button.Effect>
-                                    <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.15" />
-                                </ui:Button.Effect>
-                            </ui:Button>
+                        <TextBlock Text="{Binding ActiveRendererText}"
+                                   FontSize="10"
+                                   FontWeight="500"
+                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                   Margin="0,0,0,10" />
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="FPS" Style="{StaticResource CaptionStyle}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding FpsText}" Style="{StaticResource MonoStyle}" Foreground="{StaticResource TextPrimaryBrush}" />
                         </Grid>
-                    </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="VRAM" Style="{StaticResource CaptionStyle}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding VramText}" Style="{StaticResource MonoStyle}" Foreground="{StaticResource TextPrimaryBrush}" />
+                        </Grid>
+
+                        <Button Command="{Binding ToggleEngineCommand}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,4,0,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource ButtonSecondary}">
+                                    <Setter Property="Content" Value="Resume engine" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEngineRunning}" Value="True">
+                                            <Setter Property="Content" Value="Pause engine" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
                 </Border>
             </Grid>
         </Border>
 
-        <!-- ========================================== -->
-        <!-- RIGHT CONTENT AND HEADER REGION            -->
-        <!-- ========================================== -->
-        <Grid Grid.Column="1" Background="#070911">
+        <Grid Grid.Column="1" Background="{StaticResource WindowRadialGradient}">
             <Grid.RowDefinitions>
-                <!-- Custom Titlebar & Premium Command bar -->
                 <RowDefinition Height="Auto" />
-                <!-- Non-intrusive Update Notification Banner -->
                 <RowDefinition Height="Auto" />
-                <!-- Central Presenter Workspace -->
                 <RowDefinition Height="*" />
-                <!-- Performance Footer -->
-                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- WPF-UI Native Snap Titlebar & Command Header -->
-            <Grid Grid.Row="0" Height="64">
-                <!-- TitleBar spans only the far right button section to avoid intercepting custom button clicks, while retaining native window control snaps -->
-                <ui:TitleBar Title="" Height="64" HorizontalAlignment="Right" Width="140" VerticalAlignment="Stretch" Padding="0,0,8,0"/>
-                
-                <!-- Our custom Command Bar content overlay (interactivity is preserved because interactive buttons are hit-testable, while blank space clicks through to titlebar) -->
-                <Border Padding="24,12" Height="64" VerticalAlignment="Center" Background="{x:Null}" IsHitTestVisible="True" WindowChrome.IsHitTestVisibleInChrome="True">
+            <Grid Grid.Row="0" Height="56">
+                <ui:TitleBar Title="" Height="56" HorizontalAlignment="Right" Width="140" VerticalAlignment="Stretch" Padding="0,0,8,0" />
+
+                <Border Padding="24,8" Height="56" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True">
                     <Grid>
-                        <!-- Center glowing engineering slogan tagline -->
-                        <TextBlock Text="LIVE DESKTOP. MAX PERFORMANCE." 
-                                   Foreground="{StaticResource NeonPurpleCyanGradient}"
-                                   FontFamily="Segoe UI Variable Display, Inter"
-                                   FontSize="11" 
-                                   FontWeight="Bold"
-                                   VerticalAlignment="Center" 
-                                   HorizontalAlignment="Left" />
+                        <ui:TextBox PlaceholderText="Search wallpapers, tags, or resolution…"
+                                    Style="{StaticResource Input}"
+                                    Width="520"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    WindowChrome.IsHitTestVisibleInChrome="True" />
 
-                        <!-- Right Command controls (leaving ~130px on the far right for the native Min/Max/Close buttons inside TitleBar) -->
-                        <StackPanel WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,130,0">
-                            <!-- Monitor Selector combobox with screen icon -->
-                            <ComboBox Width="130" SelectedIndex="0" Margin="0,0,8,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                                <ComboBoxItem>
-                                    <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Symbol="Desktop24" Margin="0,0,8,0"/>
-                                        <TextBlock Text="Monitor 1" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
-                            </ComboBox>
-
-                            <!-- Layout Switch button -->
-                            <ui:Button Icon="Grid24" Appearance="Secondary" Margin="0,0,8,0" Padding="8,6" WindowChrome.IsHitTestVisibleInChrome="True" />
-
-                            <!-- Glowing Accent + Import Button -->
-                            <ui:Button Content="+ Import" Command="{Binding ImportWallpaperCommand}" Style="{StaticResource NeonImportButtonStyle}" Margin="0,0,12,0" WindowChrome.IsHitTestVisibleInChrome="True" />
-
-                            <!-- Header status action shortcuts -->
-                            <ui:Button Icon="AlertUrgent24" Appearance="Transparent" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,6,0" Padding="6" WindowChrome.IsHitTestVisibleInChrome="True" />
-                            <ui:Button Icon="Settings24" Appearance="Transparent" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,6,0" Padding="6" WindowChrome.IsHitTestVisibleInChrome="True" />
-                            
-                            <!-- Profile picture border matching mockup -->
-                            <Border Width="24" Height="24" CornerRadius="12" BorderThickness="1.5" BorderBrush="{StaticResource ActiveGreenBrush}" WindowChrome.IsHitTestVisibleInChrome="True">
-                                <Ellipse Width="20" Height="20" Fill="#20FFFFFF"/>
-                            </Border>
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,140,0"
+                                    WindowChrome.IsHitTestVisibleInChrome="True">
+                            <Button Content="Import"
+                                    Command="{Binding ImportWallpaperCommand}"
+                                    Style="{StaticResource ButtonPrimary}"
+                                    Margin="0,0,8,0"
+                                    WindowChrome.IsHitTestVisibleInChrome="True" />
+                            <Button Style="{StaticResource ButtonGhost}"
+                                    ToolTip="Notifications"
+                                    WindowChrome.IsHitTestVisibleInChrome="True">
+                                <ui:SymbolIcon Symbol="Alert24" FontSize="16" />
+                            </Button>
+                            <Button Style="{StaticResource ButtonGhost}"
+                                    ToolTip="Settings"
+                                    WindowChrome.IsHitTestVisibleInChrome="True"
+                                    Margin="4,0,0,0">
+                                <ui:SymbolIcon Symbol="Settings24" FontSize="16" />
+                            </Button>
+                            <Border Width="28" Height="28"
+                                    CornerRadius="14"
+                                    Background="{StaticResource Surface2Brush}"
+                                    BorderBrush="{StaticResource BorderDefaultBrush}"
+                                    BorderThickness="1"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center" />
                         </StackPanel>
                     </Grid>
                 </Border>
             </Grid>
 
-            <!-- ========================================== -->
-            <!-- NON-INTRUSIVE UPDATE NOTIFICATION BANNER  -->
-            <!-- Visible only when IsNotificationVisible is true. -->
-            <!-- ========================================== -->
             <Border Grid.Row="1"
                     Margin="24,8,24,0"
                     Padding="16,12"
-                    CornerRadius="10"
-                    BorderThickness="1"
-                    BorderBrush="#4066FCF1"
-                    Background="#0D1626"
+                    Style="{StaticResource Card}"
                     Visibility="{Binding Updater.IsNotificationVisible, Converter={StaticResource BoolToVisConverter}}">
-                <Border.Effect>
-                    <DropShadowEffect Color="#FF66FCF1" BlurRadius="14" ShadowDepth="0" Opacity="0.18" />
-                </Border.Effect>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -318,26 +264,24 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Left: state icon + headline -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
                         <ui:SymbolIcon Symbol="ArrowSync24"
-                                       FontSize="22"
-                                       Foreground="{StaticResource ActiveCyanBrush}"
+                                       FontSize="20"
+                                       Foreground="{StaticResource AccentBrush}"
                                        Margin="0,0,12,0"
                                        VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="{Binding Updater.AvailableVersionText}"
                                        FontSize="13"
-                                       FontWeight="Bold"
-                                       Foreground="#FFFFFF" />
+                                       FontWeight="600"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
                             <TextBlock Text="{Binding Updater.StatusText}"
-                                       FontSize="10"
-                                       Foreground="{StaticResource MutedTextBrush}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
                                        TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Center: progress + speed while downloading/verifying -->
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                         <StackPanel.Style>
                             <Style TargetType="StackPanel">
@@ -351,17 +295,16 @@
                         </StackPanel.Style>
                         <ProgressBar Value="{Binding Updater.ProgressPercent, Mode=OneWay}"
                                      Minimum="0" Maximum="100" Height="4"
-                                     Background="#15FFFFFF"
-                                     Foreground="{StaticResource ActiveCyanBrush}" />
+                                     Background="{StaticResource Surface2Brush}"
+                                     Foreground="{StaticResource AccentBrush}"
+                                     BorderThickness="0" />
                         <Grid Margin="0,4,0,0">
-                            <TextBlock Text="{Binding Updater.ProgressText}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
-                            <TextBlock Text="{Binding Updater.DownloadSpeedText}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
+                            <TextBlock Text="{Binding Updater.ProgressText}" Style="{StaticResource CaptionStyle}" />
+                            <TextBlock Text="{Binding Updater.DownloadSpeedText}" Style="{StaticResource CaptionStyle}" HorizontalAlignment="Right" />
                         </Grid>
                     </StackPanel>
 
-                    <!-- Right: action buttons -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- Download (only when UpdateAvailable) -->
                         <ui:Button Content="Download"
                                    Command="{Binding Updater.DownloadCommand}"
                                    Visibility="{Binding Updater.IsDownloadButtonVisible, Converter={StaticResource BoolToVisConverter}}"
@@ -369,15 +312,13 @@
                                    Appearance="Primary"
                                    Height="32"
                                    Margin="0,0,8,0" />
-                        <!-- Install (only when ReadyToInstall) — uses confirmation dialog -->
-                        <ui:Button Content="Install Update"
+                        <ui:Button Content="Install update"
                                    Command="{Binding RequestInstallUpdateCommand}"
                                    Visibility="{Binding Updater.IsInstallButtonVisible, Converter={StaticResource BoolToVisConverter}}"
                                    Icon="Checkmark24"
                                    Appearance="Primary"
                                    Height="32"
                                    Margin="0,0,8,0" />
-                        <!-- Cancel (only when an operation is in-flight) -->
                         <ui:Button Content="Cancel"
                                    Command="{Binding Updater.CancelCommand}"
                                    Visibility="{Binding Updater.IsCancelButtonVisible, Converter={StaticResource BoolToVisConverter}}"
@@ -385,11 +326,10 @@
                                    Appearance="Secondary"
                                    Height="32"
                                    Margin="0,0,8,0" />
-                        <!-- Dismiss (always available while banner is visible) -->
                         <ui:Button Command="{Binding Updater.DismissNotificationCommand}"
                                    Icon="Dismiss24"
                                    Appearance="Transparent"
-                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
                                    Height="32"
                                    Width="32"
                                    ToolTip="Dismiss" />
@@ -397,164 +337,68 @@
                 </Grid>
             </Border>
 
-            <!-- CENTRAL DYNAMIC MVVM WORKSPACE -->
-            <ContentPresenter Grid.Row="2" Content="{Binding CurrentPageViewModel}" Margin="24,8,24,12" />
-
-            <!-- ========================================== -->
-            <!-- UNIFIED CYBERNETIC FOOTER PANEL            -->
-            <!-- ========================================== -->
-            <Border Grid.Row="3" Background="#090B12" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="24,14">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Left/Center: Metrics row separated by thin cyber borders -->
-                    <WrapPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0">
-                        <!-- FPS metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Heart24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <StackPanel>
-                                    <TextBlock Text="FPS" Style="{StaticResource TelemetryLabelStyle}" />
-                                    <TextBlock Text="{Binding FpsText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- GPU metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Desktop24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <StackPanel>
-                                    <TextBlock Text="GPU LOAD" Style="{StaticResource TelemetryLabelStyle}" />
-                                    <TextBlock Text="{Binding GpuText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- VRAM metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <StackPanel>
-                                    <TextBlock Text="VRAM" Style="{StaticResource TelemetryLabelStyle}" />
-                                    <TextBlock Text="{Binding VramText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- RAM metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <StackPanel>
-                                    <TextBlock Text="RAM USAGE" Style="{StaticResource TelemetryLabelStyle}" />
-                                    <TextBlock Text="{Binding RamText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Uptime metric -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Settings24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <StackPanel>
-                                    <TextBlock Text="UPTIME" Style="{StaticResource TelemetryLabelStyle}" />
-                                    <TextBlock Text="{Binding UptimeText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Resolution -->
-                        <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Desktop24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <StackPanel>
-                                    <TextBlock Text="RESOLUTION" Style="{StaticResource TelemetryLabelStyle}" />
-                                    <TextBlock Text="3840 x 2160" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Active Renderer -->
-                        <Border Padding="0" Margin="0,4,0,4" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <StackPanel>
-                                    <TextBlock Text="RENDERER" Style="{StaticResource TelemetryLabelStyle}" />
-                                    <TextBlock Text="{Binding ActiveRendererText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                    </WrapPanel>
-
-                    <!-- Right: Premium Max Performance Optimized Badge -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border BorderBrush="#2566FCF1" BorderThickness="1" CornerRadius="8" Background="#0866FCF1" Padding="12,6" Margin="0,0,12,0">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Data="M 0,6 L 6,6 L 3,12 L 8,4 L 3,4 L 5,0 Z" Fill="{StaticResource ActiveCyanBrush}" Width="8" Height="12" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                <StackPanel>
-                                    <TextBlock Text="OPTIMIZED" FontSize="8" FontWeight="ExtraBold" Foreground="{StaticResource ActiveCyanBrush}" />
-                                    <TextBlock Text="MAX PERFORMANCE" FontSize="6" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        
-                        <!-- Version Tag -->
-                        <TextBlock Text="{Binding Updater.CurrentVersion, StringFormat=v\{0\}, FallbackValue=v1.0.0}" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Grid>
-            </Border>
+            <ContentPresenter Grid.Row="2"
+                              Content="{Binding CurrentPageViewModel}"
+                              Margin="24,16,24,24" />
         </Grid>
 
-        <!-- PREMIUM GLOWING IN-APP MODAL OVERLAY -->
         <Grid Grid.Column="0" Grid.ColumnSpan="2" Panel.ZIndex="1000" Visibility="{Binding IsDialogVisible, Converter={StaticResource BoolToVisConverter}}">
             <Border Background="#D8080A10" />
-            <Border Width="400" HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="16" Background="#0F121D" BorderBrush="{StaticResource WarningRedBrush}" BorderThickness="1.5">
-                <Border.Effect>
-                    <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="30" ShadowDepth="0" Opacity="0.4" />
-                </Border.Effect>
+            <Border Width="400"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    CornerRadius="{StaticResource RadiusLarge}"
+                    Background="{StaticResource Surface1Brush}"
+                    BorderBrush="{StaticResource StatusErrBrush}"
+                    BorderThickness="1">
                 <Grid Margin="24">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    
-                    <!-- Title with cyber icon -->
+
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
-                        <ui:SymbolIcon Symbol="AlertUrgent24" Foreground="{StaticResource WarningRedBrush}" Margin="0,0,10,0" VerticalAlignment="Center" Filled="True"/>
-                        <TextBlock Text="{Binding DialogTitle}" FontSize="16" FontWeight="ExtraBold" Foreground="{StaticResource WhiteTextBrush}" VerticalAlignment="Center" FontFamily="Segoe UI Variable Display, Inter, Segoe UI"/>
+                        <ui:SymbolIcon Symbol="AlertUrgent24"
+                                       Foreground="{StaticResource StatusErrBrush}"
+                                       Margin="0,0,10,0"
+                                       VerticalAlignment="Center"
+                                       Filled="True" />
+                        <TextBlock Text="{Binding DialogTitle}"
+                                   FontSize="16"
+                                   FontWeight="600"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center" />
                     </StackPanel>
-                    
-                    <!-- Dialog Message -->
-                    <TextBlock Grid.Row="1" Text="{Binding DialogMessage}" FontSize="12" Foreground="#C8D2E6" TextWrapping="Wrap" Margin="0,0,0,24" LineHeight="18" FontFamily="Segoe UI Variable Text, Inter, Segoe UI"/>
-                    
-                    <!-- Dynamic Cancel/Confirm Action buttons styled with scifi transitions -->
+
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding DialogMessage}"
+                               FontSize="13"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,24"
+                               LineHeight="20" />
+
                     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-                        <!-- Cancel Button (Only shown when IsDialogCancelVisible is True) -->
-                        <ui:Button Content="Cancel" 
-                                   Command="{Binding DialogCancelCommand}" 
-                                   Width="90" 
-                                   Height="34" 
-                                   Margin="0,0,12,0" 
-                                   Appearance="Secondary" 
-                                   Background="#15FFFFFF" 
-                                   Foreground="{StaticResource WhiteTextBrush}" 
-                                   BorderThickness="0" 
-                                   CornerRadius="8"
-                                   Visibility="{Binding IsDialogCancelVisible, Converter={StaticResource BoolToVisConverter}}" />
-                        <!-- Confirm/Yes Button -->
-                        <ui:Button Content="Confirm" 
-                                   Command="{Binding DialogConfirmCommand}" 
-                                   Width="100" 
-                                   Height="34" 
-                                   Background="{StaticResource WarningRedBrush}" 
-                                   Foreground="{StaticResource WhiteTextBrush}" 
+                        <ui:Button Content="Cancel"
+                                   Command="{Binding DialogCancelCommand}"
+                                   Width="90"
+                                   Height="34"
+                                   Margin="0,0,12,0"
+                                   Appearance="Secondary"
+                                   Background="{StaticResource Surface2Brush}"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
                                    BorderThickness="0"
-                                   CornerRadius="8" />
+                                   CornerRadius="{StaticResource RadiusSmall}"
+                                   Visibility="{Binding IsDialogCancelVisible, Converter={StaticResource BoolToVisConverter}}" />
+                        <ui:Button Content="Confirm"
+                                   Command="{Binding DialogConfirmCommand}"
+                                   Width="100"
+                                   Height="34"
+                                   Background="{StaticResource StatusErrBrush}"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   BorderThickness="0"
+                                   CornerRadius="{StaticResource RadiusSmall}" />
                     </StackPanel>
                 </Grid>
             </Border>
