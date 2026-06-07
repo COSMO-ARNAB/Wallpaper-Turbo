@@ -61,3 +61,6 @@ skills/
 # Publish Output
 # ─────────────────────────────────────────────
 publish_output/
+
+
+docs/architecture/
