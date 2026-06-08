@@ -36,6 +36,9 @@ public partial class App : Application
         services.AddSingleton<Services.IWallpaperPreviewService, Services.WallpaperPreviewService>();
         services.AddSingleton<Services.DiagnosticsService>(); // Development-time stability counters
 
+        // Layout Infrastructure
+        services.AddSingleton<Services.ILayoutPreferenceStore, Services.InMemoryLayoutPreferenceStore>();
+
         // Updater Infrastructure (Phase C integration)
         services.AddSingleton<HttpClient>(_ =>
         {
@@ -66,6 +69,7 @@ public partial class App : Application
             sp.GetRequiredService<IProcessManager>()));
 
         // ViewModels
+        services.AddSingleton<ViewModels.LayoutHostViewModel>();
         services.AddSingleton<ViewModels.MainViewModel>();
         services.AddSingleton<ViewModels.DashboardViewModel>();
         services.AddSingleton<ViewModels.LibraryViewModel>();
@@ -141,6 +145,16 @@ public partial class App : Application
             if (_serviceProvider.GetService<Updater.UpdateCoordinator>() is IDisposable disposableCoordinator)
             {
                 disposableCoordinator.Dispose();
+            }
+        }
+        catch { /* best-effort cleanup */ }
+
+        try
+        {
+            // Dispose MainViewModel to unsubscribe from telemetry events (D-1 Part A)
+            if (_serviceProvider.GetService<ViewModels.MainViewModel>() is IDisposable disposableMainViewModel)
+            {
+                disposableMainViewModel.Dispose();
             }
         }
         catch { /* best-effort cleanup */ }

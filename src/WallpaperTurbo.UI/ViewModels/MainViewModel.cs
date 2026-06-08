@@ -8,12 +8,15 @@ using WallpaperTurbo.UI.Services;
 
 namespace WallpaperTurbo.UI.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
+    private bool _disposed;
+
     private readonly WallpaperService _wallpaperService;
     private readonly TelemetryService _telemetryService;
     private readonly IWallpaperLibraryService _libraryService;
     private readonly UpdaterViewModel _updater;
+    private readonly LayoutHostViewModel _layoutHostViewModel;
 
     [ObservableProperty]
     private object? _currentPageViewModel;
@@ -76,6 +79,8 @@ public partial class MainViewModel : ObservableObject
 
     public UpdaterViewModel Updater => _updater;
 
+    public LayoutHostViewModel LayoutHost => _layoutHostViewModel;
+
     public MainViewModel(
         WallpaperService wallpaperService,
         TelemetryService telemetryService,
@@ -83,7 +88,8 @@ public partial class MainViewModel : ObservableObject
         UpdaterViewModel updater,
         DashboardViewModel dashboardViewModel,
         LibraryViewModel libraryViewModel,
-        SettingsViewModel settingsViewModel)
+        SettingsViewModel settingsViewModel,
+        LayoutHostViewModel layoutHostViewModel)
     {
         _wallpaperService = wallpaperService;
         _telemetryService = telemetryService;
@@ -92,6 +98,7 @@ public partial class MainViewModel : ObservableObject
         _dashboardViewModel = dashboardViewModel;
         _libraryViewModel = libraryViewModel;
         _settingsViewModel = settingsViewModel;
+        _layoutHostViewModel = layoutHostViewModel;
 
         // Initialize active view to Dashboard
         _currentPageViewModel = _dashboardViewModel;
@@ -303,6 +310,19 @@ public partial class MainViewModel : ObservableObject
         // Await all background library tasks (saving manifests, finishing thumbnails) safely
         await _libraryService.ShutdownAsync();
     }
+
+    #region IDisposable
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        // Unsubscribe from telemetry events to prevent reference leak
+        _telemetryService.MetricsUpdated -= OnMetricsUpdated;
+    }
+
+    #endregion
 
     /// <summary>
     /// Shows a confirmation dialog before proceeding to install the downloaded update.
