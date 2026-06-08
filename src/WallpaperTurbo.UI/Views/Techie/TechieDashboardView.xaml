@@ -1,0 +1,657 @@
+<UserControl x:Class="WallpaperTurbo.UI.Views.TechieDashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:ctrl="clr-namespace:WallpaperTurbo.UI.Controls"
+             xmlns:conv="clr-namespace:WallpaperTurbo.UI.Converters"
+             mc:Ignorable="d" 
+             d:DesignHeight="700" d:DesignWidth="1100">
+    
+    <UserControl.Resources>
+        <conv:ThumbnailImageConverter x:Key="ThumbnailConverter" />
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="340" />
+        </Grid.ColumnDefinitions>
+
+        <!-- COLUMN 0: MAIN CONTENT PANEL -->
+        <Grid Grid.Column="0" Margin="0,0,24,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- GREETING BANNER -->
+            <Grid Grid.Row="0" Margin="0,4,0,20">
+                <StackPanel>
+                    <TextBlock Text="{Binding GreetingHeader, FallbackValue='Good Evening 👋'}" FontSize="28" FontWeight="ExtraBold" Foreground="#FFFFFF" />
+                    <TextBlock Text="{Binding GreetingSubtext, FallbackValue='Your engine is running smoothly.'}" FontSize="13" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,0" />
+                </StackPanel>
+            </Grid>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasWallpapers}" Value="True" />
+                                    <Condition Binding="{Binding IsLoading}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
+                <StackPanel Margin="0,0,8,12">
+
+                    <!-- HERO CINEMATIC CARD -->
+                    <Border Style="{StaticResource NeonCardStyle}" Height="330" Margin="0,0,0,24" ClipToBounds="True" MouseLeftButtonDown="OnCardMouseLeftButtonDown" Tag="Hero">
+                        <Grid>
+                            <Image Source="{Binding CurrentWallpaper.Thumbnail, Converter={StaticResource ThumbnailConverter}, ConverterParameter=Hero}" 
+                                   Stretch="UniformToFill" 
+                                   Margin="-10"
+                                   RenderTransformOrigin="0.5,0.5"
+                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.RenderTransform>
+                                    <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                </Image.RenderTransform>
+                            </Image>
+                            
+                            <Border>
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                        <GradientStop Color="#00000000" Offset="0.0" />
+                                        <GradientStop Color="#80000000" Offset="0.5" />
+                                        <GradientStop Color="#E0070911" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+
+                            <Path Data="M 0,100 Q 300,50 600,80 T 1200,30" 
+                                  Stroke="{StaticResource NeonPurpleCyanGradient}" 
+                                  StrokeThickness="1" 
+                                  Opacity="0.15"
+                                  VerticalAlignment="Center" 
+                                  HorizontalAlignment="Stretch" />
+
+                            <StackPanel VerticalAlignment="Bottom" Margin="24">
+                                <TextBlock Text="{Binding CurrentWallpaper.Title, FallbackValue='EVENING-DRIVE'}"
+                                           FontSize="28" FontWeight="ExtraBold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding CurrentWallpaper.Resolution, StringFormat={}{0} • 60 FPS • PRE-RENDERED, FallbackValue='3440 x 1440 • 60 FPS • PRE-RENDERED'}"
+                                           FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- QUICK ACCESS SECTION -->
+                    <TextBlock Text="QUICK ACCESS" Style="{StaticResource TelemetryLabelStyle}" Margin="0,0,0,10" Foreground="{StaticResource ActiveCyanBrush}" />
+                    <UniformGrid Columns="5" Margin="0,0,0,24">
+                        <Button Style="{StaticResource QuickAccessCardButtonStyle}" Margin="0,0,8,0"
+                                Command="{Binding DataContext.ImportWallpaperCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                            <StackPanel>
+                                <ui:SymbolIcon Symbol="Add24" Foreground="{StaticResource ActiveCyanBrush}" FontSize="20" HorizontalAlignment="Center" />
+                                <TextBlock Text="Add Wallpaper" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource QuickAccessCardButtonStyle}" Margin="4,0,4,0">
+                            <StackPanel>
+                                <ui:SymbolIcon Symbol="List24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="20" HorizontalAlignment="Center" />
+                                <TextBlock Text="Create Playlist" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource QuickAccessCardButtonStyle}" Margin="4,0,4,0">
+                            <StackPanel>
+                                <ui:SymbolIcon Symbol="Desktop24" Foreground="{StaticResource ActiveCyanBrush}" FontSize="20" HorizontalAlignment="Center" />
+                                <TextBlock Text="Monitor Setup" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource QuickAccessCardButtonStyle}" Margin="4,0,4,0">
+                            <StackPanel>
+                                <ui:SymbolIcon Symbol="Flash24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="20" HorizontalAlignment="Center" />
+                                <TextBlock Text="Performance" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource QuickAccessCardButtonStyle}" Margin="8,0,0,0"
+                                Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                CommandParameter="Settings">
+                            <StackPanel>
+                                <ui:SymbolIcon Symbol="Settings24" Foreground="{StaticResource ActiveCyanBrush}" FontSize="20" HorizontalAlignment="Center" />
+                                <ui:SymbolIcon Symbol="Settings24" Foreground="{StaticResource ActiveCyanBrush}" FontSize="20" HorizontalAlignment="Center" />
+                                <TextBlock Text="Settings" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Button>
+                    </UniformGrid>
+
+                    <!-- RECENTLY USED SECTION -->
+                    <Grid Margin="0,0,0,24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Grid.Row="0" Text="RECENTLY USED" Style="{StaticResource TelemetryLabelStyle}" Margin="0,0,0,10" Foreground="{StaticResource ActiveCyanBrush}" />
+                        
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <ListBox x:Name="RecentlyUsedListBox"
+                                     Grid.Column="0"
+                                     ItemsSource="{Binding RecentlyUsedWallpapers}"
+                                     ItemContainerStyle="{StaticResource PremiumCardContainerStyle}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Padding="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling"
+                                     VirtualizingPanel.ScrollUnit="Pixel"
+                                     PreviewMouseWheel="OnRecentlyUsedMouseWheel">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource NeonCardStyle}" Width="160" Height="110" Margin="0,0,12,0" ClipToBounds="True" Cursor="Hand" MouseLeftButtonDown="OnCardMouseLeftButtonDown">
+                                            <Grid>
+                                                <Image Source="{Binding LoadedThumbnail}" Stretch="UniformToFill" Opacity="0.7" x:Name="ThumbImage">
+                                                    <Image.RenderTransform>
+                                                        <ScaleTransform ScaleX="1.0" ScaleY="1.0" CenterX="80" CenterY="55" />
+                                                    </Image.RenderTransform>
+                                                </Image>
+                                                
+                                                <Border>
+                                                    <Border.Background>
+                                                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                                            <GradientStop Color="#00000000" Offset="0.5" />
+                                                            <GradientStop Color="#A0000000" Offset="1.0" />
+                                                        </LinearGradientBrush>
+                                                    </Border.Background>
+                                                </Border>
+
+                                                <StackPanel VerticalAlignment="Bottom" Margin="8">
+                                                    <TextBlock Text="{Binding Title}" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Resolution, StringFormat={}{0} • 60 FPS}" FontSize="8" Foreground="{StaticResource MutedTextBrush}" />
+                                                </StackPanel>
+
+                                                <Button Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                                        CommandParameter="{Binding}"
+                                                        HorizontalAlignment="Right" 
+                                                        VerticalAlignment="Bottom" 
+                                                        Margin="8" 
+                                                        Width="26" 
+                                                        Height="26" 
+                                                        Visibility="Collapsed"
+                                                        x:Name="HoverPlayBtn">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="MiniRing"
+                                                                    Width="26" Height="26"
+                                                                    CornerRadius="13"
+                                                                    Background="#3066FCF1"
+                                                                    BorderBrush="{StaticResource ActiveCyanBrush}"
+                                                                    BorderThickness="1.5">
+                                                                <Border.Effect>
+                                                                    <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="10" ShadowDepth="0" Opacity="0.55" />
+                                                                </Border.Effect>
+                                                                <ui:SymbolIcon x:Name="MiniIcon"
+                                                                               Symbol="Play12"
+                                                                               Foreground="{StaticResource ActiveCyanBrush}"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"
+                                                                               FontSize="9" />
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="MiniRing" Property="Background" Value="{StaticResource ActiveCyanBrush}" />
+                                                                    <Setter TargetName="MiniIcon" Property="Foreground" Value="#060811" />
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <ui:Button Grid.Column="1" Icon="ChevronRight24" Appearance="Secondary" VerticalAlignment="Center" Margin="4,0,0,0" Width="32" Height="32" CornerRadius="16" />
+                        </Grid>
+                    </Grid>
+
+                    <!-- PLAYLISTS SECTION -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="PLAYLISTS" Style="{StaticResource TelemetryLabelStyle}" Margin="0,0,0,10" Foreground="{StaticResource ActiveCyanBrush}" />
+
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            
+                            <UniformGrid Grid.Column="0" Columns="4">
+                                <Border Style="{StaticResource NeonCardStyle}" Height="64" Margin="0,0,8,0" Padding="12" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <ui:SymbolIcon Grid.Column="0" Symbol="Heart24" Foreground="{StaticResource WarningRedBrush}" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Favorites" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
+                                            <TextBlock Text="24 wallpapers" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <Border Style="{StaticResource NeonCardStyle}" Height="64" Margin="4,0,4,0" Padding="12" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <ui:SymbolIcon Grid.Column="0" Symbol="Video24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Anime Vibes" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
+                                            <TextBlock Text="18 wallpapers" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <Border Style="{StaticResource NeonCardStyle}" Height="64" Margin="4,0,4,0" Padding="12" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <ui:SymbolIcon Grid.Column="0" Symbol="VehicleCar24" Foreground="{StaticResource ActiveCyanBrush}" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Cars &amp; Drives" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
+                                            <TextBlock Text="12 wallpapers" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <Border Style="{StaticResource NeonCardStyle}" Height="64" Margin="8,0,0,0" Padding="12" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <ui:SymbolIcon Grid.Column="0" Symbol="Shapes24" Foreground="{StaticResource MutedTextBrush}" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Dark Aesthetic" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" />
+                                            <TextBlock Text="31 wallpapers" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </UniformGrid>
+
+                            <ui:Button Grid.Column="1" Icon="ChevronRight24" Appearance="Secondary" VerticalAlignment="Center" Margin="4,0,0,0" Width="32" Height="32" CornerRadius="16" />
+                        </Grid>
+                    </Grid>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- PREMIUM EMPTY STATE PANEL -->
+            <Border Grid.Row="1" Margin="0,0,8,24" Height="480" VerticalAlignment="Top" Padding="24">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource NeonCardStyle}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasWallpapers}" Value="False" />
+                                    <Condition Binding="{Binding IsLoading}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                
+                <Grid VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Border Width="96" Height="96" CornerRadius="48" BorderBrush="#3066FCF1" BorderThickness="1.5" Background="#1066FCF1" HorizontalAlignment="Center" Margin="0,0,0,24">
+                            <Border.Effect>
+                                <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="16" ShadowDepth="0" Opacity="0.35" />
+                            </Border.Effect>
+                            <ui:SymbolIcon Symbol="Add24" FontSize="44" Foreground="{StaticResource ActiveCyanBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <TextBlock Text="IMPORT YOUR CINEMATIC WALLPAPERS" 
+                                   FontSize="16" 
+                                   FontWeight="ExtraBold" 
+                                   Foreground="#FFFFFF" 
+                                   HorizontalAlignment="Center" 
+                                   Margin="0,0,0,8" />
+                        
+                        <TextBlock Text="Your library is currently empty. Bring your desktop to life by importing high-fidelity videos (.mp4, .webm, .mkv) or live animations." 
+                                   FontSize="11" 
+                                   Foreground="{StaticResource MutedTextBrush}" 
+                                   HorizontalAlignment="Center" 
+                                   TextAlignment="Center" 
+                                   TextWrapping="Wrap" 
+                                   MaxWidth="380" 
+                                   Margin="0,0,0,28" 
+                                   LineHeight="16"/>
+
+                        <ui:Button Content="+ Import Wallpapers" 
+                                   Command="{Binding DataContext.ImportWallpaperCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Style="{StaticResource NeonImportButtonStyle}" 
+                                   Padding="28,12" 
+                                   FontSize="13" 
+                                   FontWeight="Bold" 
+                                   HorizontalAlignment="Center">
+                            <ui:Button.Effect>
+                                <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="12" ShadowDepth="0" Opacity="0.25" />
+                            </ui:Button.Effect>
+                        </ui:Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- COLUMN 1: RIGHT SIDEBAR PANEL -->
+        <Border Grid.Column="1" Background="#0C0E17" CornerRadius="16" BorderBrush="#15FFFFFF" BorderThickness="1" Padding="12">
+            <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+
+                    <!-- Engine Running Status Badge/Card -->
+                    <Border BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,16">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="Background" Value="#1000FF66" />
+                                        <Setter Property="BorderBrush" Value="#4000FF66" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                        <Setter Property="Background" Value="#10FF3366" />
+                                        <Setter Property="BorderBrush" Value="#40FF3366" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            
+                            <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center" Margin="4,0,12,0">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource ActiveGreenBrush}" />
+                                                <Setter Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect Color="{StaticResource ActiveGreenColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.8" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                <Setter Property="Fill" Value="{StaticResource WarningRedBrush}" />
+                                                <Setter Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.8" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontSize="11" FontWeight="Bold" Foreground="#FFFFFF">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                    <Setter Property="Text" Value="ENGINE RUNNING" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                    <Setter Property="Text" Value="ENGINE OFFLINE" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="VLC (D3D11VA)" FontSize="8" Foreground="{StaticResource MutedTextBrush}" Margin="0,1,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- SYSTEM HUB CARD -->
+                    <Border BorderBrush="#12FFFFFF" BorderThickness="1" CornerRadius="8" Background="#090A0E" Padding="12" Margin="0,0,0,16">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,12">
+                                <TextBlock Text="SYSTEM HUB" Style="{StaticResource TelemetryLabelStyle}" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Margin="0,0,6,0" VerticalAlignment="Center">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource ActiveGreenBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                        <Setter Property="Fill" Value="{StaticResource WarningRedBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock FontSize="9" FontWeight="Bold" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                        <Setter Property="Text" Value="ACTIVE" />
+                                                        <Setter Property="Foreground" Value="{StaticResource ActiveGreenBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                        <Setter Property="Text" Value="OFFLINE" />
+                                                        <Setter Property="Foreground" Value="{StaticResource WarningRedBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+
+                            <UniformGrid Columns="2" Margin="0,0,0,12">
+                                <ToggleButton IsChecked="{Binding PauseOnMaximized}" Margin="0,0,4,4" Height="48" Background="#10FFFFFF" BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal" Margin="8,0">
+                                        <ui:SymbolIcon Symbol="Pause24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="16" Margin="-mozavailable 0,8,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Pause Play" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                
+                                <ToggleButton IsChecked="{Binding MuteAudio}" Margin="4,0,0,4" Height="48" Background="#10FFFFFF" BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal" Margin="8,0">
+                                        <ui:SymbolIcon Symbol="Speaker224" Foreground="{StaticResource ActiveCyanBrush}" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Mute Sound" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </ToggleButton>
+
+                                <ToggleButton IsChecked="{Binding StartWithWindows}" Margin="0,4,4,0" Height="48" Background="#10FFFFFF" BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal" Margin="8,0">
+                                        <ui:SymbolIcon Symbol="Power24" Foreground="{StaticResource WarningRedBrush}" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Boot Start" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </ToggleButton>
+
+                                <ToggleButton IsChecked="{Binding AutoStartEngine}" Margin="4,4,0,0" Height="48" Background="#10FFFFFF" BorderThickness="0">
+                                    <StackPanel Orientation="Horizontal" Margin="8,0">
+                                        <ui:SymbolIcon Symbol="Flash24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Auto Engine" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                            </UniformGrid>
+
+                            <ui:Button Command="{Binding DataContext.ToggleEngineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                       Height="36" 
+                                       CornerRadius="6" 
+                                       BorderThickness="0"
+                                       FontWeight="Bold" 
+                                       FontSize="11">
+                                <ui:Button.Style>
+                                    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                <Setter Property="Content" Value="STOP BACKEND ENGINE" />
+                                                <Setter Property="Background" Value="{StaticResource WarningRedBrush}" />
+                                                <Setter Property="Foreground" Value="#FFFFFF" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                <Setter Property="Content" Value="START BACKEND ENGINE" />
+                                                <Setter Property="Background" Value="{StaticResource ActiveCyanBrush}" />
+                                                <Setter Property="Foreground" Value="#000000" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Button.Style>
+                                <ui:Button.Effect>
+                                    <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.25" />
+                                </ui:Button.Effect>
+                            </ui:Button>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- PERFORMANCE OVERVIEW -->
+                    <Border BorderBrush="#12FFFFFF" BorderThickness="1" CornerRadius="8" Background="#090A0E" Padding="12" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="PERFORMANCE OVERVIEW" Style="{StaticResource TelemetryLabelStyle}" Margin="0,0,0,12" />
+                            
+                            <Border Height="60" Background="#070911" BorderBrush="#10FFFFFF" BorderThickness="1" CornerRadius="6" Padding="6">
+                                <ctrl:PerformanceGraph Value="{Binding GpuValue}" StrokeBrush="{StaticResource NeonPurpleCyanGradient}" GlowColor="{StaticResource ActiveCyanColor}" Height="48" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- RESOURCE USAGE -->
+                    <Border BorderBrush="#12FFFFFF" BorderThickness="1" CornerRadius="8" Background="090A0E" Padding="12" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="RESOURCE USAGE" Style="{StaticResource TelemetryLabelStyle}" Margin="0,0,0,12" />
+                            
+                            <UniformGrid Columns="3">
+                                <!-- GPU Ring -->
+                                <Grid HorizontalAlignment="Center">
+                                    <ui:ProgressRing Progress="{Binding GpuValue}" Width="66" Height="66" Foreground="{StaticResource ActivePurpleBrush}" Background="#10FFFFFF">
+                                        <ui:ProgressRing.Effect>
+                                            <DropShadowEffect Color="{StaticResource ActivePurpleColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.2" />
+                                        </ui:ProgressRing.Effect>
+                                    </ui:ProgressRing>
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding GpuValue, StringFormat={}{0:0}%}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" />
+                                        <TextBlock Text="GPU" FontSize="7" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Center" Margin="0,-2,0,0" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- VRAM Ring -->
+                                <Grid HorizontalAlignment="Center">
+                                    <ui:ProgressRing Progress="{Binding VramPercentage}" Width="66" Height="66" Foreground="{StaticResource ActiveCyanBrush}" Background="#10FFFFFF">
+                                        <ui:ProgressRing.Effect>
+                                            <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.2" />
+                                        </ui:ProgressRing.Effect>
+                                    </ui:ProgressRing>
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding VramGbText}" FontSize="9" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" />
+                                        <TextBlock Text="VRAM" FontSize="7" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Center" Margin="0,-2,0,0" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- RAM Ring -->
+                                <Grid HorizontalAlignment="Center">
+                                    <ui:ProgressRing Progress="{Binding RamPercentage}" Width="66" Height="66" Foreground="{StaticResource ActiveGreenBrush}" Background="#10FFFFFF">
+                                        <ui:ProgressRing.Effect>
+                                            <DropShadowEffect Color="{StaticResource ActiveGreenColor}" BlurRadius="6" ShadowDepth="0" Opacity="0.2" />
+                                        </ui:ProgressRing.Effect>
+                                    </ui:ProgressRing>
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding RamGbText}" FontSize="9" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" />
+                                        <TextBlock Text="RAM" FontSize="7" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Center" Margin="0,-2,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ENGINE INFO -->
+                    <Border BorderBrush="#12FFFFFF" BorderThickness="1" CornerRadius="8" Background="#090A0E" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="ENGINE INFO" Style="{StaticResource TelemetryLabelStyle}" Margin="0,0,0,12" />
+                            
+                            <StackPanel Margin="0,0,0,12">
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="Renderer" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="{Binding RendererText}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
+                                </Grid>
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="Decoder" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <TextBlock Text="Hardware Decode (" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                        <TextBlock Text="{Binding HardwareDecodeText}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource ActiveGreenBrush}" />
+                                        <TextBlock Text=")" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                                <Grid>
+                                    <TextBlock Text="Uptime" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
+                                    <TextBlock Text="{Binding UptimeText}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Right" />
+                                </Grid>
+                            </StackPanel>
+
+                            <Border BorderBrush="#2566FCF1" BorderThickness="1" CornerRadius="8" Background="#0866FCF1" Padding="12,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Path Grid.Column="0" Data="M 0,6 L 6,6 L 3,12 L 8,4 L 3,4 L 5,0 Z" Fill="{StaticResource ActiveCyanBrush}" Width="8" Height="12" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="OPTIMIZED" FontSize="8" FontWeight="ExtraBold" Foreground="{StaticResource ActiveCyanBrush}" />
+                                        <TextBlock Text="MAX PERFORMANCE" FontSize="6" FontWeight="Bold" Foreground="{StaticResource MutedTextBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>
