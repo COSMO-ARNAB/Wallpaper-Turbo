@@ -21,6 +21,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private object? _currentPageViewModel;
 
+    partial void OnCurrentPageViewModelChanged(object? value)
+    {
+        string typeName = value != null ? value.GetType().Name : "null";
+        StartupDiagnostics.Log($"CurrentPageViewModel assigned: {typeName}");
+    }
+
     [ObservableProperty]
     private bool _isEngineRunning;
 
@@ -91,6 +97,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         SettingsViewModel settingsViewModel,
         LayoutHostViewModel layoutHostViewModel)
     {
+        StartupDiagnostics.Log("MainViewModel constructor ENTRY");
         _wallpaperService = wallpaperService;
         _telemetryService = telemetryService;
         _libraryService = libraryService;
@@ -102,6 +109,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Initialize active view to Dashboard
         _currentPageViewModel = _dashboardViewModel;
+        StartupDiagnostics.Log("CurrentPageViewModel assigned: DashboardViewModel");
 
         // Hook up telemetry polling updates
         _telemetryService.MetricsUpdated += OnMetricsUpdated;
@@ -109,6 +117,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Check initial engine status
         UpdateEngineStatus();
+        StartupDiagnostics.LogWithMemory("MainViewModel constructor EXIT");
     }
 
     private void OnMetricsUpdated(TelemetryMetrics m)

@@ -6,8 +6,16 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:local="clr-namespace:WallpaperTurbo.UI.Views"
              xmlns:vm="clr-namespace:WallpaperTurbo.UI.ViewModels"
+             xmlns:views="clr-namespace:WallpaperTurbo.UI.Views"
+             xmlns:models="clr-namespace:WallpaperTurbo.UI.Models"
              mc:Ignorable="d"
              d:DesignHeight="780" d:DesignWidth="1240">
+
+    <UserControl.Resources>
+        <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+            <views:TechieDashboardView />
+        </DataTemplate>
+    </UserControl.Resources>
 
     <Grid>
         <!-- Root grid layout trigger to prevent screen clipping when window is maximized -->
@@ -251,8 +259,8 @@
                                 </ComboBoxItem>
                             </ComboBox>
 
-                            <!-- Layout Switch button (visual artifact only - no wiring yet) -->
-                            <ui:Button Icon="Grid24" Appearance="Secondary" Margin="0,0,8,0" Padding="8,6" WindowChrome.IsHitTestVisibleInChrome="True" />
+                            <!-- Layout Switch button -->
+                            <ui:Button Icon="Grid24" Appearance="Secondary" Margin="0,0,8,0" Padding="8,6" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Switch to Minimal Layout" Command="{Binding LayoutHost.SwitchLayoutCommand}" CommandParameter="{x:Static models:LayoutMode.Minimal}" />
 
                             <!-- Glowing Accent + Import Button -->
                             <ui:Button Content="+ Import" Command="{Binding ImportWallpaperCommand}" Style="{StaticResource NeonImportButtonStyle}" Margin="0,0,12,0" WindowChrome.IsHitTestVisibleInChrome="True" />
@@ -366,7 +374,7 @@
 
             <!-- CENTRAL DYNAMIC MVVM WORKSPACE -->
             <!-- ContentPresenter is NOT bound or wired in Step 2. Step 3 handles the binding. -->
-            <ContentPresenter Grid.Row="2" Margin="24,8,24,12" />
+            <ContentPresenter Grid.Row="2" Margin="24,8,24,12" Content="{Binding CurrentPageViewModel}" />
 
             <!-- UNIFIED CYBERNETIC FOOTER PANEL -->
             <Border Grid.Row="3" Background="#090B12" BorderBrush="#15FFFFFF" BorderThickness="0,1,0,0" Padding="24,14">
@@ -475,7 +483,7 @@
 
         <!-- PREMIUM GLOWING IN-APP MODAL OVERLAY -->
         <Grid Grid.Column="0" Grid.ColumnSpan="2" Panel.ZIndex="1000" Visibility="{Binding IsDialogVisible, Converter={StaticResource BoolToVisConverter}}">
-            <Border Background="#D8080A10" />
+            <Border Background="#60080A10" />
             <Border Width="400" HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="16" Background="#0F121D" BorderBrush="{StaticResource WarningRedBrush}" BorderThickness="1.5">
                 <Border.Effect>
                     <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="30" ShadowDepth="0" Opacity="0.4" />

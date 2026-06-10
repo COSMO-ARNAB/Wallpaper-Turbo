@@ -66,6 +66,7 @@ public class TelemetryService
 
     public void Start()
     {
+        StartupDiagnostics.LogWithMemory("TelemetryService START");
         _startTime = DateTime.UtcNow;
         _timer.Start();
     }

@@ -11,7 +11,11 @@
                 
                 <!-- Our Central Premium Futuristic Theme Style -->
                 <ResourceDictionary Source="Theme/NeonTechStyle.xaml" />
+                <ResourceDictionary Source="Theme/TechieStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            
+            <!-- Global Converters -->
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -495,7 +495,7 @@
                             <UniformGrid Columns="2" Margin="0,0,0,12">
                                 <ToggleButton IsChecked="{Binding PauseOnMaximized}" Margin="0,0,4,4" Height="48" Background="#10FFFFFF" BorderThickness="0">
                                     <StackPanel Orientation="Horizontal" Margin="8,0">
-                                        <ui:SymbolIcon Symbol="Pause24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="16" Margin="-mozavailable 0,8,0,0" VerticalAlignment="Center"/>
+                                        <ui:SymbolIcon Symbol="Pause24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="16" Margin="0,8,0,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="Pause Play" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
@@ -563,7 +563,7 @@
                     </Border>
 
                     <!-- RESOURCE USAGE -->
-                    <Border BorderBrush="#12FFFFFF" BorderThickness="1" CornerRadius="8" Background="090A0E" Padding="12" Margin="0,0,0,16">
+                    <Border BorderBrush="#12FFFFFF" BorderThickness="1" CornerRadius="8" Background="#090A0E" Padding="12" Margin="0,0,0,16">
                         <StackPanel>
                             <TextBlock Text="RESOURCE USAGE" Style="{StaticResource TelemetryLabelStyle}" Margin="0,0,0,12" />
                             

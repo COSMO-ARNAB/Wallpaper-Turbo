@@ -11,6 +11,7 @@ using WallpaperTurbo.Core.Updates.Interfaces;
 using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.Updater;
 using WallpaperTurbo.Updater.Events;
+using WallpaperTurbo.UI.Services;
 
 namespace WallpaperTurbo.UI.ViewModels;
 
@@ -202,6 +203,7 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
 
         try
         {
+            StartupDiagnostics.StartTimer("UpdateCoordinator startup check");
             UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"Invoking coordinator.CheckForUpdatesAsync(channel={_settings.ReleaseChannel})");
             await _coordinator.CheckForUpdatesAsync(_settings.ReleaseChannel);
             UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"Returned. State={_coordinator.CurrentState} Manifest={_coordinator.CurrentManifest?.Version.ToString() ?? "null"}");
@@ -210,6 +212,10 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
         {
             UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"EXCEPTION: {ex.GetType().Name}: {ex.Message}");
             Debug.WriteLine($"[UpdaterViewModel] Startup check failed silently: {ex.Message}");
+        }
+        finally
+        {
+            StartupDiagnostics.StopTimerWithMemory("UpdateCoordinator startup check");
         }
     }
 

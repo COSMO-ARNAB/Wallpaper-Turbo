@@ -128,6 +128,7 @@ public partial class DashboardViewModel : ObservableObject
 
     public DashboardViewModel(WallpaperService wallpaperService, DiagnosticsService diagnosticsService)
     {
+        StartupDiagnostics.Log("DashboardViewModel constructor ENTRY");
         _wallpaperService = wallpaperService;
         Diagnostics = diagnosticsService;
 
@@ -139,6 +140,7 @@ public partial class DashboardViewModel : ObservableObject
 
         // Load dynamic library
         _ = LoadLibraryAsync();
+        StartupDiagnostics.LogWithMemory("DashboardViewModel constructor EXIT");
     }
 
     public void UpdateGreeting()

@@ -26,6 +26,8 @@ public partial class App : Application
 
     private static IServiceProvider ConfigureServices()
     {
+        Services.StartupDiagnostics.Initialize();
+        Services.StartupDiagnostics.StartTimer("ServiceProvider build");
         var services = new ServiceCollection();
 
         // Core Business Logic Services
@@ -79,7 +81,9 @@ public partial class App : Application
         // Windows & Views
         services.AddSingleton<MainWindow>();
 
-        return services.BuildServiceProvider();
+        var provider = services.BuildServiceProvider();
+        Services.StartupDiagnostics.StopTimerWithMemory("ServiceProvider build");
+        return provider;
     }
 
     public static T GetService<T>() where T : class
@@ -98,14 +102,29 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (Application.Current != null)
+        {
+            Application.Current.DispatcherUnhandledException += (s, ev) =>
+            {
+                Services.StartupDiagnostics.LogException("Application.Current.DispatcherUnhandledException", ev.Exception);
+            };
+        }
+
+        Services.StartupDiagnostics.LogWithMemory("App.OnStartup ENTRY");
+        Console.WriteLine("DEBUG: OnStartup Entry");
         WallpaperTurbo.Updater.UpdaterDiagnostic.Init();
+        Console.WriteLine("DEBUG: UpdaterDiagnostic.Init completed");
         WallpaperTurbo.Updater.UpdaterDiagnostic.Log("App.OnStartup", $"WPF app starting. Repo={UpdateRepoOwner}/{UpdateRepoName} Publisher={UpdatePublisherName}");
+        Console.WriteLine("DEBUG: Mutex creation starting");
         _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out bool createdNew);
+        Console.WriteLine($"DEBUG: Mutex created. createdNew={createdNew}");
         if (!createdNew)
         {
+            Console.WriteLine("DEBUG: Mutex not created, activating existing instance");
             // Activate existing instance. If a hung background instance is found, it will be cleaned up.
             if (ActivateExistingInstanceOrCleanUp())
             {
+                Console.WriteLine("DEBUG: Cleaned up existing instance, retrying mutex");
                 // Try to acquire the Mutex again since the hung instance was killed
                 _appMutex?.Close();
                 _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out createdNew);
@@ -113,28 +132,51 @@ public partial class App : Application
             
             if (!createdNew)
             {
-                Application.Current.Shutdown();
+                Console.WriteLine("DEBUG: Mutex still busy, shutting down");
+                Application.Current?.Shutdown();
                 return;
             }
         }
 
+        Console.WriteLine("DEBUG: Applying Theme");
         // Apply global application dark theme
         Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
 
+        Services.StartupDiagnostics.StartTimer("MainWindow resolve");
+        Console.WriteLine("DEBUG: Resolving MainWindow");
         // Resolve and display main window
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-        mainWindow.Show();
+        Services.StartupDiagnostics.StopTimerWithMemory("MainWindow resolve");
 
+        Services.StartupDiagnostics.StartTimer("MainWindow.Show");
+        Console.WriteLine("DEBUG: Displaying MainWindow");
+        mainWindow.Show();
+        Services.StartupDiagnostics.StopTimerWithMemory("MainWindow.Show");
+
+        // Hook composition target for first frame rendering
+        EventHandler? renderingHandler = null;
+        renderingHandler = (sender, args) =>
+        {
+            System.Windows.Media.CompositionTarget.Rendering -= renderingHandler;
+            Services.StartupDiagnostics.LogWithMemory("FIRST_FRAME_RENDERED");
+        };
+        System.Windows.Media.CompositionTarget.Rendering += renderingHandler;
+
+        Console.WriteLine("DEBUG: Setting up updater run check");
         // Defer the non-blocking startup update check to after the window is shown,
         // so it never interferes with first-frame UI rendering. The check is gated
         // internally by UpdaterViewModel.RunStartupCheckAsync() on CheckOnStartup.
         var updater = _serviceProvider.GetRequiredService<ViewModels.UpdaterViewModel>();
         mainWindow.Dispatcher.BeginInvoke(new System.Action(() =>
         {
+            Console.WriteLine("DEBUG: Starting startup update check");
             _ = updater.RunStartupCheckAsync();
         }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
+        Console.WriteLine("DEBUG: Calling base.OnStartup");
         base.OnStartup(e);
+        Services.StartupDiagnostics.LogWithMemory("App.OnStartup EXIT");
+        Console.WriteLine("DEBUG: OnStartup Exit");
     }
 
     protected override void OnExit(ExitEventArgs e)

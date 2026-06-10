@@ -427,14 +427,14 @@ public class WallpaperService
                         if (index > 0 && index <= _wallpapers.Count)
                         {
                             var wp = _wallpapers[index - 1];
-                            var mainVm = App.GetService<MainViewModel>();
-                            if (mainVm != null)
+                            Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                             {
-                                Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                                var mainVm = App.GetService<MainViewModel>();
+                                if (mainVm != null)
                                 {
                                     mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
-                                }));
-                            }
+                                }
+                            }));
                         }
                     }
                 }
@@ -444,30 +444,30 @@ public class WallpaperService
                     string title = titleProp.GetString() ?? string.Empty;
                     if (!string.IsNullOrEmpty(title))
                     {
-                        var mainVm = App.GetService<MainViewModel>();
-                        if (mainVm != null && mainVm.ActiveWallpaperTitle != title)
+                        Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                         {
-                            Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                            var mainVm = App.GetService<MainViewModel>();
+                            if (mainVm != null && mainVm.ActiveWallpaperTitle != title)
                             {
                                 var wp = _wallpapers.FirstOrDefault(w => w.Title == title);
                                 string specs = wp != null ? $"{wp.Resolution} • {wp.Fps}" : "3840 x 2160 • 60 FPS";
                                 mainVm.SetActiveWallpaperInfo(title, specs);
-                            }));
-                        }
+                            }
+                        }));
                     }
                 }
 
                 if (root.TryGetProperty("IsPlaying", out var playingProp))
                 {
                     bool isPlaying = playingProp.GetBoolean();
-                    var mainVm = App.GetService<MainViewModel>();
-                    if (mainVm != null && mainVm.IsPlaying != isPlaying)
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                     {
-                        Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                        var mainVm = App.GetService<MainViewModel>();
+                        if (mainVm != null && mainVm.IsPlaying != isPlaying)
                         {
                             mainVm.IsPlaying = isPlaying;
-                        }));
-                    }
+                        }
+                    }));
                 }
             }
         }

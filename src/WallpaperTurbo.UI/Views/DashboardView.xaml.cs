@@ -10,7 +10,9 @@ public partial class DashboardView : UserControl
 {
     public DashboardView()
     {
+        StartupDiagnostics.StartTimer("DashboardView initialization");
         InitializeComponent();
+        StartupDiagnostics.StopTimerWithMemory("DashboardView initialization");
     }
 
     private void OnCardMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

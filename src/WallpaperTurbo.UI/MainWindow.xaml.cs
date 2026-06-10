@@ -20,13 +20,19 @@ public partial class MainWindow : Window
 
     public MainWindow(MainViewModel viewModel, IWallpaperPreviewService previewService, DiagnosticsService diagnostics)
     {
+        Services.StartupDiagnostics.Log("MainWindow constructor ENTRY");
+        Console.WriteLine("DEBUG: MainWindow constructor ENTRY");
         _previewService = previewService;
         _diagnostics = diagnostics;
 
         // Inject and set resolved Viewmodel context
         DataContext = viewModel;
 
+        Services.StartupDiagnostics.StartTimer("MainWindow InitializeComponent");
+        Console.WriteLine("DEBUG: MainWindow calling InitializeComponent");
         InitializeComponent();
+        Console.WriteLine("DEBUG: MainWindow InitializeComponent finished");
+        Services.StartupDiagnostics.StopTimerWithMemory("MainWindow InitializeComponent");
 
         // Hard safety guard: force-cancel any active preview when window loses focus or minimizes.
         // Prevents ghost preview sessions accumulating while the user is in another app.
@@ -101,6 +107,8 @@ public partial class MainWindow : Window
         }
 
         Loaded += OnWindowLoaded;
+        ContentRendered += OnWindowContentRendered;
+        Services.StartupDiagnostics.LogWithMemory("MainWindow constructor EXIT");
     }
 
     private void OnWindowDeactivated(object? sender, EventArgs e)
@@ -120,8 +128,15 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnWindowContentRendered(object? sender, EventArgs e)
+    {
+        Services.StartupDiagnostics.LogWithMemory("MainWindow.ContentRendered event");
+    }
+
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
+        Services.StartupDiagnostics.LogWithMemory("MainWindow.Loaded event");
+        Services.StartupDiagnostics.StartHeartbeat(Dispatcher);
         try
         {
             IntPtr hwnd = new WindowInteropHelper(this).Handle;
