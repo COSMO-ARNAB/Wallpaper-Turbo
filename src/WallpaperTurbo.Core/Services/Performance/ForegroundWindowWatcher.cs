@@ -105,6 +105,28 @@ public sealed class ForegroundWindowWatcher : IDisposable
             return false;
         }
 
+        // Verify the window is actually visible on screen.
+        // Invisible/ghost foreground windows should never pause the wallpaper.
+        if (!IsWindowVisible(hwnd))
+        {
+            return false;
+        }
+
+        // Check if the window is cloaked (e.g. UWP suspended windows or virtual desktop transitions)
+        // DWMWA_CLOAKED = 14.
+        if (DwmGetWindowAttribute(hwnd, 14, out int cloaked, sizeof(int)) == 0 && cloaked != 0)
+        {
+            return false;
+        }
+
+        // Check if the window is a transparent click-through overlay (e.g. FPS counters, screen recorders).
+        // GWL_EXSTYLE = -20, WS_EX_TRANSPARENT = 0x00000020.
+        int exStyle = GetWindowLong(hwnd, -20);
+        if ((exStyle & 0x00000020) != 0)
+        {
+            return false;
+        }
+
         // Exclude the WallpaperTurbo UI process from triggering pause.
         // Without this, the management UI window (which can be maximized) would
         // immediately suspend the wallpaper every time the user interacts with it.
@@ -209,6 +231,14 @@ public sealed class ForegroundWindowWatcher : IDisposable
         return false;
     }
 
+    private static int GetWindowLong(IntPtr hWnd, int nIndex)
+    {
+        if (IntPtr.Size == 8)
+            return (int)GetWindowLongPtr64(hWnd, nIndex);
+        else
+            return GetWindowLong32(hWnd, nIndex);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -276,4 +306,16 @@ public sealed class ForegroundWindowWatcher : IDisposable
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool CloseDesktop(IntPtr hDesktop);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
+    private static extern int GetWindowLong32(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
+    private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
 }
