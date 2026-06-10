@@ -158,7 +158,7 @@
 
     <Style x:Key="ButtonPrimary" TargetType="Button">
         <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-        <Setter Property="Foreground" Value="{StaticResource Surface0Color}" />
+        <Setter Property="Foreground" Value="{StaticResource Surface0Brush}" />
         <Setter Property="FontWeight" Value="600" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Padding" Value="14,9" />

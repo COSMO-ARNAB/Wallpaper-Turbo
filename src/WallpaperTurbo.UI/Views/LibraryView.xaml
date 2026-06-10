@@ -98,7 +98,7 @@
                                                     Background="{StaticResource AccentBrush}">
                                                 <ui:SymbolIcon x:Name="PlayIcon"
                                                                Symbol="Play16"
-                                                               Foreground="{StaticResource Surface0Color}"
+                                                               Foreground="{StaticResource Surface0Brush}"
                                                                HorizontalAlignment="Center"
                                                                VerticalAlignment="Center"
                                                                FontSize="14" />
