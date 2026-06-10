@@ -477,7 +477,7 @@
                         </UniformGrid>
                     </Grid>
                 </Border>
-            </Grid>>
+            </Grid>
         </Grid>
     </ScrollViewer>
 </UserControl>
