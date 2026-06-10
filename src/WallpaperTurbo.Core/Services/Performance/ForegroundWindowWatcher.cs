@@ -44,15 +44,30 @@ public sealed class ForegroundWindowWatcher : IDisposable
         {
             try
             {
-                IntPtr fgHwnd = GetForegroundWindow();
-                if (fgHwnd != IntPtr.Zero)
+                bool isObscured = false;
+                if (IsSessionLocked())
                 {
-                    bool isObscured = CheckIfWindowObscuresScreen(fgHwnd);
-                    if (isObscured != _lastState)
+                    isObscured = true;
+                }
+                else
+                {
+                    IntPtr fgHwnd = GetForegroundWindow();
+                    if (fgHwnd != IntPtr.Zero)
                     {
-                        _lastState = isObscured;
-                        VisibilityChanged?.Invoke(isObscured);
+                        isObscured = CheckIfWindowObscuresScreen(fgHwnd);
                     }
+                    else
+                    {
+                        // Maintain the last state during transient focus losses (e.g. alt-tabbing)
+                        // to avoid rapid toggle/flicker.
+                        isObscured = _lastState;
+                    }
+                }
+
+                if (isObscured != _lastState)
+                {
+                    _lastState = isObscured;
+                    VisibilityChanged?.Invoke(isObscured);
                 }
             }
             catch
@@ -124,11 +139,46 @@ public sealed class ForegroundWindowWatcher : IDisposable
         if (!GetWindowRect(hwnd, out RECT rect))
             return false;
 
+        // Use MonitorFromWindow to support multi-monitor setups correctly
+        IntPtr hMonitor = MonitorFromWindow(hwnd, 2); // MONITOR_DEFAULTTONEAREST
+        if (hMonitor != IntPtr.Zero)
+        {
+            MONITORINFO monitorInfo = new MONITORINFO();
+            monitorInfo.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+            if (GetMonitorInfo(hMonitor, ref monitorInfo))
+            {
+                RECT monRect = monitorInfo.rcMonitor;
+                int monitorWidth = monRect.Right - monRect.Left;
+                int monitorHeight = monRect.Bottom - monRect.Top;
+
+                int w = rect.Right - rect.Left;
+                int h = rect.Bottom - rect.Top;
+
+                // Cover full screen dimensions on that specific monitor (typical fullscreen games)
+                if (rect.Left <= monRect.Left && rect.Top <= monRect.Top &&
+                    rect.Right >= monRect.Right && rect.Bottom >= monRect.Bottom)
+                {
+                    return true;
+                }
+
+                // Cover maximized states on that monitor (takes up at least 95% of that monitor's bounds)
+                long monitorArea = (long)monitorWidth * monitorHeight;
+                long windowArea = (long)w * h;
+                if (windowArea >= monitorArea * 0.95)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        // Fallback to primary monitor logic if monitor APIs failed
         int screenWidth = GetSystemMetrics(0); // SM_CXSCREEN
         int screenHeight = GetSystemMetrics(1); // SM_CYSCREEN
 
-        int w = rect.Right - rect.Left;
-        int h = rect.Bottom - rect.Top;
+        int wFallback = rect.Right - rect.Left;
+        int hFallback = rect.Bottom - rect.Top;
 
         // Cover full screen dimensions (typical fullscreen games)
         if (rect.Left <= 0 && rect.Top <= 0 && rect.Right >= screenWidth && rect.Bottom >= screenHeight)
@@ -138,12 +188,24 @@ public sealed class ForegroundWindowWatcher : IDisposable
 
         // Cover maximized states (takes up at least 95% of primary monitor bounds)
         long screenArea = (long)screenWidth * screenHeight;
-        long windowArea = (long)w * h;
-        if (windowArea >= screenArea * 0.95)
+        long windowAreaFallback = (long)wFallback * hFallback;
+        if (windowAreaFallback >= screenArea * 0.95)
         {
             return true;
         }
 
+        return false;
+    }
+
+    private bool IsSessionLocked()
+    {
+        IntPtr hDesk = OpenInputDesktop(0, false, 1); // 1 = DESKTOP_READOBJECTS
+        if (hDesk == IntPtr.Zero)
+        {
+            // Returns zero if current desktop is not accessible (locked screen or secure UAC desktop)
+            return true;
+        }
+        CloseDesktop(hDesk);
         return false;
     }
 
@@ -173,6 +235,15 @@ public sealed class ForegroundWindowWatcher : IDisposable
         public int Bottom;
     }
 
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
@@ -193,4 +264,16 @@ public sealed class ForegroundWindowWatcher : IDisposable
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr OpenInputDesktop(uint dwFlags, bool fInherit, uint dwDesiredAccess);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool CloseDesktop(IntPtr hDesktop);
 }
