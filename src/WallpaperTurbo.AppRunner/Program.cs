@@ -33,6 +33,8 @@ internal static class Program
     private static IntPtr _hwnd = IntPtr.Zero;
     private static List<WallpaperEntry> _mergedWallpapers = new();
     private static int _uiPid = 0;
+    private static ForegroundWindowWatcher? _foregroundWatcher;
+    private static bool _muteAudio = true;
 
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     private static extern bool SetConsoleCtrlHandler(ConsoleCtrlDelegate handler, bool add);
@@ -163,6 +165,7 @@ internal static class Program
         bool noDetachOnStdinClose = false;
         bool skipDesktopAttach = false;
         int uiPid = 0;
+        bool muteAudio = true;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -235,6 +238,18 @@ internal static class Program
                 {
                     uiPid = parsedUiPid;
                     i++;
+                }
+            }
+            else if (args[i].Equals("--mute-audio", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 < args.Length && bool.TryParse(args[i + 1], out bool parsedMute))
+                {
+                    muteAudio = parsedMute;
+                    i++;
+                }
+                else
+                {
+                    muteAudio = true;
                 }
             }
             else if (int.TryParse(args[i], out int index))
@@ -419,15 +434,13 @@ internal static class Program
         _videoOutputModule = videoOutputModule;
         _memoryDiagnostics = memoryDiagnostics;
         _uiPid = uiPid;
+        _muteAudio = muteAudio;
         LogMemory("startup.after-args");
 
         _consoleCtrlHandler = OnConsoleCtrl;
         SetConsoleCtrlHandler(_consoleCtrlHandler, true);
 
         ExplorerRestartMonitor? restartMonitor =
-            null;
-
-        ForegroundWindowWatcher? foregroundWatcher =
             null;
 
         CancellationTokenSource? displayChangeCts =
@@ -543,7 +556,7 @@ internal static class Program
                 "Initializing Hardware Decode Pipeline...");
 
             _activePipeline =
-                new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule);
+                new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule, _muteAudio);
 
             LogMemory("pipeline.before-initialize");
             _activePipeline.Initialize(_hwnd);
@@ -759,7 +772,7 @@ internal static class Program
                                 NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
 
                         // Initialize the media pipeline on the new handle
-                        var freshPipeline = new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule);
+                        var freshPipeline = new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule, _muteAudio);
                         freshPipeline.Initialize(_hwnd);
 
                         var freshWallpaper = _mergedWallpapers[finalWallpaperIndex - 1];
@@ -976,11 +989,11 @@ internal static class Program
                 });
             };
 
-            foregroundWatcher = new ForegroundWindowWatcher(pauseMode);
-            foregroundWatcher.ExcludedPid = _uiPid;
+            _foregroundWatcher = new ForegroundWindowWatcher(pauseMode);
+            _foregroundWatcher.ExcludedPid = _uiPid;
             Console.WriteLine($"[Performance] Active Performance Pause Mode: {pauseMode}");
             LogMemory("watchers.started");
-            foregroundWatcher.VisibilityChanged += (isObscured) =>
+            _foregroundWatcher.VisibilityChanged += (isObscured) =>
             {
                 if (isObscured)
                 {
@@ -1319,7 +1332,7 @@ internal static class Program
 
             try
             {
-                foregroundWatcher?.Dispose();
+                _foregroundWatcher?.Dispose();
             }
             catch
             {
@@ -1437,6 +1450,45 @@ internal static class Program
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("Error: Invalid layout mode. Use: stretch, fit, or fill");
+                    Console.ResetColor();
+                }
+                break;
+
+             case "pause-mode":
+                if (Enum.TryParse<PauseMode>(args, true, out var newMode))
+                {
+                    _pauseMode = newMode;
+                    if (_foregroundWatcher != null)
+                    {
+                        _foregroundWatcher.PauseMode = newMode;
+                        Console.WriteLine($"[IPC] Performance pause mode updated in real-time to: {newMode}");
+                    }
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Error: Invalid pause mode: {args}");
+                    Console.ResetColor();
+                }
+                break;
+
+             case "mute":
+                if (bool.TryParse(args, out bool mute))
+                {
+                    _muteAudio = mute;
+                    if (_sessionManager != null)
+                    {
+                        foreach (var s in _sessionManager.Sessions)
+                        {
+                            s.MediaPipeline.SetMute(mute);
+                        }
+                        Console.WriteLine($"[IPC] Audio mute status updated in real-time to: {mute}");
+                    }
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Error: Invalid mute argument: {args}");
                     Console.ResetColor();
                 }
                 break;

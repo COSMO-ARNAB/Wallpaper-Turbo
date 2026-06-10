@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.ViewModels;
 
 namespace WallpaperTurbo.UI.Services;
@@ -273,6 +274,7 @@ public class WallpaperManifest
 public class WallpaperService
 {
     private readonly IWallpaperLibraryService _libraryService;
+    private readonly ISettingsStore _settingsStore;
     private readonly string _manifestPath;
     private readonly string _appRunnerDir;
     private readonly string _appRunnerExePath;
@@ -280,12 +282,29 @@ public class WallpaperService
     private int _activeWallpaperIndex = -1;
     private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
 
-    public string ActivePauseProfile { get; set; } = "Maximized";
+    private string _activePauseProfile = "Maximized";
+    public string ActivePauseProfile
+    {
+        get => _activePauseProfile;
+        set
+        {
+            if (_activePauseProfile != value)
+            {
+                _activePauseProfile = value;
+                _ = UpdatePauseProfileAsync(value);
+            }
+        }
+    }
     public bool UseSoftwareDecoding { get; set; } = false;
 
-    public WallpaperService(IWallpaperLibraryService libraryService)
+    public WallpaperService(IWallpaperLibraryService libraryService, ISettingsStore settingsStore)
     {
         _libraryService = libraryService;
+        _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
+        
+        // Initialize active pause profile from persisted settings
+        var settings = _settingsStore.Load();
+        _activePauseProfile = settings.PauseOnMaximized ? "Maximized" : "Disabled";
         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
         
         // Resolve path to WallpaperTurbo.AppRunner
@@ -512,6 +531,7 @@ public class WallpaperService
 
         string mode = pauseMode ?? ActivePauseProfile;
         bool softDecode = softwareDecode ?? UseSoftwareDecoding;
+        bool isMuted = _settingsStore.Load().MuteAudio;
 
         // Map UI "Disabled" option to AppRunner "None" parameter
         if (string.Equals(mode, "Disabled", StringComparison.OrdinalIgnoreCase))
@@ -524,8 +544,9 @@ public class WallpaperService
             try
             {
                 string decodeArg = softDecode ? " --software-decode" : string.Empty;
+                string muteArg = $" --mute-audio {isMuted.ToString().ToLowerInvariant()}";
                 int currentPid = System.Diagnostics.Process.GetCurrentProcess().Id;
-                string args = $"--detach --wallpaper {index} --silent --pause-mode {mode}{decodeArg} --ui-pid {currentPid}";
+                string args = $"--detach --wallpaper {index} --silent --pause-mode {mode}{decodeArg}{muteArg} --ui-pid {currentPid}";
 
                 DiagnosticsService.SetAction($"Wallpaper Service Starting process: {args}");
 
@@ -629,6 +650,14 @@ public class WallpaperService
         return success;
     }
 
+    public async Task<bool> UpdatePauseProfileAsync(string profile)
+    {
+        DiagnosticsService.SetAction($"Wallpaper Service updating pause profile to {profile} via IPC");
+        // Map "Disabled" to "None" for AppRunner compatibility
+        string mode = string.Equals(profile, "Disabled", StringComparison.OrdinalIgnoreCase) ? "None" : profile;
+        return await SendIpcCommandAsync($"pause-mode {mode}");
+    }
+
     public async Task<bool> PausePlaybackAsync()
     {
         DiagnosticsService.SetAction("Wallpaper Service Pausing Playback via IPC");
@@ -639,6 +668,12 @@ public class WallpaperService
     {
         DiagnosticsService.SetAction("Wallpaper Service Resuming Playback via IPC");
         return await SendIpcCommandAsync("play");
+    }
+
+    public async Task<bool> SetMuteAsync(bool isMuted)
+    {
+        DiagnosticsService.SetAction($"Wallpaper Service updating mute state to {isMuted} via IPC");
+        return await SendIpcCommandAsync($"mute {isMuted.ToString().ToLowerInvariant()}");
     }
 
     private async Task<bool> SendIpcCommandAsync(string command)

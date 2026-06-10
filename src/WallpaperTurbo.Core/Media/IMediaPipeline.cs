@@ -23,5 +23,7 @@ public interface IMediaPipeline
 
     void ApplyLayoutMode(WallpaperLayoutMode mode);
 
+    void SetMute(bool mute);
+
     void Release();
 }

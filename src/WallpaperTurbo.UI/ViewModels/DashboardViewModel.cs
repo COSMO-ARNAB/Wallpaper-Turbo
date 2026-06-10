@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
 
 namespace WallpaperTurbo.UI.ViewModels;
@@ -56,6 +57,9 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _workerWText = "Yes";
     [ObservableProperty] private string _presentationText = "Below Icons";
     [ObservableProperty] private string _frameSyncText = "Optimized";
+
+    private readonly ISettingsStore _settingsStore;
+    private bool _isSyncing = false;
 
     // Quick Controls properties (switches)
     [ObservableProperty] private bool _pauseOnMaximized = true;
@@ -126,11 +130,28 @@ public partial class DashboardViewModel : ObservableObject
         }
     }
 
-    public DashboardViewModel(WallpaperService wallpaperService, DiagnosticsService diagnosticsService)
+    public DashboardViewModel(
+        WallpaperService wallpaperService, 
+        DiagnosticsService diagnosticsService,
+        ISettingsStore settingsStore)
     {
         StartupDiagnostics.Log("DashboardViewModel constructor ENTRY");
         _wallpaperService = wallpaperService;
         Diagnostics = diagnosticsService;
+        _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
+
+        // Hydrate from settings store
+        var settings = _settingsStore.Load();
+        _isSyncing = true;
+        try
+        {
+            _muteAudio = settings.MuteAudio;
+            _pauseOnMaximized = settings.PauseOnMaximized;
+        }
+        finally
+        {
+            _isSyncing = false;
+        }
 
         // Add mock monitor layouts matching reference image (3840x2160 Primary, 2560x1440 Secondary)
         Monitors.Add(new MonitorTopologyItem { Number = 1, Resolution = "3840 x 2160", Type = "Primary" });
@@ -138,9 +159,51 @@ public partial class DashboardViewModel : ObservableObject
 
         UpdateGreeting();
 
+        // Listen to external settings changes
+        _settingsStore.SettingsChanged += OnSettingsStoreChanged;
+
         // Load dynamic library
         _ = LoadLibraryAsync();
         StartupDiagnostics.LogWithMemory("DashboardViewModel constructor EXIT");
+    }
+
+    private void OnSettingsStoreChanged(object? sender, AppSettings newSettings)
+    {
+        App.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+        {
+            _isSyncing = true;
+            try
+            {
+                if (MuteAudio != newSettings.MuteAudio) MuteAudio = newSettings.MuteAudio;
+                if (PauseOnMaximized != newSettings.PauseOnMaximized) PauseOnMaximized = newSettings.PauseOnMaximized;
+            }
+            finally
+            {
+                _isSyncing = false;
+            }
+        }));
+    }
+
+    partial void OnMuteAudioChanged(bool value)
+    {
+        if (_isSyncing) return;
+
+        _ = _wallpaperService.SetMuteAsync(value);
+
+        var settings = _settingsStore.Load();
+        settings.MuteAudio = value;
+        _settingsStore.Save(settings);
+    }
+
+    partial void OnPauseOnMaximizedChanged(bool value)
+    {
+        if (_isSyncing) return;
+
+        _wallpaperService.ActivePauseProfile = value ? "Maximized" : "Disabled";
+
+        var settings = _settingsStore.Load();
+        settings.PauseOnMaximized = value;
+        _settingsStore.Save(settings);
     }
 
     public void UpdateGreeting()

@@ -127,26 +127,6 @@ public sealed class ForegroundWindowWatcher : IDisposable
             return false;
         }
 
-        // Exclude the WallpaperTurbo UI process from triggering pause.
-        // Without this, the management UI window (which can be maximized) would
-        // immediately suspend the wallpaper every time the user interacts with it.
-        if (ExcludedPid > 0)
-        {
-            GetWindowThreadProcessId(hwnd, out uint ownerPid);
-            if (ownerPid == (uint)ExcludedPid)
-                return false;
-        }
-
-        // Verify class name of foreground window to avoid pausing when on desktop, taskbar or widgets
-        StringBuilder className = new StringBuilder(256);
-        GetClassName(hwnd, className, className.Capacity);
-        string name = className.ToString();
-
-        if (DesktopClasses.Contains(name))
-        {
-            return false; // User is on the desktop background, icons, taskbar, start menu, or widgets
-        }
-
         if (PauseMode == PauseMode.None)
         {
             return false;
@@ -154,14 +134,20 @@ public sealed class ForegroundWindowWatcher : IDisposable
 
         if (PauseMode == PauseMode.Focused)
         {
+            // Verify class name of foreground window to avoid pausing when on desktop, taskbar or widgets
+            StringBuilder className = new StringBuilder(256);
+            GetClassName(hwnd, className, className.Capacity);
+            string name = className.ToString();
+
+            if (DesktopClasses.Contains(name))
+            {
+                return false; // User is on the desktop background, icons, taskbar, start menu, or widgets
+            }
             return true; // Any non-desktop application focused -> Pause!
         }
 
         // Default: PauseMode.Maximized (current behavior)
-        if (!GetWindowRect(hwnd, out RECT rect))
-            return false;
-
-        // Use MonitorFromWindow to support multi-monitor setups correctly
+        // Get the monitor containing the foreground window to check for obscuring windows on it
         IntPtr hMonitor = MonitorFromWindow(hwnd, 2); // MONITOR_DEFAULTTONEAREST
         if (hMonitor != IntPtr.Zero)
         {
@@ -172,48 +158,105 @@ public sealed class ForegroundWindowWatcher : IDisposable
                 RECT monRect = monitorInfo.rcMonitor;
                 int monitorWidth = monRect.Right - monRect.Left;
                 int monitorHeight = monRect.Bottom - monRect.Top;
-
-                int w = rect.Right - rect.Left;
-                int h = rect.Bottom - rect.Top;
-
-                // Cover full screen dimensions on that specific monitor (typical fullscreen games)
-                if (rect.Left <= monRect.Left && rect.Top <= monRect.Top &&
-                    rect.Right >= monRect.Right && rect.Bottom >= monRect.Bottom)
-                {
-                    return true;
-                }
-
-                // Cover maximized states on that monitor (takes up at least 95% of that monitor's bounds)
                 long monitorArea = (long)monitorWidth * monitorHeight;
-                long windowArea = (long)w * h;
-                if (windowArea >= monitorArea * 0.95)
+
+                uint currentPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+
+                // 1. FAST PATH: Check if the foreground window itself is maximized/fullscreen.
+                // Exclude desktop, taskbar, start menu, and our own processes.
+                StringBuilder className = new StringBuilder(256);
+                GetClassName(hwnd, className, className.Capacity);
+                string fgClassName = className.ToString();
+
+                if (!DesktopClasses.Contains(fgClassName))
                 {
-                    return true;
+                    GetWindowThreadProcessId(hwnd, out uint fgOwnerPid);
+                    if (fgOwnerPid != currentPid && (ExcludedPid <= 0 || fgOwnerPid != (uint)ExcludedPid))
+                    {
+                        if (GetWindowRect(hwnd, out RECT rect))
+                        {
+                            int w = rect.Right - rect.Left;
+                            int h = rect.Bottom - rect.Top;
+
+                            // Fullscreen check on this monitor
+                            if (rect.Left <= monRect.Left && rect.Top <= monRect.Top &&
+                                rect.Right >= monRect.Right && rect.Bottom >= monRect.Bottom)
+                            {
+                                return true;
+                            }
+
+                            // Maximized check on this monitor (>= 95% area)
+                            long windowArea = (long)w * h;
+                            if (windowArea >= monitorArea * 0.95)
+                            {
+                                return true;
+                            }
+                        }
+                    }
                 }
 
+                // 2. SLOW PATH: Walk top-level windows in Z-order.
+                // Stop when we reach a window owned by our player process (currentPid) on this monitor
+                // because any window below the wallpaper cannot obscure it.
+                IntPtr wnd = GetTopWindow(IntPtr.Zero);
+                while (wnd != IntPtr.Zero)
+                {
+                    GetWindowThreadProcessId(wnd, out uint ownerPid);
+                    if (ownerPid == currentPid)
+                    {
+                        // Skip our own process windows, but do NOT break the loop since we might have hidden utility windows at the top of Z-order.
+                        wnd = GetWindow(wnd, GW_HWNDNEXT);
+                        continue;
+                    }
+
+                    // Only check visible, non-minimized windows intersecting our target monitor
+                    if (IsWindowVisible(wnd) && !IsIconic(wnd) && MonitorFromWindow(wnd, 0) == hMonitor)
+                    {
+                        // Exclude desktop and shell windows
+                        StringBuilder wndClassName = new StringBuilder(256);
+                        GetClassName(wnd, wndClassName, wndClassName.Capacity);
+                        string wndName = wndClassName.ToString();
+
+                        if (!DesktopClasses.Contains(wndName))
+                        {
+                            // Exclude transparent overlays
+                            int wndExStyle = GetWindowLong(wnd, -20);
+                            bool transparent = (wndExStyle & 0x00000020) != 0;
+                            int wndCloaked = 0;
+                            DwmGetWindowAttribute(wnd, 14, out wndCloaked, sizeof(int));
+
+                            if (!transparent && wndCloaked == 0)
+                            {
+                                // Exclude UI process (ExcludedPid)
+                                if (ownerPid != currentPid && (ExcludedPid <= 0 || ownerPid != (uint)ExcludedPid))
+                                {
+                                    if (GetWindowRect(wnd, out RECT rect))
+                                    {
+                                        int w = rect.Right - rect.Left;
+                                        int h = rect.Bottom - rect.Top;
+                                        long windowArea = (long)w * h;
+
+                                        // Fullscreen check on this monitor
+                                        if (rect.Left <= monRect.Left && rect.Top <= monRect.Top &&
+                                            rect.Right >= monRect.Right && rect.Bottom >= monRect.Bottom)
+                                        {
+                                            return true;
+                                        }
+
+                                        // Maximized check on this monitor (>= 95% area)
+                                        if (windowArea >= monitorArea * 0.95)
+                                        {
+                                            return true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    wnd = GetWindow(wnd, GW_HWNDNEXT);
+                }
                 return false;
             }
-        }
-
-        // Fallback to primary monitor logic if monitor APIs failed
-        int screenWidth = GetSystemMetrics(0); // SM_CXSCREEN
-        int screenHeight = GetSystemMetrics(1); // SM_CYSCREEN
-
-        int wFallback = rect.Right - rect.Left;
-        int hFallback = rect.Bottom - rect.Top;
-
-        // Cover full screen dimensions (typical fullscreen games)
-        if (rect.Left <= 0 && rect.Top <= 0 && rect.Right >= screenWidth && rect.Bottom >= screenHeight)
-        {
-            return true;
-        }
-
-        // Cover maximized states (takes up at least 95% of primary monitor bounds)
-        long screenArea = (long)screenWidth * screenHeight;
-        long windowAreaFallback = (long)wFallback * hFallback;
-        if (windowAreaFallback >= screenArea * 0.95)
-        {
-            return true;
         }
 
         return false;
@@ -318,4 +361,15 @@ public sealed class ForegroundWindowWatcher : IDisposable
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
     private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetTopWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    private const uint GW_HWNDNEXT = 2;
 }

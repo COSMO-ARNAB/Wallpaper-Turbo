@@ -33,13 +33,14 @@ public partial class App : Application
         // Core Business Logic Services
         services.AddSingleton<Services.IThumbnailExtractor, Services.WpfThumbnailExtractor>();
         services.AddSingleton<Services.IWallpaperLibraryService, Services.WallpaperLibraryService>();
+        services.AddSingleton<Services.ISettingsStore, Services.JsonSettingsStore>();
         services.AddSingleton<Services.WallpaperService>();
         services.AddSingleton<Services.TelemetryService>();
         services.AddSingleton<Services.IWallpaperPreviewService, Services.WallpaperPreviewService>();
         services.AddSingleton<Services.DiagnosticsService>(); // Development-time stability counters
 
         // Layout Infrastructure
-        services.AddSingleton<Services.ILayoutPreferenceStore, Services.InMemoryLayoutPreferenceStore>();
+        services.AddSingleton<Services.ILayoutPreferenceStore, Services.SettingsStoreLayoutPreferenceStore>();
 
         // Updater Infrastructure (Phase C integration)
         services.AddSingleton<HttpClient>(_ =>
@@ -139,8 +140,20 @@ public partial class App : Application
         }
 
         Console.WriteLine("DEBUG: Applying Theme");
-        // Apply global application dark theme
-        Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
+        var settingsStore = _serviceProvider.GetRequiredService<Services.ISettingsStore>();
+        var settings = settingsStore.Load();
+        if (string.Equals(settings.Theme, "Light", StringComparison.OrdinalIgnoreCase))
+        {
+            Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Light);
+        }
+        else if (string.Equals(settings.Theme, "Dark", StringComparison.OrdinalIgnoreCase))
+        {
+            Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
+        }
+        else
+        {
+            Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme();
+        }
 
         Services.StartupDiagnostics.StartTimer("MainWindow resolve");
         Console.WriteLine("DEBUG: Resolving MainWindow");

@@ -37,14 +37,18 @@ public sealed class HardwareDecodePipeline
     public PipelineType Type =>
         PipelineType.HardwareDecode;
 
+    private bool _startMuted = true;
+
     public HardwareDecodePipeline(
         bool useSoftwareDecode = false,
-        string? videoOutputModule = null)
+        string? videoOutputModule = null,
+        bool startMuted = true)
     {
         _useSoftwareDecode = useSoftwareDecode;
         _videoOutputModule = string.IsNullOrWhiteSpace(videoOutputModule)
             ? null
             : videoOutputModule.Trim();
+        _startMuted = startMuted;
     }
 
     public void Initialize(
@@ -92,11 +96,6 @@ public sealed class HardwareDecodePipeline
                 _videoOutputModule == null
                     ? "--vout=direct3d11"
                     : $"--vout={_videoOutputModule}",
-
-                //
-                // No audio path.
-                //
-                "--no-audio",
 
                 //
                 // Prevent fullscreen promotion.
@@ -164,6 +163,7 @@ public sealed class HardwareDecodePipeline
                 {
                     EnableHardwareDecoding = !_useSoftwareDecode
                 };
+            _mediaPlayer.Mute = _startMuted;
 
             //
             // CRITICAL:
@@ -380,6 +380,18 @@ public sealed class HardwareDecodePipeline
             catch (Exception ex)
             {
                 Trace.TraceError($"Failed to apply layout mode {mode}: {ex.Message}");
+            }
+        }
+    }
+
+    public void SetMute(bool mute)
+    {
+        lock (_sync)
+        {
+            _startMuted = mute;
+            if (_mediaPlayer != null)
+            {
+                _mediaPlayer.Mute = mute;
             }
         }
     }

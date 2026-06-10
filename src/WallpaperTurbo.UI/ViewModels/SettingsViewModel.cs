@@ -15,7 +15,9 @@ public partial class SettingsViewModel : ObservableObject
     private readonly WallpaperService _wallpaperService;
     private readonly UpdaterViewModel _updaterViewModel;
     private readonly LayoutHostViewModel _layoutHostViewModel;
+    private readonly ISettingsStore _settingsStore;
     private bool _suppressChannelUpdate;
+    private bool _isSyncing = false;
 
     [ObservableProperty] private bool _useHardwareAcceleration = true;
     [ObservableProperty] private string _activePauseProfile = "Maximized";
@@ -42,28 +44,31 @@ public partial class SettingsViewModel : ObservableObject
     public SettingsViewModel(
         WallpaperService wallpaperService, 
         UpdaterViewModel updaterViewModel, 
-        LayoutHostViewModel layoutHostViewModel)
+        LayoutHostViewModel layoutHostViewModel,
+        ISettingsStore settingsStore)
     {
         _wallpaperService = wallpaperService;
         _updaterViewModel = updaterViewModel;
         _layoutHostViewModel = layoutHostViewModel;
+        _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
         _useHardwareAcceleration = !_wallpaperService.UseSoftwareDecoding;
-        _activePauseProfile = _wallpaperService.ActivePauseProfile;
 
-        // Initialize SelectedLayout from current layout
-        _selectedLayout = _layoutHostViewModel.CurrentLayout.ToString();
-
-        // Initialize PauseOnFullscreen based on ActivePauseProfile
-        _pauseOnFullscreen = _activePauseProfile != "Disabled" && _activePauseProfile != "None";
-
-        // Determine the current UI theme
-        var currentTheme = Wpf.Ui.Appearance.ApplicationThemeManager.GetAppTheme();
-        _selectedTheme = currentTheme switch
+        // Hydrate from settings store
+        var settings = _settingsStore.Load();
+        _isSyncing = true;
+        try
         {
-            Wpf.Ui.Appearance.ApplicationTheme.Light => "Light",
-            Wpf.Ui.Appearance.ApplicationTheme.Dark => "Dark",
-            _ => "System"
-        };
+            _selectedTheme = settings.Theme;
+            _selectedLayout = settings.Layout;
+            _pauseOnFullscreen = settings.PauseOnMaximized;
+            _muteWallpaperAudio = settings.MuteAudio;
+        }
+        finally
+        {
+            _isSyncing = false;
+        }
+
+        _activePauseProfile = _pauseOnFullscreen ? "Maximized" : "Disabled";
 
         // Hydrate updater-related fields from the persisted settings via the ViewModel
         var snapshot = _updaterViewModel.GetSettingsSnapshot();
@@ -72,7 +77,29 @@ public partial class SettingsViewModel : ObservableObject
         _selectedReleaseChannel = ChannelToDisplay(snapshot.ReleaseChannel);
         _activeAppVersion = "v" + _updaterViewModel.CurrentVersion;
 
+        // Sync with settings store events
+        _settingsStore.SettingsChanged += OnSettingsStoreChanged;
+
         _ = LoadLogsAsync();
+    }
+
+    private void OnSettingsStoreChanged(object? sender, AppSettings newSettings)
+    {
+        App.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+        {
+            _isSyncing = true;
+            try
+            {
+                if (SelectedTheme != newSettings.Theme) SelectedTheme = newSettings.Theme;
+                if (SelectedLayout != newSettings.Layout) SelectedLayout = newSettings.Layout;
+                if (PauseOnFullscreen != newSettings.PauseOnMaximized) PauseOnFullscreen = newSettings.PauseOnMaximized;
+                if (MuteWallpaperAudio != newSettings.MuteAudio) MuteWallpaperAudio = newSettings.MuteAudio;
+            }
+            finally
+            {
+                _isSyncing = false;
+            }
+        }));
     }
 
     partial void OnUseHardwareAccelerationChanged(bool value)
@@ -91,11 +118,30 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnPauseOnFullscreenChanged(bool value)
     {
+        if (_isSyncing) return;
+
         ActivePauseProfile = value ? "Maximized" : "Disabled";
+
+        var settings = _settingsStore.Load();
+        settings.PauseOnMaximized = value;
+        _settingsStore.Save(settings);
+    }
+
+    partial void OnMuteWallpaperAudioChanged(bool value)
+    {
+        if (_isSyncing) return;
+
+        _ = _wallpaperService.SetMuteAsync(value);
+
+        var settings = _settingsStore.Load();
+        settings.MuteAudio = value;
+        _settingsStore.Save(settings);
     }
 
     partial void OnSelectedThemeChanged(string value)
     {
+        if (_isSyncing) return;
+
         if (string.Equals(value, "Light", StringComparison.OrdinalIgnoreCase))
         {
             Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Light);
@@ -108,14 +154,24 @@ public partial class SettingsViewModel : ObservableObject
         {
             Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme();
         }
+
+        var settings = _settingsStore.Load();
+        settings.Theme = value;
+        _settingsStore.Save(settings);
     }
 
     partial void OnSelectedLayoutChanged(string value)
     {
+        if (_isSyncing) return;
+
         if (Enum.TryParse<LayoutMode>(value, out var layoutMode))
         {
             _layoutHostViewModel.SwitchLayout(layoutMode);
         }
+
+        var settings = _settingsStore.Load();
+        settings.Layout = value;
+        _settingsStore.Save(settings);
     }
 
     partial void OnAutoUpdateEnabledChanged(bool value)
@@ -179,16 +235,32 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task ResetAllSettingsAsync()
     {
-        UseHardwareAcceleration = true;
-        ActivePauseProfile = "Maximized";
-        PauseOnFullscreen = true;
-        SelectedTheme = "System";
-        SelectedLayout = "Minimal";
-        MuteWallpaperAudio = true;
-        AutoStartWallpaperEngine = true;
-        RememberLastWallpaper = true;
-        PerformanceMode = "Balanced";
-        BatterySaverEnabled = false;
+        // Reset via settings store
+        var defaultSettings = new AppSettings(); // Theme: Dark, Layout: Minimal, PauseOnMaximized: true, MuteAudio: true
+        _settingsStore.Save(defaultSettings);
+
+        _isSyncing = true;
+        try
+        {
+            UseHardwareAcceleration = true;
+            ActivePauseProfile = "Maximized";
+            PauseOnFullscreen = true;
+            SelectedTheme = "Dark";
+            SelectedLayout = "Minimal";
+            MuteWallpaperAudio = true;
+            AutoStartWallpaperEngine = true;
+            RememberLastWallpaper = true;
+            PerformanceMode = "Balanced";
+            BatterySaverEnabled = false;
+        }
+        finally
+        {
+            _isSyncing = false;
+        }
+
+        _wallpaperService.ActivePauseProfile = "Maximized";
+        _ = _wallpaperService.SetMuteAsync(true);
+        Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
 
         _suppressChannelUpdate = true;
         try
