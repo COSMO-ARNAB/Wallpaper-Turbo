@@ -243,6 +243,22 @@
                             <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding UseHardwareAcceleration}" Content="" VerticalAlignment="Center"/>
                         </Grid>
 
+                        <!-- GPU Preference -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="DeveloperBoard24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="GPU Preference" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="2" SelectedValue="{Binding SelectedGpuPreference}" SelectedValuePath="Content" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <ComboBoxItem Content="Default" />
+                                <ComboBoxItem Content="Integrated" />
+                                <ComboBoxItem Content="Dedicated" />
+                            </ComboBox>
+                        </Grid>
+
                         <!-- Battery Saver -->
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>

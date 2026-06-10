@@ -296,6 +296,7 @@ public class WallpaperService
         }
     }
     public bool UseSoftwareDecoding { get; set; } = false;
+    public string AppRunnerExePath => _appRunnerExePath;
 
     public WallpaperService(IWallpaperLibraryService libraryService, ISettingsStore settingsStore)
     {

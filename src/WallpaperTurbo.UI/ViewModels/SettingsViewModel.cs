@@ -31,6 +31,7 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _selectedTheme = "System";
     [ObservableProperty] private string _selectedLayout = "Minimal";
+    [ObservableProperty] private string _selectedGpuPreference = "Default";
     [ObservableProperty] private bool _pauseOnFullscreen = true;
     [ObservableProperty] private bool _muteWallpaperAudio = true;
     [ObservableProperty] private bool _autoStartWallpaperEngine = true;
@@ -62,6 +63,7 @@ public partial class SettingsViewModel : ObservableObject
             _selectedLayout = settings.Layout;
             _pauseOnFullscreen = settings.PauseOnMaximized;
             _muteWallpaperAudio = settings.MuteAudio;
+            _selectedGpuPreference = settings.GpuPreference;
         }
         finally
         {
@@ -94,6 +96,7 @@ public partial class SettingsViewModel : ObservableObject
                 if (SelectedLayout != newSettings.Layout) SelectedLayout = newSettings.Layout;
                 if (PauseOnFullscreen != newSettings.PauseOnMaximized) PauseOnFullscreen = newSettings.PauseOnMaximized;
                 if (MuteWallpaperAudio != newSettings.MuteAudio) MuteWallpaperAudio = newSettings.MuteAudio;
+                if (SelectedGpuPreference != newSettings.GpuPreference) SelectedGpuPreference = newSettings.GpuPreference;
             }
             finally
             {
@@ -174,6 +177,48 @@ public partial class SettingsViewModel : ObservableObject
         _settingsStore.Save(settings);
     }
 
+    partial void OnSelectedGpuPreferenceChanged(string value)
+    {
+        if (_isSyncing) return;
+
+        var settings = _settingsStore.Load();
+        settings.GpuPreference = value;
+        _settingsStore.Save(settings);
+
+        ApplyGpuPreferenceRegistry(value);
+    }
+
+    private void ApplyGpuPreferenceRegistry(string preference)
+    {
+        try
+        {
+            string appRunnerExePath = _wallpaperService.AppRunnerExePath;
+            if (!string.IsNullOrEmpty(appRunnerExePath) && File.Exists(appRunnerExePath))
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\DirectX\UserGpuPreferences");
+                if (key != null)
+                {
+                    if (string.Equals(preference, "Integrated", StringComparison.OrdinalIgnoreCase))
+                    {
+                        key.SetValue(appRunnerExePath, "GpuPreference=1;");
+                    }
+                    else if (string.Equals(preference, "Dedicated", StringComparison.OrdinalIgnoreCase))
+                    {
+                        key.SetValue(appRunnerExePath, "GpuPreference=2;");
+                    }
+                    else
+                    {
+                        key.DeleteValue(appRunnerExePath, false);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to write GPU preference registry key: {ex.Message}");
+        }
+    }
+
     partial void OnAutoUpdateEnabledChanged(bool value)
     {
         _updaterViewModel.AutoUpdateEnabled = value;
@@ -248,6 +293,7 @@ public partial class SettingsViewModel : ObservableObject
             SelectedTheme = "Dark";
             SelectedLayout = "Minimal";
             MuteWallpaperAudio = true;
+            SelectedGpuPreference = "Default";
             AutoStartWallpaperEngine = true;
             RememberLastWallpaper = true;
             PerformanceMode = "Balanced";
