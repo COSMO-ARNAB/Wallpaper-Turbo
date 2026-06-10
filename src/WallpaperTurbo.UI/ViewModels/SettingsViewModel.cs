@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WallpaperTurbo.Core.Updates.Models;
+using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
 
 namespace WallpaperTurbo.UI.ViewModels;
@@ -13,6 +14,7 @@ public partial class SettingsViewModel : ObservableObject
 {
     private readonly WallpaperService _wallpaperService;
     private readonly UpdaterViewModel _updaterViewModel;
+    private readonly LayoutHostViewModel _layoutHostViewModel;
     private bool _suppressChannelUpdate;
 
     [ObservableProperty] private bool _useHardwareAcceleration = true;
@@ -25,14 +27,43 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _checkOnStartup = true;
     [ObservableProperty] private string _selectedReleaseChannel = "Stable";
 
-    public UpdaterViewModel Updater => _updaterViewModel;
+    [ObservableProperty] private string _selectedTheme = "System";
+    [ObservableProperty] private string _selectedLayout = "Minimal";
+    [ObservableProperty] private bool _pauseOnFullscreen = true;
+    [ObservableProperty] private bool _muteWallpaperAudio = true;
+    [ObservableProperty] private bool _autoStartWallpaperEngine = true;
+    [ObservableProperty] private bool _rememberLastWallpaper = true;
+    [ObservableProperty] private string _performanceMode = "Balanced";
+    [ObservableProperty] private bool _batterySaverEnabled = false;
 
-    public SettingsViewModel(WallpaperService wallpaperService, UpdaterViewModel updaterViewModel)
+    public UpdaterViewModel Updater => _updaterViewModel;
+    public LayoutHostViewModel LayoutHost => _layoutHostViewModel;
+
+    public SettingsViewModel(
+        WallpaperService wallpaperService, 
+        UpdaterViewModel updaterViewModel, 
+        LayoutHostViewModel layoutHostViewModel)
     {
         _wallpaperService = wallpaperService;
         _updaterViewModel = updaterViewModel;
+        _layoutHostViewModel = layoutHostViewModel;
         _useHardwareAcceleration = !_wallpaperService.UseSoftwareDecoding;
         _activePauseProfile = _wallpaperService.ActivePauseProfile;
+
+        // Initialize SelectedLayout from current layout
+        _selectedLayout = _layoutHostViewModel.CurrentLayout.ToString();
+
+        // Initialize PauseOnFullscreen based on ActivePauseProfile
+        _pauseOnFullscreen = _activePauseProfile != "Disabled" && _activePauseProfile != "None";
+
+        // Determine the current UI theme
+        var currentTheme = Wpf.Ui.Appearance.ApplicationThemeManager.GetAppTheme();
+        _selectedTheme = currentTheme switch
+        {
+            Wpf.Ui.Appearance.ApplicationTheme.Light => "Light",
+            Wpf.Ui.Appearance.ApplicationTheme.Dark => "Dark",
+            _ => "System"
+        };
 
         // Hydrate updater-related fields from the persisted settings via the ViewModel
         var snapshot = _updaterViewModel.GetSettingsSnapshot();
@@ -54,6 +85,36 @@ public partial class SettingsViewModel : ObservableObject
         if (value != null)
         {
             _wallpaperService.ActivePauseProfile = value;
+            PauseOnFullscreen = value != "Disabled" && value != "None";
+        }
+    }
+
+    partial void OnPauseOnFullscreenChanged(bool value)
+    {
+        ActivePauseProfile = value ? "Maximized" : "Disabled";
+    }
+
+    partial void OnSelectedThemeChanged(string value)
+    {
+        if (string.Equals(value, "Light", StringComparison.OrdinalIgnoreCase))
+        {
+            Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Light);
+        }
+        else if (string.Equals(value, "Dark", StringComparison.OrdinalIgnoreCase))
+        {
+            Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
+        }
+        else
+        {
+            Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme();
+        }
+    }
+
+    partial void OnSelectedLayoutChanged(string value)
+    {
+        if (Enum.TryParse<LayoutMode>(value, out var layoutMode))
+        {
+            _layoutHostViewModel.SwitchLayout(layoutMode);
         }
     }
 
@@ -120,6 +181,14 @@ public partial class SettingsViewModel : ObservableObject
     {
         UseHardwareAcceleration = true;
         ActivePauseProfile = "Maximized";
+        PauseOnFullscreen = true;
+        SelectedTheme = "System";
+        SelectedLayout = "Minimal";
+        MuteWallpaperAudio = true;
+        AutoStartWallpaperEngine = true;
+        RememberLastWallpaper = true;
+        PerformanceMode = "Balanced";
+        BatterySaverEnabled = false;
 
         _suppressChannelUpdate = true;
         try
@@ -156,4 +225,22 @@ public partial class SettingsViewModel : ObservableObject
         "Dev" => ReleaseChannel.Nightly,
         _ => ReleaseChannel.Stable
     };
+
+    [RelayCommand]
+    private void OpenUrl(string url)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            };
+            System.Diagnostics.Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to open URL: {ex.Message}");
+        }
+    }
 }

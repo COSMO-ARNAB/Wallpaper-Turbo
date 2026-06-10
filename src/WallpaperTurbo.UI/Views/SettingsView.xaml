@@ -5,90 +5,324 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              mc:Ignorable="d"
-             d:DesignHeight="600" d:DesignWidth="800">
+             d:DesignHeight="780" d:DesignWidth="1240">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <Grid Margin="0,0,0,16">
+        <Grid Margin="24,12,24,24">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Margin="0,0,0,20">
-                <TextBlock Text="Settings" Style="{StaticResource TitleStyle}" Margin="0,0,0,4" />
-                <TextBlock Text="Adjust engine performance, hardware properties, and system options."
-                           Style="{StaticResource SecondaryStyle}" />
+            <!-- ROW 0: PAGE HEADER -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,24">
+                <Button Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="Dashboard"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="0"
+                        Cursor="Hand"
+                        HorizontalAlignment="Left">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon x:Name="BackArrow" Symbol="ArrowLeft24" FontSize="20" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <ui:SymbolIcon.RenderTransform>
+                                        <TranslateTransform X="0" />
+                                    </ui:SymbolIcon.RenderTransform>
+                                </ui:SymbolIcon>
+                                <TextBlock Text="Settings" Style="{StaticResource TitleStyle}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="BackArrow" Property="RenderTransform">
+                                        <Setter.Value>
+                                            <TranslateTransform X="-4" />
+                                        </Setter.Value>
+                                    </Setter>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <TextBlock Text="Customize Wallpaper Turbo" Style="{StaticResource SecondaryStyle}" Margin="30,4,0,0" />
             </StackPanel>
 
-            <Grid Grid.Row="1">
+            <!-- 3-COLUMN CARDS LAYOUT -->
+            <Grid Grid.Row="1" Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                    <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16">
-                        <StackPanel>
-                            <TextBlock Text="Engine performance" Style="{StaticResource BodyStyle}" FontWeight="600" Margin="0,0,0,12" />
-                            <ui:ToggleSwitch Content="Use hardware-accelerated decoding"
-                                             IsChecked="{Binding UseHardwareAcceleration}"
-                                             Margin="0,0,0,12"
-                                             Foreground="{StaticResource TextSecondaryBrush}" />
+                <!-- 1. GENERAL CARD -->
+                <Border Grid.Row="0" Grid.Column="0" Margin="0,0,12,16" Style="{StaticResource Card}" Padding="20">
+                    <StackPanel>
+                        <!-- Header -->
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="8" Background="#15BD00FF" Margin="0,0,12,0" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="Options24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="GENERAL" FontWeight="Bold" FontSize="11" Foreground="{StaticResource ActivePurpleBrush}"/>
+                                <TextBlock Text="Basic preferences and appearance" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
 
-                            <TextBlock Text="Pause profile" Style="{StaticResource CaptionStyle}" Margin="0,0,0,6" />
-                            <ComboBox SelectedValue="{Binding ActivePauseProfile}" SelectedValuePath="Content" Width="200" HorizontalAlignment="Left">
-                                <ComboBoxItem Content="Maximized" />
-                                <ComboBoxItem Content="Focused" />
-                                <ComboBoxItem Content="Disabled" />
+                        <!-- Theme Selection -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="Desktop24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Theme" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="2" SelectedValue="{Binding SelectedTheme}" SelectedValuePath="Content" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <ComboBoxItem Content="System" />
+                                <ComboBoxItem Content="Light" />
+                                <ComboBoxItem Content="Dark" />
                             </ComboBox>
-                        </StackPanel>
-                    </Border>
+                        </Grid>
 
-                    <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16">
-                        <StackPanel>
-                            <TextBlock Text="Application profile" Style="{StaticResource BodyStyle}" FontWeight="600" Margin="0,0,0,12" />
-                            <Grid Margin="0,0,0,8">
-                                <TextBlock Text="Software version" Style="{StaticResource CaptionStyle}" />
-                                <TextBlock Text="{Binding ActiveAppVersion}" Style="{StaticResource BodyStyle}" FontWeight="500" HorizontalAlignment="Right" />
-                            </Grid>
-                            <Grid Margin="0,0,0,8">
-                                <TextBlock Text="Release channel" Style="{StaticResource CaptionStyle}" />
-                                <TextBlock Text="{Binding Updater.ChannelDisplay}" Style="{StaticResource BodyStyle}" FontWeight="500" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right" />
-                            </Grid>
-                            <Grid>
-                                <TextBlock Text="Target framework" Style="{StaticResource CaptionStyle}" />
-                                <TextBlock Text=".NET 8.0-Windows" Style="{StaticResource BodyStyle}" FontWeight="500" HorizontalAlignment="Right" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Padding="20">
-                        <StackPanel>
-                            <Grid Margin="0,0,0,12">
-                                <TextBlock Text="Software updates" Style="{StaticResource BodyStyle}" FontWeight="600" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Updater.StatusText}" Style="{StaticResource CaptionStyle}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="220" />
-                            </Grid>
-
-                            <ui:ToggleSwitch Content="Enable automatic updates"
-                                             IsChecked="{Binding AutoUpdateEnabled}"
-                                             Margin="0,0,0,8"
-                                             Foreground="{StaticResource TextSecondaryBrush}" />
-                            <ui:ToggleSwitch Content="Check for updates on startup"
-                                             IsChecked="{Binding CheckOnStartup}"
-                                             Margin="0,0,0,12"
-                                             Foreground="{StaticResource TextSecondaryBrush}" />
-
-                            <TextBlock Text="Release channel" Style="{StaticResource CaptionStyle}" Margin="0,0,0,6" />
-                            <ComboBox SelectedValue="{Binding SelectedReleaseChannel}" SelectedValuePath="Content" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12">
-                                <ComboBoxItem Content="Stable" />
-                                <ComboBoxItem Content="Beta" />
-                                <ComboBoxItem Content="Dev" />
+                        <!-- Layout Selection -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="Grid24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Layout" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="2" SelectedValue="{Binding SelectedLayout}" SelectedValuePath="Content" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <ComboBoxItem Content="Minimal" />
+                                <ComboBoxItem Content="Techie" />
                             </ComboBox>
+                        </Grid>
 
-                            <StackPanel Margin="0,4,0,8">
+                        <!-- Language Selection -->
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="Globe24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Language" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="2" SelectedValue="{Binding SelectedLanguage}" SelectedValuePath="Content" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <ComboBoxItem Content="English" />
+                            </ComboBox>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 2. WALLPAPER BEHAVIOR CARD -->
+                <Border Grid.Row="0" Grid.Column="1" Margin="12,0,12,16" Style="{StaticResource Card}" Padding="20">
+                    <StackPanel>
+                        <!-- Header -->
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="8" Background="#1500FF66" Margin="0,0,12,0" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="Image24" Foreground="{StaticResource ActiveGreenBrush}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="WALLPAPER BEHAVIOR" FontWeight="Bold" FontSize="11" Foreground="{StaticResource ActiveGreenBrush}"/>
+                                <TextBlock Text="Control how wallpapers behave" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Pause on fullscreen -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="FullScreenMaximize24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Pause on fullscreen" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding PauseOnFullscreen}" Content="" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Mute wallpaper audio -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="Speaker224" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Mute wallpaper audio" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding MuteWallpaperAudio}" Content="" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Auto start wallpaper engine -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="Play24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Auto start wallpaper engine" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding AutoStartWallpaperEngine}" Content="" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Remember last wallpaper -->
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="History24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Remember last wallpaper" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding RememberLastWallpaper}" Content="" VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 3. PERFORMANCE CARD -->
+                <Border Grid.Row="0" Grid.Column="2" Margin="12,0,0,16" Style="{StaticResource Card}" Padding="20">
+                    <StackPanel>
+                        <!-- Header -->
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="8" Background="#15FFB454" Margin="0,0,12,0" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="TopSpeed24" Foreground="{StaticResource StatusWarnBrush}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="PERFORMANCE" FontWeight="Bold" FontSize="11" Foreground="{StaticResource StatusWarnBrush}"/>
+                                <TextBlock Text="Optimize performance and resource usage" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Performance Mode -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="TopSpeed24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Performance Mode" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="2" SelectedValue="{Binding PerformanceMode}" SelectedValuePath="Content" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <ComboBoxItem Content="Balanced" />
+                                <ComboBoxItem Content="High Performance" />
+                                <ComboBoxItem Content="Power Saver" />
+                            </ComboBox>
+                        </Grid>
+
+                        <!-- Hardware Decoding -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="DeveloperBoard24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Hardware Decoding" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding UseHardwareAcceleration}" Content="" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Battery Saver -->
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="BatterySaver24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Battery Saver" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding BatterySaverEnabled}" Content="" VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 4. UPDATES CARD (SPAN 2) -->
+                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,12,0" Style="{StaticResource Card}" Padding="20">
+                    <StackPanel>
+                        <!-- Header -->
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="8" Background="#155EE9FF" Margin="0,0,12,0" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="ArrowDownload24" Foreground="{StaticResource AccentBrush}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="UPDATES" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentBrush}"/>
+                                <TextBlock Text="Keep Wallpaper Turbo up to date" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Current Version -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="Document24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Current Version" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="{Binding ActiveAppVersion}" Style="{StaticResource BodyStyle}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        </Grid>
+
+                        <!-- Auto Updates -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="ArrowSync24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Auto Updates" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding AutoUpdateEnabled}" Content="" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Check for Updates -->
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="Search24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Check for Updates" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                            <Button Grid.Column="2" Content="Check Now" 
+                                    Command="{Binding Updater.CheckForUpdatesCommand}" 
+                                    IsEnabled="{Binding Updater.IsCheckButtonEnabled}"
+                                    Style="{StaticResource ButtonSecondary}" 
+                                    Padding="16,6"
+                                    VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Collapsible Update Progress & Status Details -->
+                        <StackPanel Margin="0,8,0,0">
+                            <!-- Status text -->
+                            <TextBlock Text="{Binding Updater.StatusText}" Style="{StaticResource CaptionStyle}" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,8" />
+
+                            <!-- Progress Bar (shown when busy) -->
+                            <StackPanel Margin="0,0,0,8">
                                 <StackPanel.Style>
                                     <Style TargetType="StackPanel">
                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -110,11 +344,8 @@
                                 </Grid>
                             </StackPanel>
 
-                            <TextBlock Text="{Binding Updater.StatusDetailText}"
-                                       FontSize="11"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       TextWrapping="Wrap"
-                                       Margin="0,0,0,8">
+                            <!-- Detail text -->
+                            <TextBlock Text="{Binding Updater.StatusDetailText}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -127,12 +358,8 @@
                                 </TextBlock.Style>
                             </TextBlock>
 
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,4,0,0">
-                                <Button Content="Check for updates"
-                                        Command="{Binding Updater.CheckForUpdatesCommand}"
-                                        IsEnabled="{Binding Updater.IsCheckButtonEnabled}"
-                                        Style="{StaticResource ButtonSecondary}"
-                                        Margin="0,0,8,0" />
+                            <!-- Action buttons -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
                                 <Button Content="Download"
                                         Command="{Binding Updater.DownloadCommand}"
                                         Visibility="{Binding Updater.IsDownloadButtonVisible, Converter={StaticResource BoolToVisConverter}}"
@@ -149,10 +376,11 @@
                                         Style="{StaticResource ButtonSecondary}" />
                             </StackPanel>
                         </StackPanel>
-                    </Border>
-                </StackPanel>
+                    </StackPanel>
+                </Border>
 
-                <Border Grid.Column="1" Style="{StaticResource Card}" Padding="20" Margin="12,0,0,0" VerticalAlignment="Stretch">
+                <!-- 5. ABOUT CARD -->
+                <Border Grid.Row="1" Grid.Column="2" Margin="12,0,0,0" Style="{StaticResource Card}" Padding="20">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -160,18 +388,96 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="Engine telemetry logs" Style="{StaticResource BodyStyle}" FontWeight="600" Margin="0,0,0,12" />
+                        <!-- Header -->
+                        <Grid Grid.Row="0" Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="8" Background="#15A78BFA" Margin="0,0,12,0" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="Info24" Foreground="{StaticResource AccentDeepBrush}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="ABOUT" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentDeepBrush}"/>
+                                <TextBlock Text="Learn more about Wallpaper Turbo" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
 
-                        <Border Grid.Row="1" Background="{StaticResource Surface0Brush}" CornerRadius="{StaticResource RadiusSmall}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" Padding="12" Margin="0,0,0,12" MinHeight="280">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <TextBlock Text="{Binding EngineLogsText}" FontFamily="Cascadia Code, JetBrains Mono, Consolas" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                            </ScrollViewer>
-                        </Border>
+                        <!-- Branding -->
+                        <Grid Grid.Row="1" Margin="0,0,0,24" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Grid.Column="0" Text="WT" FontSize="46" FontWeight="Black" Margin="12,0,24,0" VerticalAlignment="Center">
+                                <TextBlock.Foreground>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#A78BFA" Offset="0" />
+                                        <GradientStop Color="#5EE9FF" Offset="1" />
+                                    </LinearGradientBrush>
+                                </TextBlock.Foreground>
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="#5EE9FF" BlurRadius="12" ShadowDepth="0" Opacity="0.3" />
+                                </TextBlock.Effect>
+                            </TextBlock>
+                            
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Wallpaper Turbo" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Modern Live Wallpaper Engine" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,4"/>
+                                <TextBlock Text="© 2025 Wallpaper Turbo. All rights reserved." FontSize="10" Foreground="{StaticResource TextTertiaryBrush}"/>
+                            </StackPanel>
+                        </Grid>
 
-                        <Button Grid.Row="2" Content="Refresh logs" Command="{Binding RefreshLogsCommand}" Style="{StaticResource ButtonSecondary}" HorizontalAlignment="Right" />
+                        <!-- Links -->
+                        <UniformGrid Grid.Row="2" Columns="3">
+                            <Button Command="{Binding OpenUrlCommand}" 
+                                    CommandParameter="https://github.com/COSMO-ARNAB/Wallpaper-Turbo"
+                                    Style="{StaticResource ButtonSecondary}" 
+                                    Margin="0,0,6,0">
+                                <Button.ContentTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.646.64.699 1.026 1.592 1.026 2.683 0 3.842-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.479C19.138 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" 
+                                                  Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" 
+                                                  Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="GitHub" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </Button.ContentTemplate>
+                            </Button>
+                            <Button Command="{Binding OpenUrlCommand}" 
+                                    CommandParameter="https://github.com/COSMO-ARNAB/Wallpaper-Turbo/wiki"
+                                    Style="{StaticResource ButtonSecondary}" 
+                                    Margin="6,0,6,0">
+                                <Button.ContentTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:SymbolIcon Symbol="Document24" Margin="0,0,6,0" VerticalAlignment="Center" FontSize="14"/>
+                                            <TextBlock Text="Documentation" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </Button.ContentTemplate>
+                            </Button>
+                            <Button Command="{Binding OpenUrlCommand}" 
+                                    CommandParameter="https://discord.gg/wallpaperturbo"
+                                    Style="{StaticResource ButtonSecondary}" 
+                                    Margin="6,0,0,0">
+                                <Button.ContentTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="M18.97 4.96c-1.26-.58-2.61-.99-4.04-1.2-.18.32-.38.66-.52 1-.14.33-.28.67-.39 1-1.57-.24-3.14-.24-4.7 0a9.23 9.23 0 0 0-.91-2c-1.43.21-2.78.62-4.04 1.2A19.46 19.46 0 0 0 1.26 15c2.04 1.5 4.02 2.42 5.95 3.03.48-.66.9-1.37 1.26-2.13a12.7 12.7 0 0 1-1.87-.89c.16-.12.31-.24.46-.37 3.69 1.7 7.7 1.7 11.41 0 .15.13.31.25.46.37-.59.35-1.22.65-1.87.89.36.76.78 1.47 1.26 2.13 1.93-.61 3.91-1.53 5.95-3.03a19.46 19.46 0 0 0-3.17-10.04zM8.02 12.82c-.88 0-1.6-.82-1.6-1.82s.7-1.82 1.6-1.82c.89 0 1.6.82 1.6 1.82s-.71 1.82-1.6 1.82zm7.97 0c-.88 0-1.6-.82-1.6-1.82s.7-1.82 1.6-1.82c.89 0 1.6.82 1.6 1.82s-.71 1.82-1.6 1.82z" 
+                                                  Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" 
+                                                  Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Discord" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </Button.ContentTemplate>
+                            </Button>
+                        </UniformGrid>
                     </Grid>
                 </Border>
-            </Grid>
+            </Grid>>
         </Grid>
     </ScrollViewer>
 </UserControl>
