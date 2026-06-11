@@ -34,6 +34,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "startup"; Description: "Start {#MyAppName} automatically on Windows startup"; GroupDescription: "Startup Options:"; Flags: unchecked
+Name: "restart"; Description: "Internal updater restart task"; Flags: hidden
 
 [Files]
 ; Copy all published files from the local publish folder
@@ -49,4 +50,8 @@ Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: st
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
-Description: "{cm:LaunchProgram,{#MyAppName}}"; Filename: "{app}\{#MyAppExeName}"; Flags: nowait postinstall skipifsilent
+; Standard interactive launch checkbox (skipped in silent updates)
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent; Tasks: not restart
+
+; Silent updater relaunch (executed in silent updates when task is merged)
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Tasks: restart
