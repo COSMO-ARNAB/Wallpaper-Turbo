@@ -19,10 +19,79 @@ public class GitHubReleaseProviderOrderingTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             CallCount++;
-            LastRequestUri = request.RequestUri?.ToString();
+            var uriStr = request.RequestUri?.ToString() ?? string.Empty;
+            LastRequestUri = uriStr;
+
+            string content;
+            if (uriStr.Contains("update.json"))
+            {
+                if (uriStr.Contains("v1.0.5"))
+                {
+                    content = """
+                    {
+                        "schema_version": 1,
+                        "generated_at": "2026-06-05T00:00:00Z",
+                        "version": "1.0.5",
+                        "channel": "stable",
+                        "installer_filename": "Wallpaper_Turbo_Setup.exe",
+                        "download_url": "https://example.invalid/v1.0.5/setup.exe",
+                        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                        "file_size_bytes": 1000,
+                        "min_supported_version": "1.0.0",
+                        "min_signature_required": "authenticode",
+                        "rollback_eligible": false
+                    }
+                    """;
+                }
+                else if (uriStr.Contains("v2.0.0"))
+                {
+                    content = """
+                    {
+                        "schema_version": 1,
+                        "generated_at": "2026-06-01T00:00:00Z",
+                        "version": "2.0.0",
+                        "channel": "stable",
+                        "installer_filename": "Wallpaper_Turbo_Setup.exe",
+                        "download_url": "https://example.invalid/v2.0.0/setup.exe",
+                        "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+                        "file_size_bytes": 2000,
+                        "min_supported_version": "1.0.0",
+                        "min_signature_required": "authenticode",
+                        "rollback_eligible": false
+                    }
+                    """;
+                }
+                else if (uriStr.Contains("v1.2.0"))
+                {
+                    content = """
+                    {
+                        "schema_version": 1,
+                        "generated_at": "2026-06-01T00:00:00Z",
+                        "version": "1.2.0",
+                        "channel": "stable",
+                        "installer_filename": "Wallpaper_Turbo_Setup.exe",
+                        "download_url": "https://example.invalid/v1.2.0/setup.exe",
+                        "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+                        "file_size_bytes": 1000,
+                        "min_supported_version": "1.0.0",
+                        "min_signature_required": "authenticode",
+                        "rollback_eligible": false
+                    }
+                    """;
+                }
+                else
+                {
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+                }
+            }
+            else
+            {
+                content = ResponseJson;
+            }
+
             var response = new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(ResponseJson, Encoding.UTF8, "application/json")
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
             };
             return Task.FromResult(response);
         }
@@ -52,6 +121,11 @@ public class GitHubReleaseProviderOrderingTests
                         "name": "Wallpaper_Turbo_Setup.exe",
                         "browser_download_url": "https://example.invalid/v1.0.5/setup.exe",
                         "size": 1000
+                    },
+                    {
+                        "name": "update.json",
+                        "browser_download_url": "https://example.invalid/v1.0.5/update.json",
+                        "size": 200
                     }
                 ]
             },
@@ -69,6 +143,11 @@ public class GitHubReleaseProviderOrderingTests
                         "name": "Wallpaper_Turbo_Setup.exe",
                         "browser_download_url": "https://example.invalid/v2.0.0/setup.exe",
                         "size": 2000
+                    },
+                    {
+                        "name": "update.json",
+                        "browser_download_url": "https://example.invalid/v2.0.0/update.json",
+                        "size": 200
                     }
                 ]
             }
@@ -119,6 +198,11 @@ public class GitHubReleaseProviderOrderingTests
                         "name": "Wallpaper_Turbo_Setup.exe",
                         "browser_download_url": "https://example.invalid/v1.2.0/setup.exe",
                         "size": 1000
+                    },
+                    {
+                        "name": "update.json",
+                        "browser_download_url": "https://example.invalid/v1.2.0/update.json",
+                        "size": 200
                     }
                 ]
             }

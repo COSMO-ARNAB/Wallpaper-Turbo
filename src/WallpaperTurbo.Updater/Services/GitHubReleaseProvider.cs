@@ -20,7 +20,6 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
 
     private const string InstallerFileName = "Wallpaper_Turbo_Setup.exe";
     private const string UpdateJsonAssetName = "update.json";
-    private const string FallbackWarningFormat = "[GitHubReleaseProvider] update.json missing for {0}; falling back to body-parsing";
 
     private static readonly JsonSerializerOptions ManifestJsonOptions = new JsonSerializerOptions
     {
@@ -128,10 +127,10 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
         UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"Parsed version: {version} (Major={version.Major}, Minor={version.Minor}, Patch={version.Patch}, PreRelease='{version.PreReleaseLabel}')");
 
         ReleaseChannel releaseChannel = ReleaseChannel.Stable;
-        if (isPrerelease)
+        if (!string.IsNullOrEmpty(version.PreReleaseLabel))
         {
-            if (tagName.Contains("beta", StringComparison.OrdinalIgnoreCase) ||
-                tagName.Contains("rc", StringComparison.OrdinalIgnoreCase))
+            if (version.PreReleaseLabel.Contains("beta", StringComparison.OrdinalIgnoreCase) ||
+                version.PreReleaseLabel.Contains("rc", StringComparison.OrdinalIgnoreCase))
             {
                 releaseChannel = ReleaseChannel.Preview;
             }
@@ -140,7 +139,7 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
                 releaseChannel = ReleaseChannel.Nightly;
             }
         }
-        UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"Mapped release channel: {releaseChannel} (rule: prerelease+('beta'|'rc' in tag) => Preview, other prerelease => Nightly, else Stable)");
+        UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"Mapped release channel: {releaseChannel} (rule: tag contains 'beta'|'rc' => Preview, other prerelease tag => Nightly, else Stable)");
 
         if (requestedChannel == ReleaseChannel.Stable && releaseChannel != ReleaseChannel.Stable)
         {
@@ -160,77 +159,13 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
 
         Debug.WriteLine($"[GitHubReleaseProvider] Successfully parsed {tagName} as {version}");
 
-        var body = release.TryGetProperty("body", out var bodyElem)
-            ? bodyElem.GetString()
-            : null;
-
         var assets = release.TryGetProperty("assets", out var assetsElem)
             ? assetsElem
             : default;
 
-        // First pass: locate the .exe asset and parse its SHA from the body (legacy path).
-        string downloadUrl = string.Empty;
-        long fileSizeBytes = 0;
-        string selectedAssetName = string.Empty;
-        string sha256Hash = string.Empty;
-        int assetCount = 0;
-
-        if (assets.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var asset in assets.EnumerateArray())
-            {
-                assetCount++;
-                var name = asset.TryGetProperty("name", out var nameElem)
-                    ? nameElem.GetString()
-                    : null;
-
-                if (string.IsNullOrEmpty(name) || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                selectedAssetName = name;
-                Debug.WriteLine($"[GitHubReleaseProvider] Found executable asset: {name}");
-                downloadUrl = asset.TryGetProperty("browser_download_url", out var urlElem)
-                    ? urlElem.GetString() ?? string.Empty
-                    : string.Empty;
-                fileSizeBytes = asset.TryGetProperty("size", out var sizeElem) ? sizeElem.GetInt64() : 0;
-
-                var bodyText = body ?? string.Empty;
-                var bodySha = TryParseSha256FromBody(bodyText, name!);
-                if (!string.IsNullOrEmpty(bodySha))
-                {
-                    sha256Hash = bodySha!;
-                    UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"Asset selected: '{name}' size={fileSizeBytes} url={downloadUrl}");
-                    UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"SHA256 parsed from body: {sha256Hash}");
-                    Debug.WriteLine($"[GitHubReleaseProvider] Found SHA256 in release body for {name}");
-                }
-                else
-                {
-                    UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"Asset selected: '{name}' size={fileSizeBytes} url={downloadUrl}");
-                    UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"SHA256 NOT FOUND in body for '{name}' (will be left empty).");
-                    Debug.WriteLine($"[GitHubReleaseProvider] Warning: Could not find SHA256 in body for {name}");
-                }
-                break;
-            }
-        }
-        UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"Total assets enumerated: {assetCount} | Selected exe: '{selectedAssetName}'");
-
-        if (string.IsNullOrEmpty(downloadUrl))
-        {
-            UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"REJECTION: No .exe asset found among {assetCount} asset(s) for '{tagName}'.");
-            Debug.WriteLine($"[GitHubReleaseProvider] Rejected {tagName}: No .exe asset found.");
-            return null;
-        }
-
-        // Second pass: look for an update.json asset. If present, prefer it as the
-        // authoritative source for SHA, size, and signature policy. Body-parsed
-        // values are discarded when update.json validates successfully.
         string? updateJsonUrl = null;
-        string? updateJsonRejectionReason = null;
         if (assets.ValueKind == JsonValueKind.Array)
         {
-            long updateJsonSize = 0;
             foreach (var asset in assets.EnumerateArray())
             {
                 var name = asset.TryGetProperty("name", out var nameElem) ? nameElem.GetString() : null;
@@ -239,58 +174,30 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
                     updateJsonUrl = asset.TryGetProperty("browser_download_url", out var urlElem)
                         ? urlElem.GetString()
                         : null;
-                    updateJsonSize = asset.TryGetProperty("size", out var sizeElem) ? sizeElem.GetInt64() : 0;
                     break;
                 }
             }
-
-            if (!string.IsNullOrEmpty(updateJsonUrl))
-            {
-                UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"update.json asset found for '{tagName}' (size={updateJsonSize} url={updateJsonUrl})");
-                var (manifestManifest, rejectionReason) = await TryFetchAndMapRemoteManifestAsync(updateJsonUrl!, releaseChannel, cancellationToken);
-                if (manifestManifest != null)
-                {
-                    UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"ACCEPTED: '{tagName}' manifest-driven path. hash={manifestManifest.Sha256Hash} size={manifestManifest.FileSizeBytes} sigReq={manifestManifest.MinSignatureRequirement} source=update.json");
-                    Debug.WriteLine($"[GitHubReleaseProvider] Returning manifest for {tagName} (source=update.json)");
-                    return manifestManifest;
-                }
-                updateJsonRejectionReason = rejectionReason;
-                UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"update.json fetch/validate failed for '{tagName}'; falling back to body-parsing. reason='{rejectionReason ?? "unknown"}'");
-            }
-            else
-            {
-                UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"No update.json asset on '{tagName}'; falling back to body-parsing");
-            }
         }
 
-        // Fallback path: body-parsing (legacy). Log a one-shot warning and build the
-        // manifest with the channel-derived MinSignatureRequirement default.
-        Debug.WriteLine(string.Format(FallbackWarningFormat, tagName));
-        string fallbackReason;
         if (string.IsNullOrEmpty(updateJsonUrl))
         {
-            fallbackReason = "no_update_json_asset";
+            UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"REJECTION: No update.json asset found for '{tagName}'.");
+            Debug.WriteLine($"[GitHubReleaseProvider] Rejected {tagName}: Missing update.json.");
+            return null;
         }
-        else
+
+        UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"update.json asset found for '{tagName}' (url={updateJsonUrl})");
+        var (manifestManifest, rejectionReason) = await TryFetchAndMapRemoteManifestAsync(updateJsonUrl!, releaseChannel, cancellationToken);
+        if (manifestManifest != null)
         {
-            fallbackReason = updateJsonRejectionReason ?? "rejected_unknown";
+            UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"ACCEPTED: '{tagName}' manifest-driven path. hash={manifestManifest.Sha256Hash} size={manifestManifest.FileSizeBytes} sigReq={manifestManifest.MinSignatureRequirement} source=update.json");
+            Debug.WriteLine($"[GitHubReleaseProvider] Returning manifest for {tagName} (source=update.json)");
+            return manifestManifest;
         }
-        UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"FALLBACK: body-parsing for '{tagName}' (version={version} channel={releaseChannel}) reason='{fallbackReason}' hash={(string.IsNullOrEmpty(sha256Hash) ? "<missing>" : sha256Hash)} size={fileSizeBytes}");
 
-        var fallbackSig = DefaultSignatureRequirementForChannel(releaseChannel);
-        UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"FALLBACK: MinSignatureRequirement default for channel {releaseChannel} = {fallbackSig}");
-
-        return new UpdateManifest(
-            Version: version,
-            Channel: releaseChannel,
-            ReleaseNotes: body ?? string.Empty,
-            DownloadUrl: downloadUrl,
-            Sha256Hash: sha256Hash,
-            FileSizeBytes: fileSizeBytes,
-            MinSupportedVersion: new SemanticVersion(1, 0, 0),
-            IsRollbackEligible: false,
-            MinSignatureRequirement: fallbackSig
-        );
+        UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"REJECTION: update.json fetch/validate failed for '{tagName}'. reason='{rejectionReason ?? "unknown"}'");
+        Debug.WriteLine($"[GitHubReleaseProvider] Rejected {tagName}: update.json validation failed: {rejectionReason}");
+        return null;
     }
 
     private async Task<(UpdateManifest? Manifest, string? RejectionReason)> TryFetchAndMapRemoteManifestAsync(string downloadUrl, ReleaseChannel releaseChannel, CancellationToken cancellationToken)
@@ -485,21 +392,6 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
             case ReleaseChannel.Nightly: return SignatureRequirement.Sha256Only;
             default:                     return SignatureRequirement.Sha256Only;
         }
-    }
-
-    public static string? TryParseSha256FromBody(string body, string assetName)
-    {
-        if (string.IsNullOrEmpty(body) || string.IsNullOrEmpty(assetName)) return null;
-        var safeName = Regex.Escape(assetName);
-        var match = Regex.Match(
-            body,
-            $@"([a-fA-F0-9]{{64}})\s+{safeName}",
-            RegexOptions.IgnoreCase);
-        if (match.Success && match.Groups.Count > 1)
-        {
-            return match.Groups[1].Value.ToLowerInvariant();
-        }
-        return null;
     }
 
     public void Dispose()

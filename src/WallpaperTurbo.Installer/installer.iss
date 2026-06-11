@@ -34,7 +34,6 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "startup"; Description: "Start {#MyAppName} automatically on Windows startup"; GroupDescription: "Startup Options:"; Flags: unchecked
-Name: "restart"; Description: "Internal updater restart task"; Flags: hidden
 
 [Files]
 ; Copy all published files from the local publish folder
@@ -51,7 +50,38 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 ; Standard interactive launch checkbox (skipped in silent updates)
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent; Tasks: not restart
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent; Check: not ShouldRestart
 
-; Silent updater relaunch (executed in silent updates when task is merged)
-Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Tasks: restart
+; Silent updater relaunch (executed in silent updates when intent is detected)
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: ShouldRestart
+
+[Code]
+function ShouldRestart: Boolean;
+var
+  I: Integer;
+  Param: string;
+begin
+  Result := False;
+
+  for I := 1 to ParamCount do
+  begin
+    Param := LowerCase(ParamStr(I));
+
+    // Future-proof custom switch
+    if Param = '/wt_restart' then
+    begin
+      Result := True;
+      Exit;
+    end;
+
+    // Backward-compatible switch for existing v1.2 clients
+    if Pos('/mergetasks=', Param) = 1 then
+    begin
+      if Pos('restart', Param) > 0 then
+      begin
+        Result := True;
+        Exit;
+      end;
+    end;
+  end;
+end;
