@@ -63,4 +63,6 @@ skills/
 publish_output/
 
 
-docs/architecture/
+docs/architecture/*
+gpu_preference_revised_design.md
+
