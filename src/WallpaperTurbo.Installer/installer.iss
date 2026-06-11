@@ -2,7 +2,7 @@
 ; Packages the self-contained WPF UI & background AppRunner.
 
 #define MyAppName "Wallpaper Turbo"
-#define MyAppVersion "1.2.1-beta.2"
+#define MyAppVersion "1.2.5-beta.1"
 #define MyAppPublisher "Arnab"
 #define MyAppExeName "WallpaperTurbo.UI.exe"
 
@@ -34,7 +34,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "startup"; Description: "Start {#MyAppName} automatically on Windows startup"; GroupDescription: "Startup Options:"; Flags: unchecked
-Name: "restart"; Description: "Internal updater restart task"; Flags: hidden
+Name: "restart"; Description: "Internal updater restart task"; Check: WizardSilent
+
 
 [Files]
 ; Copy all published files from the local publish folder
