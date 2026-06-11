@@ -36,9 +36,16 @@ jobs:
       shell: cmd
       run: '"C:\Program Files (x86)\Inno Setup 6\iscc.exe" src/WallpaperTurbo.Installer/installer.iss'
 
+    - name: Generate Update Manifest
+      shell: pwsh
+      run: |
+        .\scripts\build-update-manifest.ps1 -InstallerPath "setup\Wallpaper_Turbo_Setup.exe" -OutputPath "setup\update.json"
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        files: setup/Wallpaper_Turbo_Setup.exe
+        files: |
+          setup/Wallpaper_Turbo_Setup.exe
+          setup/update.json
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
