@@ -43,6 +43,9 @@
     <Style x:Key="FontPremiumBase" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="Segoe UI Variable Display, Inter, Segoe UI" />
         <Setter Property="Foreground" Value="{StaticResource WhiteTextBrush}" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
+        <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
     <Style x:Key="TelemetryMetricStyle" TargetType="TextBlock" BasedOn="{StaticResource FontPremiumBase}">
@@ -110,13 +113,21 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="8"
                             Padding="{TemplateBinding Padding}">
+                        <Border.Effect>
+                            <DropShadowEffect Color="{StaticResource ActivePurpleColor}" BlurRadius="10" ShadowDepth="0" Opacity="0.15" />
+                        </Border.Effect>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Border" Property="Background" Value="{StaticResource NeonPurpleCyanGradient}" />
+                            <Setter TargetName="Border" Property="Background" Value="#252E4E" />
                             <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource ActiveCyanBrush}" />
-                            <Setter Property="Foreground" Value="#000000" />
+                            <Setter Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
+                            <Setter TargetName="Border" Property="Effect">
+                                <Setter.Value>
+                                    <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="15" ShadowDepth="0" Opacity="0.5" />
+                                </Setter.Value>
+                            </Setter>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

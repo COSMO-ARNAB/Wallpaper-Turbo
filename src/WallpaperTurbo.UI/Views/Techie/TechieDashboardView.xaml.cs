@@ -21,10 +21,22 @@ public partial class TechieDashboardView : UserControl
     {
         if (e.Handled) return;
 
-        // Mark handled so the ListBox's internal ScrollViewer doesn't consume it
-        e.Handled = true;
+        if (sender is DependencyObject depObj)
+        {
+            var scrollViewer = FindScrollViewer(depObj);
+            if (scrollViewer != null && scrollViewer.ScrollableWidth > 0)
+            {
+                // Scroll horizontally by a moderate amount (e.g. 48 pixels per 120 delta)
+                double step = e.Delta * 0.4;
+                double targetOffset = scrollViewer.HorizontalOffset - step;
+                scrollViewer.ScrollToHorizontalOffset(Math.Max(0, Math.Min(targetOffset, scrollViewer.ScrollableWidth)));
+                
+                e.Handled = true;
+                return;
+            }
+        }
 
-        // Bubble the event to the parent ScrollViewer so the dashboard scrolls vertically
+        // If the list is not scrollable horizontally, bubble the scroll event to the parent vertical ScrollViewer
         var parent = VisualTreeHelper.GetParent(sender as DependencyObject);
         while (parent is not ScrollViewer && parent != null)
         {
@@ -33,6 +45,7 @@ public partial class TechieDashboardView : UserControl
 
         if (parent is ScrollViewer parentScrollViewer)
         {
+            e.Handled = true;
             var eventArg = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
             {
                 RoutedEvent = UIElement.MouseWheelEvent,
@@ -67,5 +80,19 @@ public partial class TechieDashboardView : UserControl
 
         if (wp != null && vm.TripleClickPlayWallpaperCommand.CanExecute(wp))
             vm.TripleClickPlayWallpaperCommand.Execute(wp);
+    }
+
+    private static ScrollViewer? FindScrollViewer(DependencyObject parent)
+    {
+        if (parent is ScrollViewer s) return s;
+
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            var result = FindScrollViewer(child);
+            if (result != null) return result;
+        }
+        return null;
     }
 }

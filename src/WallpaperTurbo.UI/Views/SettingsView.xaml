@@ -78,7 +78,7 @@
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="GENERAL" FontWeight="Bold" FontSize="11" Foreground="{StaticResource ActivePurpleBrush}"/>
-                                <TextBlock Text="Basic preferences and appearance" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                                <TextBlock Text="Basic preferences and appearance" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Grid>
 
@@ -143,7 +143,7 @@
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="WALLPAPER BEHAVIOR" FontWeight="Bold" FontSize="11" Foreground="{StaticResource ActiveGreenBrush}"/>
-                                <TextBlock Text="Control how wallpapers behave" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                                <TextBlock Text="Control how wallpapers behave" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Grid>
 
@@ -211,7 +211,7 @@
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="PERFORMANCE" FontWeight="Bold" FontSize="11" Foreground="{StaticResource StatusWarnBrush}"/>
-                                <TextBlock Text="Optimize performance and resource usage" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                                <TextBlock Text="Optimize performance and resource usage" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Grid>
 
@@ -287,7 +287,7 @@
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="UPDATES" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentBrush}"/>
-                                <TextBlock Text="Keep Wallpaper Turbo up to date" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                                <TextBlock Text="Keep Wallpaper Turbo up to date" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Grid>
 
@@ -415,7 +415,7 @@
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="ABOUT" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentDeepBrush}"/>
-                                <TextBlock Text="Learn more about Wallpaper Turbo" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                                <TextBlock Text="Learn more about Wallpaper Turbo" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Grid>
 

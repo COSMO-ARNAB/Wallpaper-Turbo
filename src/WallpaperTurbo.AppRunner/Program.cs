@@ -1178,6 +1178,7 @@ internal static class Program
                         {
                             TrimProcessMemory();
                             LogMemory("periodic.trimmed");
+                            WallpaperTurbo.Core.Services.Performance.MemoryLogger.LogMemoryStats("AppRunner");
                         }
                     }
                     catch (OperationCanceledException)

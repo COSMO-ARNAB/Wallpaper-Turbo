@@ -5,6 +5,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using WallpaperTurbo.Core.Services.Performance;
 
 namespace WallpaperTurbo.UI.Services;
 
@@ -304,6 +305,8 @@ public sealed class DiagnosticsService : ObservableObject
         {
             MemoryUsageText = "N/A";
         }
+
+        MemoryLogger.LogMemoryStats("UI");
 
         // ── Read GPU Usage ──
         try

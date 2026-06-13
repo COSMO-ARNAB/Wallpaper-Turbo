@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WallpaperTurbo.Core.Display;
 using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.UI.Services;
 
@@ -25,6 +26,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         string typeName = value != null ? value.GetType().Name : "null";
         StartupDiagnostics.Log($"CurrentPageViewModel assigned: {typeName}");
+
+        OnPropertyChanged(nameof(IsDashboardActive));
+        OnPropertyChanged(nameof(IsLibraryActive));
+        OnPropertyChanged(nameof(IsSettingsActive));
     }
 
     [ObservableProperty]
@@ -78,6 +83,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private ICommand? _dialogCancelCommand;
 
+    public System.Collections.ObjectModel.ObservableCollection<MonitorTopologyItem> Monitors { get; } = new();
+
+    [ObservableProperty]
+    private MonitorTopologyItem? _selectedMonitor;
+
+    public bool IsDashboardActive => CurrentPageViewModel is DashboardViewModel;
+    public bool IsLibraryActive => CurrentPageViewModel is LibraryViewModel;
+    public bool IsSettingsActive => CurrentPageViewModel is SettingsViewModel;
+
     // ViewModels injection
     private readonly DashboardViewModel _dashboardViewModel;
     private readonly LibraryViewModel _libraryViewModel;
@@ -114,6 +128,33 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Hook up telemetry polling updates
         _telemetryService.MetricsUpdated += OnMetricsUpdated;
         _telemetryService.Start();
+
+        // Initialize active monitors dynamically from MonitorManager
+        try
+        {
+            var realMonitors = MonitorManager.GetMonitors();
+            for (int i = 0; i < realMonitors.Count; i++)
+            {
+                var m = realMonitors[i];
+                Monitors.Add(new MonitorTopologyItem
+                {
+                    Number = i + 1,
+                    Resolution = $"{m.Width} x {m.Height}",
+                    Type = m.IsPrimary ? "Primary" : "Secondary"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            StartupDiagnostics.Log($"Failed to get monitors in MainViewModel: {ex.Message}");
+        }
+
+        if (Monitors.Count == 0)
+        {
+            // Fallback default
+            Monitors.Add(new MonitorTopologyItem { Number = 1, Resolution = "1920 x 1080", Type = "Primary" });
+        }
+        SelectedMonitor = Monitors[0];
 
         // Check initial engine status
         UpdateEngineStatus();
@@ -332,6 +373,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     #endregion
+
+    [RelayCommand]
+    private void ShowFeatureComingSoon(string featureName)
+    {
+        DialogTitle = $"{featureName} Mode";
+        DialogMessage = $"The {featureName} configuration module is currently under active development for the next update.\n\nStay tuned to the Stable release channel for the update rollout!";
+        IsDialogCancelVisible = false;
+        DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
+        IsDialogVisible = true;
+    }
 
     /// <summary>
     /// Shows a confirmation dialog before proceeding to install the downloaded update.

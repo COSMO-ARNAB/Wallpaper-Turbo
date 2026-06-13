@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WallpaperTurbo.Core.Display;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
 
@@ -35,7 +36,7 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _selectedCategory = "All";
 
     // Dynamic Greeting Banner Properties
-    [ObservableProperty] private string _greetingHeader = "Good Evening 👋";
+    [ObservableProperty] private string _greetingHeader = "Good Evening";
     [ObservableProperty] private string _greetingSubtext = "Your engine is running smoothly.";
 
     // Real-Time Telemetry Properties
@@ -153,9 +154,31 @@ public partial class DashboardViewModel : ObservableObject
             _isSyncing = false;
         }
 
-        // Add mock monitor layouts matching reference image (3840x2160 Primary, 2560x1440 Secondary)
-        Monitors.Add(new MonitorTopologyItem { Number = 1, Resolution = "3840 x 2160", Type = "Primary" });
-        Monitors.Add(new MonitorTopologyItem { Number = 2, Resolution = "2560 x 1440", Type = "Secondary" });
+        // Add active monitors dynamically from MonitorManager
+        try
+        {
+            var realMonitors = MonitorManager.GetMonitors();
+            for (int i = 0; i < realMonitors.Count; i++)
+            {
+                var m = realMonitors[i];
+                Monitors.Add(new MonitorTopologyItem
+                {
+                    Number = i + 1,
+                    Resolution = $"{m.Width} x {m.Height}",
+                    Type = m.IsPrimary ? "Primary" : "Secondary"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            StartupDiagnostics.Log($"Failed to get monitors in DashboardViewModel: {ex.Message}");
+        }
+
+        if (Monitors.Count == 0)
+        {
+            // Fallback default
+            Monitors.Add(new MonitorTopologyItem { Number = 1, Resolution = "1920 x 1080", Type = "Primary" });
+        }
 
         UpdateGreeting();
 
@@ -211,15 +234,15 @@ public partial class DashboardViewModel : ObservableObject
         var hour = DateTime.Now.Hour;
         if (hour >= 5 && hour < 12)
         {
-            GreetingHeader = "Good Morning 👋";
+            GreetingHeader = "Good Morning";
         }
         else if (hour >= 12 && hour < 17)
         {
-            GreetingHeader = "Good Afternoon 👋";
+            GreetingHeader = "Good Afternoon";
         }
         else
         {
-            GreetingHeader = "Good Evening 👋";
+            GreetingHeader = "Good Evening";
         }
 
         if (_wallpaperService != null)

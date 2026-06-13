@@ -29,7 +29,351 @@
             <!-- GREETING BANNER -->
             <Grid Grid.Row="0" Margin="0,4,0,20">
                 <StackPanel>
-                    <TextBlock Text="{Binding GreetingHeader, FallbackValue='Good Evening 👋'}" FontSize="28" FontWeight="ExtraBold" Foreground="#FFFFFF" />
+                    <StackPanel Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <StackPanel.Triggers>
+                            <EventTrigger RoutedEvent="MouseEnter">
+                                <EventTrigger.Actions>
+                                    <BeginStoryboard x:Name="WaveStoryboard">
+                                        <Storyboard>
+                                            <!-- WavingHand Rotational Wave (Exactly 3 seconds) -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="WavingHand" Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="-12">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="20">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="-18">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="16">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="-14">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="12">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="-10">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.2" Value="8">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.5" Value="-5">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.75" Value="2">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0">
+                                                    <EasingDoubleKeyFrame.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseInOut" />
+                                                    </EasingDoubleKeyFrame.EasingFunction>
+                                                </EasingDoubleKeyFrame>
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- LeftArcInner Opacity -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LeftArcInner" Storyboard.TargetProperty="Opacity">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.08" Value="1.0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.5" Value="1.0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.78" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.1" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.38" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.7" Value="0.6" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.98" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.2" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.3" Value="0.4" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.55" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- LeftArcInner ScaleX -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LeftArcInner" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.78" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="1.15" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.38" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.98" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.2" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.5" Value="1.0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.55" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0.8" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- LeftArcInner ScaleY -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LeftArcInner" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.78" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="1.15" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.38" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.98" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.2" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.5" Value="1.0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.55" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0.8" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- LeftArcOuter Opacity -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LeftArcOuter" Storyboard.TargetProperty="Opacity">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.1" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.24" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.52" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.8" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.12" Value="0.6" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.4" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.72" Value="0.4" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.0" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- LeftArcOuter ScaleX -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LeftArcOuter" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.24" Value="1.5" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.8" Value="1.45" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.4" Value="1.35" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.0" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0.8" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- LeftArcOuter ScaleY -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LeftArcOuter" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.24" Value="1.5" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.8" Value="1.45" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.4" Value="1.35" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.0" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0.8" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- RightArcInner Opacity -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="RightArcInner" Storyboard.TargetProperty="Opacity">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.23" Value="1.0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.48" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.78" Value="0.9" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.08" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.38" Value="0.7" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.68" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.98" Value="0.5" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.28" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.5" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.58" Value="0.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.85" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- RightArcInner ScaleX -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="RightArcInner" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.48" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.08" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="1.15" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.68" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.2" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.28" Value="1.15" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.5" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.75" Value="1.0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.85" Value="1.05" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0.8" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- RightArcInner ScaleY -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="RightArcInner" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.48" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.08" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="1.15" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.68" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.2" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.28" Value="1.15" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.5" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.75" Value="1.0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.85" Value="1.05" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0.8" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- RightArcOuter Opacity -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="RightArcOuter" Storyboard.TargetProperty="Opacity">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.25" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.5" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.8" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.1" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.4" Value="0.6" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.7" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.0" Value="0.4" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.3" Value="0" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- RightArcOuter ScaleX -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="RightArcOuter" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.5" Value="1.5" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.1" Value="1.45" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.7" Value="1.35" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.2" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.3" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0.8" />
+                                            </DoubleAnimationUsingKeyFrames>
+
+                                            <!-- RightArcOuter ScaleY -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="RightArcOuter" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.0" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.15" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="1.3" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.5" Value="1.5" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.7" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.0" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.1" Value="1.45" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.3" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.6" Value="1.2" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.7" Value="1.35" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:1.9" Value="0.8" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.2" Value="1.1" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:2.3" Value="1.25" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:3.0" Value="0.8" />
+                                            </DoubleAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger.Actions>
+                            </EventTrigger>
+                        </StackPanel.Triggers>
+
+                        <TextBlock Text="{Binding GreetingHeader, FallbackValue='Good Evening'}" FontSize="28" FontWeight="ExtraBold" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                        
+                        <!-- Waving Hand & Motion Arcs Container -->
+                        <Grid x:Name="WavingHandContainer" Margin="10,0,0,0" VerticalAlignment="Center" Background="Transparent">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="16" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left Arcs -->
+                            <Grid Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,2,0">
+                                <Path x:Name="LeftArcInner" Data="M -2,-6 A 8,8 0 0 0 -2,6" Stroke="{StaticResource ActiveCyanBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0" RenderTransformOrigin="1.0,0.5">
+                                    <Path.RenderTransform>
+                                        <ScaleTransform ScaleX="0.8" ScaleY="0.8" />
+                                    </Path.RenderTransform>
+                                </Path>
+                                <Path x:Name="LeftArcOuter" Data="M -5,-10 A 13,13 0 0 0 -5,10" Stroke="{StaticResource ActivePurpleBrush}" StrokeThickness="1.0" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0" RenderTransformOrigin="1.0,0.5">
+                                    <Path.RenderTransform>
+                                        <ScaleTransform ScaleX="0.8" ScaleY="0.8" />
+                                    </Path.RenderTransform>
+                                </Path>
+                            </Grid>
+
+                            <!-- Upright Hand Emoji (no built-in motion lines) -->
+                            <TextBlock x:Name="WavingHand" Grid.Column="1" Text="🖐️" FontSize="28" Foreground="#FFFFFF" RenderTransformOrigin="0.5,1.0" VerticalAlignment="Center">
+                                <TextBlock.RenderTransform>
+                                    <RotateTransform Angle="0" />
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
+
+                            <!-- Right Arcs -->
+                            <Grid Grid.Column="2" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="2,0,0,0">
+                                <Path x:Name="RightArcInner" Data="M 2,-6 A 8,8 0 0 1 2,6" Stroke="{StaticResource ActiveCyanBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0" RenderTransformOrigin="0.0,0.5">
+                                    <Path.RenderTransform>
+                                        <ScaleTransform ScaleX="0.8" ScaleY="0.8" />
+                                    </Path.RenderTransform>
+                                </Path>
+                                <Path x:Name="RightArcOuter" Data="M 5,-10 A 13,13 0 0 1 5,10" Stroke="{StaticResource ActivePurpleBrush}" StrokeThickness="1.0" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0" RenderTransformOrigin="0.0,0.5">
+                                    <Path.RenderTransform>
+                                        <ScaleTransform ScaleX="0.8" ScaleY="0.8" />
+                                    </Path.RenderTransform>
+                                </Path>
+                            </Grid>
+                        </Grid>
+                    </StackPanel>
                     <TextBlock Text="{Binding GreetingSubtext, FallbackValue='Your engine is running smoothly.'}" FontSize="13" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,0" />
                 </StackPanel>
             </Grid>
@@ -169,7 +513,7 @@
                                 
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Style="{StaticResource NeonCardStyle}" Width="160" Height="110" Margin="0,0,12,0" ClipToBounds="True" Cursor="Hand" MouseLeftButtonDown="OnCardMouseLeftButtonDown">
+                                        <Border x:Name="RecentlyUsedCardBorder" Style="{StaticResource NeonCardStyle}" Width="160" Height="110" Margin="0,0,12,0" ClipToBounds="True" Cursor="Hand" MouseLeftButtonDown="OnCardMouseLeftButtonDown">
                                             <Grid>
                                                 <Image Source="{Binding LoadedThumbnail}" Stretch="UniformToFill" Opacity="0.7" x:Name="ThumbImage">
                                                     <Image.RenderTransform>
@@ -229,6 +573,11 @@
                                                 </Button>
                                             </Grid>
                                         </Border>
+                                        <DataTemplate.Triggers>
+                                            <Trigger SourceName="RecentlyUsedCardBorder" Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="HoverPlayBtn" Property="Visibility" Value="Visible" />
+                                            </Trigger>
+                                        </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>

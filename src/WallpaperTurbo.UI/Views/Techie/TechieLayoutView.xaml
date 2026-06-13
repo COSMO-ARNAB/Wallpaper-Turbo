@@ -79,14 +79,14 @@
                 <!-- NAVIGATION BUTTON LIST -->
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                     <StackPanel Margin="0,0,0,10">
-                        <RadioButton Content="Dashboard" Tag="Home24" IsChecked="True" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Library" Tag="Library24" Command="{Binding NavigateCommand}" CommandParameter="Library" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Playlists" Tag="Play24" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Monitor Setup" Tag="Desktop24" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Engine" Tag="Power24" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Performance" Tag="Flash24" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="Settings" Tag="Settings24" Command="{Binding NavigateCommand}" CommandParameter="Settings" Style="{StaticResource SidebarButtonStyle}" />
-                        <RadioButton Content="About" Tag="Info24" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Dashboard" Tag="Home24" IsChecked="{Binding IsDashboardActive, Mode=OneWay}" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Library" Tag="Library24" IsChecked="{Binding IsLibraryActive, Mode=OneWay}" Command="{Binding NavigateCommand}" CommandParameter="Library" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Playlists" Tag="Play24" Command="{Binding ShowFeatureComingSoonCommand}" CommandParameter="Playlists" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Monitor Setup" Tag="Desktop24" Command="{Binding ShowFeatureComingSoonCommand}" CommandParameter="Monitor Setup" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Engine" Tag="Power24" Command="{Binding ShowFeatureComingSoonCommand}" CommandParameter="Engine" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Performance" Tag="Flash24" Command="{Binding ShowFeatureComingSoonCommand}" CommandParameter="Performance" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="Settings" Tag="Settings24" IsChecked="{Binding IsSettingsActive, Mode=OneWay}" Command="{Binding NavigateCommand}" CommandParameter="Settings" Style="{StaticResource SidebarButtonStyle}" />
+                        <RadioButton Content="About" Tag="Info24" Command="{Binding ShowFeatureComingSoonCommand}" CommandParameter="About" Style="{StaticResource SidebarButtonStyle}" />
                     </StackPanel>
                 </ScrollViewer>
 
@@ -243,35 +243,119 @@
                                    Foreground="{StaticResource NeonPurpleCyanGradient}"
                                    FontFamily="Segoe UI Variable Display, Inter"
                                    FontSize="11" 
-                                   FontWeight="Bold"
+                                   FontWeight="ExtraBold"
                                    VerticalAlignment="Center" 
-                                   HorizontalAlignment="Left" />
+                                   HorizontalAlignment="Left">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="{StaticResource ActiveCyanColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.3" />
+                            </TextBlock.Effect>
+                        </TextBlock>
 
                         <!-- Right Command controls (leaving ~130px on the far right for the native Min/Max/Close buttons inside TitleBar) -->
                         <StackPanel WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,130,0">
                             <!-- Monitor Selector combobox with screen icon -->
-                            <ComboBox Width="130" SelectedIndex="0" Margin="0,0,8,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                                <ComboBoxItem>
-                                    <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Symbol="Desktop24" Margin="0,0,8,0"/>
-                                        <TextBlock Text="Monitor 1" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </ComboBoxItem>
+                            <ComboBox Width="150" 
+                                      ItemsSource="{Binding Monitors}" 
+                                      SelectedItem="{Binding SelectedMonitor}" 
+                                      Margin="0,0,8,0" 
+                                      WindowChrome.IsHitTestVisibleInChrome="True">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="4">
+                                            <ui:SymbolIcon Symbol="Desktop24" Margin="0,0,8,0" Foreground="{StaticResource ActiveCyanBrush}" FontSize="14" />
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Number, StringFormat='Monitor {0}'}" FontSize="11" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                    <TextBlock Text="{Binding Resolution}" FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
+                                                    <TextBlock Text=" • " FontSize="9" Foreground="{StaticResource MutedTextBrush}" />
+                                                    <TextBlock Text="{Binding Type}" FontSize="9" Foreground="{StaticResource ActivePurpleBrush}" FontWeight="SemiBold" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
                             </ComboBox>
 
                             <!-- Layout Switch button -->
-                            <ui:Button Icon="Grid24" Appearance="Secondary" Margin="0,0,8,0" Padding="8,6" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Switch to Minimal Layout" Command="{Binding LayoutHost.SwitchLayoutCommand}" CommandParameter="{x:Static models:LayoutMode.Minimal}" />
+                            <ui:Button Margin="0,0,8,0" Padding="8,6" 
+                                       WindowChrome.IsHitTestVisibleInChrome="True" 
+                                       ToolTip="Switch to Minimal Layout" 
+                                       Command="{Binding LayoutHost.SwitchLayoutCommand}" 
+                                       CommandParameter="{x:Static models:LayoutMode.Minimal}">
+                                <ui:Button.Style>
+                                    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                        <Setter Property="Foreground" Value="{StaticResource WhiteTextBrush}" />
+                                        <Setter Property="Background" Value="#15FFFFFF" />
+                                        <Setter Property="BorderBrush" Value="#3066FCF1" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#2566FCF1" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource ActiveCyanBrush}" />
+                                                <Setter Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Button.Style>
+                                <ui:SymbolIcon Symbol="Grid24" FontSize="14" />
+                            </ui:Button>
 
                             <!-- Glowing Accent + Import Button -->
                             <ui:Button Content="+ Import" Command="{Binding ImportWallpaperCommand}" Style="{StaticResource NeonImportButtonStyle}" Margin="0,0,12,0" WindowChrome.IsHitTestVisibleInChrome="True" />
 
                             <!-- Header status action shortcuts -->
-                            <ui:Button Icon="AlertUrgent24" Appearance="Transparent" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,6,0" Padding="6" WindowChrome.IsHitTestVisibleInChrome="True" />
-                            <ui:Button Icon="Settings24" Appearance="Transparent" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,6,0" Padding="6" WindowChrome.IsHitTestVisibleInChrome="True" />
+                            <ui:Button Command="{Binding Updater.CheckForUpdatesCommand}"
+                                       Margin="0,0,6,0" Padding="6" 
+                                       WindowChrome.IsHitTestVisibleInChrome="True">
+                                <ui:Button.Style>
+                                    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                        <Setter Property="Appearance" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+                                        <Setter Property="ToolTip" Value="Check for Updates" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Updater.IsNotificationVisible}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource WarningRedBrush}" />
+                                                <Setter Property="ToolTip" Value="Update Available! Click to download." />
+                                                <Setter Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.6" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Button.Style>
+                                <ui:SymbolIcon Symbol="AlertUrgent24" FontSize="14" />
+                            </ui:Button>
+
+                            <ui:Button Margin="0,0,6,0" Padding="6" 
+                                       WindowChrome.IsHitTestVisibleInChrome="True"
+                                       Command="{Binding NavigateCommand}"
+                                       CommandParameter="Settings">
+                                <ui:Button.Style>
+                                    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                        <Setter Property="Appearance" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+                                        <Setter Property="ToolTip" Value="Settings" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource ActiveCyanBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Button.Style>
+                                <ui:SymbolIcon Symbol="Settings24" FontSize="14" />
+                            </ui:Button>
                             
                             <!-- Profile picture border matching mockup -->
-                            <Border Width="24" Height="24" CornerRadius="12" BorderThickness="1.5" BorderBrush="{StaticResource ActiveGreenBrush}" WindowChrome.IsHitTestVisibleInChrome="True">
-                                <Ellipse Width="20" Height="20" Fill="#20FFFFFF"/>
+                            <Border Width="24" Height="24" CornerRadius="12" BorderThickness="1.5" BorderBrush="{StaticResource ActiveGreenBrush}" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="User Session Active">
+                                <Grid>
+                                    <Ellipse Width="20" Height="20" Fill="#1000FF66"/>
+                                    <ui:SymbolIcon Symbol="Person24" Foreground="{StaticResource ActiveGreenBrush}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
                             </Border>
                         </StackPanel>
                     </Grid>
@@ -400,9 +484,11 @@
                         <!-- GPU metric -->
                         <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="GPU" Style="{StaticResource TelemetryLabelStyle}" />
-                                <TextBlock Text="LOAD" Style="{StaticResource TelemetryLabelStyle}" />
-                                <TextBlock Text="{Binding GpuText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
+                                <ui:SymbolIcon Symbol="Glance24" Foreground="{StaticResource ActiveCyanBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <StackPanel>
+                                    <TextBlock Text="GPU LOAD" Style="{StaticResource TelemetryLabelStyle}" />
+                                    <TextBlock Text="{Binding GpuText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -431,7 +517,7 @@
                         <!-- Uptime metric -->
                         <Border BorderBrush="#15FFFFFF" BorderThickness="0,0,1,0" Height="32" Padding="0,0,12,0" Margin="0,4,12,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Settings24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <ui:SymbolIcon Symbol="Clock24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <StackPanel>
                                     <TextBlock Text="UPTIME" Style="{StaticResource TelemetryLabelStyle}" />
                                     <TextBlock Text="{Binding UptimeText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
@@ -453,7 +539,7 @@
                         <!-- Active Renderer -->
                         <Border Padding="0" Margin="0,4,0,4" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <ui:SymbolIcon Symbol="Video24" Foreground="{StaticResource ActivePurpleBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <StackPanel>
                                     <TextBlock Text="RENDERER" Style="{StaticResource TelemetryLabelStyle}" />
                                     <TextBlock Text="{Binding ActiveRendererText}" Style="{StaticResource TelemetryMetricStyle}" Margin="0,2,0,0" />
