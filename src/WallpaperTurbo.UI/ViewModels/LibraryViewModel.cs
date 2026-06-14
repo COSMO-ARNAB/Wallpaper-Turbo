@@ -30,7 +30,13 @@ public partial class LibraryViewModel : ObservableObject
     public LibraryViewModel(WallpaperService wallpaperService)
     {
         _wallpaperService = wallpaperService;
-        _ = LoadLibraryAsync();
+        _ = LoadLibraryAsync().ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LibraryViewModel] LoadLibraryAsync failed: {t.Exception?.GetBaseException().Message}");
+            }
+        }, TaskScheduler.Default);
     }
 
     public async Task LoadLibraryAsync()

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WallpaperTurbo.Core.Hardware;
 using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
@@ -14,10 +15,12 @@ public partial class SettingsViewModel : ObservableObject
 {
     private readonly WallpaperService _wallpaperService;
     private readonly UpdaterViewModel _updaterViewModel;
+    private CancellationTokenSource? _gpuSwitchCts;
     private readonly LayoutHostViewModel _layoutHostViewModel;
     private readonly ISettingsStore _settingsStore;
     private bool _suppressChannelUpdate;
     private bool _isSyncing = false;
+    private int _gpuSwitchPendingCount = 0;
 
     [ObservableProperty] private bool _useHardwareAcceleration = true;
     [ObservableProperty] private string _activePauseProfile = "Maximized";
@@ -31,7 +34,8 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _selectedTheme = "System";
     [ObservableProperty] private string _selectedLayout = "Minimal";
-    [ObservableProperty] private string _selectedGpuPreference = "Default";
+    [ObservableProperty] private GpuPreference _selectedGpuPreference = GpuPreference.Auto;
+    [ObservableProperty] private bool _isGpuSwitching = false;
     [ObservableProperty] private bool _pauseOnFullscreen = true;
     [ObservableProperty] private bool _muteWallpaperAudio = true;
     [ObservableProperty] private bool _autoStartWallpaperEngine = true;
@@ -177,45 +181,55 @@ public partial class SettingsViewModel : ObservableObject
         _settingsStore.Save(settings);
     }
 
-    partial void OnSelectedGpuPreferenceChanged(string value)
+    partial void OnSelectedGpuPreferenceChanged(GpuPreference value)
     {
         if (_isSyncing) return;
 
+        // Persist setting to store
         var settings = _settingsStore.Load();
         settings.GpuPreference = value;
         _settingsStore.Save(settings);
 
-        ApplyGpuPreferenceRegistry(value);
+        // Cancel any in-flight switch and kick a new debounced one
+        _gpuSwitchCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _gpuSwitchCts = cts;
+        _ = ApplyGpuPreferenceSwitchAsync(value, cts);
     }
 
-    private void ApplyGpuPreferenceRegistry(string preference)
+    private async Task ApplyGpuPreferenceSwitchAsync(GpuPreference value, CancellationTokenSource cts)
     {
+        var ct = cts.Token;
+        System.Threading.Interlocked.Increment(ref _gpuSwitchPendingCount);
+        IsGpuSwitching = true;
         try
         {
-            string appRunnerExePath = _wallpaperService.AppRunnerExePath;
-            if (!string.IsNullOrEmpty(appRunnerExePath) && File.Exists(appRunnerExePath))
-            {
-                using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\DirectX\UserGpuPreferences");
-                if (key != null)
-                {
-                    if (string.Equals(preference, "Integrated", StringComparison.OrdinalIgnoreCase))
-                    {
-                        key.SetValue(appRunnerExePath, "GpuPreference=1;");
-                    }
-                    else if (string.Equals(preference, "Dedicated", StringComparison.OrdinalIgnoreCase))
-                    {
-                        key.SetValue(appRunnerExePath, "GpuPreference=2;");
-                    }
-                    else
-                    {
-                        key.DeleteValue(appRunnerExePath, false);
-                    }
-                }
-            }
+            // Debounce: wait 600 ms so rapid clicks only trigger one restart
+            await Task.Delay(600, ct);
+
+            // Let the WallpaperService handle registry updates and engine restart (no double saving)
+            await _wallpaperService.ApplyGpuPreferenceAsync(value);
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer selection arrived before the debounce fired — let the new CTS handle it
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to write GPU preference registry key: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[GpuSwitch] Failed: {ex.Message}");
+        }
+        finally
+        {
+            if (System.Threading.Interlocked.Decrement(ref _gpuSwitchPendingCount) <= 0)
+            {
+                IsGpuSwitching = false;
+            }
+
+            if (_gpuSwitchCts == cts)
+            {
+                _gpuSwitchCts = null;
+            }
+            cts.Dispose();
         }
     }
 
@@ -238,37 +252,38 @@ public partial class SettingsViewModel : ObservableObject
 
     public async Task LoadLogsAsync()
     {
-        await Task.Run(() =>
-        {
-            try
-            {
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                // Try to find AppRunner output directory
-                string appRunnerDir = baseDir;
-                string localLog = Path.Combine(baseDir, "wallpaper.log");
-                if (!File.Exists(localLog))
-                {
-                    string srcPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
-                    appRunnerDir = Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows", "win-x64");
-                    localLog = Path.Combine(appRunnerDir, "wallpaper.log");
-                }
+        var engineLogsText = await Task.Run(() => ReadEngineLogsText());
+        EngineLogsText = engineLogsText;
+    }
 
-                if (File.Exists(localLog))
-                {
-                    // Read last 15 lines of log file
-                    var lines = File.ReadLines(localLog).TakeLast(15);
-                    EngineLogsText = string.Join(Environment.NewLine, lines);
-                }
-                else
-                {
-                    EngineLogsText = "AppRunner engine log file (wallpaper.log) not generated yet. Start wallpaper to dump logs.";
-                }
-            }
-            catch (Exception ex)
+    internal static string ReadEngineLogsText(string? baseDir = null)
+    {
+        try
+        {
+            baseDir ??= AppDomain.CurrentDomain.BaseDirectory;
+            // Try to find AppRunner output directory
+            string appRunnerDir = baseDir;
+            string localLog = Path.Combine(baseDir, "wallpaper.log");
+            if (!File.Exists(localLog))
             {
-                EngineLogsText = $"Error reading log file: {ex.Message}";
+                string srcPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
+                appRunnerDir = Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows", "win-x64");
+                localLog = Path.Combine(appRunnerDir, "wallpaper.log");
             }
-        });
+
+            if (File.Exists(localLog))
+            {
+                // Read last 15 lines of log file
+                var lines = File.ReadLines(localLog).TakeLast(15);
+                return string.Join(Environment.NewLine, lines);
+            }
+
+            return "AppRunner engine log file (wallpaper.log) not generated yet. Start wallpaper to dump logs.";
+        }
+        catch (Exception ex)
+        {
+            return $"Error reading log file: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -293,7 +308,7 @@ public partial class SettingsViewModel : ObservableObject
             SelectedTheme = "Dark";
             SelectedLayout = "Minimal";
             MuteWallpaperAudio = true;
-            SelectedGpuPreference = "Default";
+            SelectedGpuPreference = GpuPreference.Auto;
             AutoStartWallpaperEngine = true;
             RememberLastWallpaper = true;
             PerformanceMode = "Balanced";
@@ -307,6 +322,11 @@ public partial class SettingsViewModel : ObservableObject
         _wallpaperService.ActivePauseProfile = "Maximized";
         _ = _wallpaperService.SetMuteAsync(true);
         Wpf.Ui.Appearance.ApplicationThemeManager.Apply(Wpf.Ui.Appearance.ApplicationTheme.Dark);
+
+        _gpuSwitchCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _gpuSwitchCts = cts;
+        _ = ApplyGpuPreferenceSwitchAsync(GpuPreference.Auto, cts);
 
         _suppressChannelUpdate = true;
         try

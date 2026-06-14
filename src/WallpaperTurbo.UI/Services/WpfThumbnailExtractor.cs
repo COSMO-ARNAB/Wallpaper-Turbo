@@ -39,8 +39,9 @@ public class WpfThumbnailExtractor : IThumbnailExtractor
 
         // We need a dedicated STA thread with its OWN Dispatcher for MediaPlayer.
         // Using Dispatcher.PushFrame is fragile: if MediaOpened fires before PushFrame
-        // starts pumping, the callback might get queued but never processed.
         // Correct pattern: Dispatcher.Run() + Dispatcher.CurrentDispatcher.InvokeShutdown().
+        using var localCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
         var thread = new Thread(() =>
         {
             var dispatcher = Dispatcher.CurrentDispatcher;
@@ -63,7 +64,7 @@ public class WpfThumbnailExtractor : IThumbnailExtractor
                 catch { }
             }
 
-            using var registration = cancellationToken.Register(() =>
+            using var registration = localCts.Token.Register(() =>
             {
                 tcs.TrySetCanceled();
                 dispatcher.BeginInvoke(ShutdownDispatcher, DispatcherPriority.Normal);
@@ -80,7 +81,7 @@ public class WpfThumbnailExtractor : IThumbnailExtractor
                 {
                     try
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
+                        localCts.Token.ThrowIfCancellationRequested();
 
                         var duration = mediaPlayer.NaturalDuration.HasTimeSpan
                             ? mediaPlayer.NaturalDuration.TimeSpan
@@ -92,9 +93,9 @@ public class WpfThumbnailExtractor : IThumbnailExtractor
                         mediaPlayer.Position = targetPos;
 
                         // Give Media Foundation time to decode the frame at the seek position
-                        await Task.Delay(800, cancellationToken);
+                        await Task.Delay(800, localCts.Token);
 
-                        cancellationToken.ThrowIfCancellationRequested();
+                        localCts.Token.ThrowIfCancellationRequested();
 
                         int width = mediaPlayer.NaturalVideoWidth;
                         int height = mediaPlayer.NaturalVideoHeight;
@@ -178,6 +179,9 @@ public class WpfThumbnailExtractor : IThumbnailExtractor
             wdCts.Cancel(); // Cancel the watchdog timer
             return await tcs.Task;
         }
+
+        // On timeout, cleanly shut down the STA thread by triggering localCts
+        localCts.Cancel();
 
         if (cancellationToken.IsCancellationRequested)
         {

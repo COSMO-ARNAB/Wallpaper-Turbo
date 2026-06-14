@@ -4,10 +4,13 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:converters="clr-namespace:WallpaperTurbo.UI.Converters"
+             xmlns:hw="clr-namespace:WallpaperTurbo.Core.Hardware;assembly=WallpaperTurbo.Core"
              mc:Ignorable="d"
              d:DesignHeight="780" d:DesignWidth="1240">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <converters:InverseBooleanConverter x:Key="InverseBoolConverter" />
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -244,20 +247,39 @@
                         </Grid>
 
                         <!-- GPU Preference -->
-                        <Grid Margin="0,0,0,16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <ui:SymbolIcon Grid.Column="0" Symbol="DeveloperBoard24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="GPU Preference" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
-                            <ComboBox Grid.Column="2" SelectedValue="{Binding SelectedGpuPreference}" SelectedValuePath="Content" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <ComboBoxItem Content="Default" />
-                                <ComboBoxItem Content="Integrated" />
-                                <ComboBoxItem Content="Dedicated" />
-                            </ComboBox>
-                        </Grid>
+                        <StackPanel Margin="0,0,0,16" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ui:SymbolIcon Grid.Column="0" Symbol="DeveloperBoard24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="GPU Preference" Style="{StaticResource BodyStyle}" VerticalAlignment="Center"/>
+                                <!-- ComboBox + spinner stacked horizontally -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <ui:ProgressRing Width="16" Height="16"
+                                                     IsIndeterminate="True"
+                                                     Margin="0,0,8,0"
+                                                     Foreground="{StaticResource AccentBrush}"
+                                                     Visibility="{Binding IsGpuSwitching, Converter={StaticResource BoolToVisConverter}}"
+                                                     VerticalAlignment="Center" />
+                                    <ComboBox SelectedValue="{Binding SelectedGpuPreference}" SelectedValuePath="Tag" Width="140"
+                                              HorizontalAlignment="Right" VerticalAlignment="Center"
+                                              IsEnabled="{Binding IsGpuSwitching, Converter={StaticResource InverseBoolConverter}}">
+                                        <ComboBoxItem Content="Default" Tag="{x:Static hw:GpuPreference.Auto}" />
+                                        <ComboBoxItem Content="Integrated" Tag="{x:Static hw:GpuPreference.Integrated}" />
+                                        <ComboBoxItem Content="Dedicated" Tag="{x:Static hw:GpuPreference.Dedicated}" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                            <!-- Status caption shown only while a GPU switch is in progress -->
+                            <TextBlock Text="Switching GPU — wallpaper restarting…"
+                                       FontSize="10"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       Margin="28,4,0,0"
+                                       Visibility="{Binding IsGpuSwitching, Converter={StaticResource BoolToVisConverter}}" />
+                        </StackPanel>
 
                         <!-- Battery Saver -->
                         <Grid Margin="0,0,0,4">
@@ -364,10 +386,13 @@
                             <TextBlock Text="{Binding Updater.StatusDetailText}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Setter Property="Visibility" Value="Visible" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Updater.StatusDetailText, Converter={StaticResource BoolToVisConverter}}" Value="Visible">
-                                                <Setter Property="Visibility" Value="Visible" />
+                                            <DataTrigger Binding="{Binding Updater.StatusDetailText}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Updater.StatusDetailText}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>

@@ -7,6 +7,7 @@ namespace WallpaperTurbo.UI.Services;
 
 public class JsonSettingsStore : ISettingsStore
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
     private readonly string _filePath;
     private readonly object _lock = new();
     private AppSettings? _cachedSettings;
@@ -65,7 +66,7 @@ public class JsonSettingsStore : ISettingsStore
                     Directory.CreateDirectory(dir);
                 }
 
-                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                string json = JsonSerializer.Serialize(settings, SerializerOptions);
                 File.WriteAllText(_filePath, json);
             }
             catch (Exception ex)
@@ -85,7 +86,8 @@ public class JsonSettingsStore : ISettingsStore
             Theme = source.Theme,
             Layout = source.Layout,
             PauseOnMaximized = source.PauseOnMaximized,
-            MuteAudio = source.MuteAudio
+            MuteAudio = source.MuteAudio,
+            GpuPreference = source.GpuPreference
         };
     }
 }

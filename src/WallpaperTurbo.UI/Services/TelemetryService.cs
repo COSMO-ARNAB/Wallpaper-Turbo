@@ -61,7 +61,18 @@ public class TelemetryService
         _provider = new PerformanceCounterTelemetryProvider();
 
         _timer = new System.Timers.Timer(1000);
-        _timer.Elapsed += async (s, e) => await PollMetricsAsync();
+        _timer.AutoReset = false;
+        _timer.Elapsed += async (s, e) =>
+        {
+            try
+            {
+                await PollMetricsAsync();
+            }
+            finally
+            {
+                _timer.Start();
+            }
+        };
     }
 
     public void Start()
@@ -132,12 +143,13 @@ public class TelemetryService
             return;
         }
 
+        Process[]? runnerProcesses = null;
         try
         {
             // 1. Detect if AppRunner process is active and retrieve its uptime
-            var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
-            var runner = runnerProcesses.FirstOrDefault(p => !p.HasExited);
-            
+            runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
+            Process? runner = runnerProcesses.FirstOrDefault(p => !p.HasExited);
+
             bool isRunning = runner != null;
             if (isRunning && runner != null)
             {
@@ -303,6 +315,16 @@ public class TelemetryService
         catch (Exception ex)
         {
             Debug.WriteLine($"Error polling telemetry metrics: {ex.Message}");
+        }
+        finally
+        {
+            if (runnerProcesses != null)
+            {
+                foreach (var p in runnerProcesses)
+                {
+                    p.Dispose();
+                }
+            }
         }
     }
 

@@ -434,7 +434,7 @@ public partial class DashboardViewModel : ObservableObject
         {
             RamValueText = $"{m.RamUsageGb:0.0} / {m.RamTotalGb:0} GB";
             RamGbText = $"{m.RamUsageGb:0.0} GB";
-            RamPercentage = (m.RamUsageGb / m.RamTotalGb) * 100.0;
+            RamPercentage = CalculatePercentage(m.RamUsageGb, m.RamTotalGb);
             _lastRam = m.RamUsageGb;
         }
 
@@ -443,7 +443,7 @@ public partial class DashboardViewModel : ObservableObject
         {
             VramValueText = $"{m.VramUsageGb:0.0} / {m.VramTotalGb:0} GB";
             VramGbText = $"{m.VramUsageGb:0.0} GB";
-            VramPercentage = (m.VramUsageGb / m.VramTotalGb) * 100.0;
+            VramPercentage = CalculatePercentage(m.VramUsageGb, m.VramTotalGb);
             _lastVram = m.VramUsageGb;
         }
 
@@ -609,6 +609,17 @@ public partial class DashboardViewModel : ObservableObject
         {
             System.Diagnostics.Debug.WriteLine($"[DashboardViewModel] Save history error: {ex.Message}");
         }
+    }
+
+    internal static double CalculatePercentage(double value, double total)
+    {
+        if (total <= 0 || double.IsNaN(total) || double.IsInfinity(total))
+        {
+            return 0.0;
+        }
+
+        var percentage = (value / total) * 100.0;
+        return double.IsFinite(percentage) ? percentage : 0.0;
     }
 
     private void RegisterPlayedWallpaper(WallpaperEntry wp)

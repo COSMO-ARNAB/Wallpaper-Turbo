@@ -34,6 +34,7 @@ public partial class App : Application
         services.AddSingleton<Services.IThumbnailExtractor, Services.WpfThumbnailExtractor>();
         services.AddSingleton<Services.IWallpaperLibraryService, Services.WallpaperLibraryService>();
         services.AddSingleton<Services.ISettingsStore, Services.JsonSettingsStore>();
+        services.AddSingleton<Services.IGpuPreferenceService, Services.WindowsGpuPreferenceService>();
         services.AddSingleton<Services.WallpaperService>();
         services.AddSingleton<Services.TelemetryService>();
         services.AddSingleton<Services.IWallpaperPreviewService, Services.WallpaperPreviewService>();
@@ -222,7 +223,7 @@ public partial class App : Application
         bool killedStuckProcess = false;
         try
         {
-            var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+            using var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
             
             // Safety guard: never touch processes if named "dotnet"
             if (string.Equals(currentProcess.ProcessName, "dotnet", StringComparison.OrdinalIgnoreCase))
@@ -234,28 +235,38 @@ public partial class App : Application
                 .Where(p => p.Id != currentProcess.Id)
                 .ToList();
 
-            foreach (var process in runningInstances)
+            try
             {
-                IntPtr handle = process.MainWindowHandle;
-                if (handle != IntPtr.Zero)
+                foreach (var process in runningInstances)
                 {
-                    ShowWindow(handle, SW_RESTORE);
-                    SetForegroundWindow(handle);
-                    return false;
-                }
-                
-                // If it has no main window handle and has been running for more than 10 seconds,
-                // it is likely a stuck background process that was not terminated properly.
-                try
-                {
-                    if ((DateTime.Now - process.StartTime).TotalSeconds > 10)
+                    IntPtr handle = process.MainWindowHandle;
+                    if (handle != IntPtr.Zero)
                     {
-                        process.Kill();
-                        process.WaitForExit(1500);
-                        killedStuckProcess = true;
+                        ShowWindow(handle, SW_RESTORE);
+                        SetForegroundWindow(handle);
+                        return false;
                     }
+                    
+                    // If it has no main window handle and has been running for more than 10 seconds,
+                    // it is likely a stuck background process that was not terminated properly.
+                    try
+                    {
+                        if ((DateTime.Now - process.StartTime).TotalSeconds > 10)
+                        {
+                            process.Kill();
+                            process.WaitForExit(1500);
+                            killedStuckProcess = true;
+                        }
+                    }
+                    catch { }
                 }
-                catch { }
+            }
+            finally
+            {
+                foreach (var process in runningInstances)
+                {
+                    try { process.Dispose(); } catch { }
+                }
             }
         }
         catch (Exception ex)

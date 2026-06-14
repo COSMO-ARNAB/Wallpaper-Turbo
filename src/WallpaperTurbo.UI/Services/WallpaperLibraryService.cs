@@ -19,6 +19,8 @@ public class UserWallpaperManifest
 
 public class WallpaperLibraryService : IWallpaperLibraryService
 {
+    private static readonly JsonSerializerOptions s_writeIndentedOptions = new() { WriteIndented = true };
+
     private readonly string _localAppDir;
     private readonly string _wallpapersDir;
     private readonly string _manifestPath;
@@ -559,7 +561,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
             { "Tags", entry.Tags }
         };
 
-        string json = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
+        string json = JsonSerializer.Serialize(metadata, s_writeIndentedOptions);
         await File.WriteAllTextAsync(metadataPath, json, cancellationToken);
     }
 
@@ -636,7 +638,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
 
         // 2. Atomic Temporary Write then Move Replace
         string tempFile = Path.Combine(_localAppDir, $"{Guid.NewGuid()}.tmp");
-        string json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
+        string json = JsonSerializer.Serialize(manifest, s_writeIndentedOptions);
         await File.WriteAllTextAsync(tempFile, json, cancellationToken);
 
         try
@@ -767,7 +769,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                         
                         // Save default manifest atomically
                         string tempFile = Path.Combine(_localAppDir, $"{Guid.NewGuid()}.tmp");
-                        string outputJson = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
+                        string outputJson = JsonSerializer.Serialize(manifest, s_writeIndentedOptions);
                         await File.WriteAllTextAsync(tempFile, outputJson, cancellationToken);
                         
                         if (File.Exists(defaultManifestPath)) File.Delete(defaultManifestPath);

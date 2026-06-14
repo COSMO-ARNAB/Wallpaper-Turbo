@@ -184,7 +184,7 @@ public sealed class DiagnosticsService : ObservableObject
         
         while (true)
         {
-            var uiResponded = new ManualResetEventSlim(false);
+            using var uiResponded = new ManualResetEventSlim(false);
             
             try
             {
@@ -211,6 +211,7 @@ public sealed class DiagnosticsService : ObservableObject
 
             // Wait up to 3 seconds for UI thread response
             bool responded = uiResponded.Wait(TimeSpan.FromSeconds(3));
+            
             if (!responded)
             {
                 string action = LastKnownAction;
@@ -298,7 +299,11 @@ public sealed class DiagnosticsService : ObservableObject
         try
         {
             double managedMemoryMb = GC.GetTotalMemory(false) / (1024.0 * 1024.0);
-            double privateMemoryMb = Process.GetCurrentProcess().PrivateMemorySize64 / (1024.0 * 1024.0);
+            double privateMemoryMb;
+            using (var currentProcess = Process.GetCurrentProcess())
+            {
+                privateMemoryMb = currentProcess.PrivateMemorySize64 / (1024.0 * 1024.0);
+            }
             MemoryUsageText = $"Managed: {managedMemoryMb:F1} MB | Private: {privateMemoryMb:F1} MB";
         }
         catch

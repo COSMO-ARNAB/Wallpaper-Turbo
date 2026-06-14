@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using WallpaperTurbo.Core.Hardware;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.ViewModels;
 
@@ -275,6 +276,7 @@ public class WallpaperService
 {
     private readonly IWallpaperLibraryService _libraryService;
     private readonly ISettingsStore _settingsStore;
+    private readonly IGpuPreferenceService _gpuPreferenceService;
     private readonly string _manifestPath;
     private readonly string _appRunnerDir;
     private readonly string _appRunnerExePath;
@@ -298,10 +300,11 @@ public class WallpaperService
     public bool UseSoftwareDecoding { get; set; } = false;
     public string AppRunnerExePath => _appRunnerExePath;
 
-    public WallpaperService(IWallpaperLibraryService libraryService, ISettingsStore settingsStore)
+    public WallpaperService(IWallpaperLibraryService libraryService, ISettingsStore settingsStore, IGpuPreferenceService gpuPreferenceService)
     {
         _libraryService = libraryService;
         _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
+        _gpuPreferenceService = gpuPreferenceService ?? throw new ArgumentNullException(nameof(gpuPreferenceService));
         
         // Initialize active pause profile from persisted settings
         var settings = _settingsStore.Load();
@@ -343,6 +346,20 @@ public class WallpaperService
         }
 
         _manifestPath = Path.Combine(_appRunnerDir, "Assets", "WallpaperManifest.json");
+
+        // Sync GPU preference registry on startup
+        try
+        {
+            var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
+            if (registryPref != settings.GpuPreference)
+            {
+                _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, settings.GpuPreference);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[WallpaperService] Startup GPU preference sync failed: {ex.Message}");
+        }
     }
 
     public async Task<List<WallpaperEntry>> GetWallpapersAsync()
@@ -404,13 +421,15 @@ public class WallpaperService
 
         // Fast path: check for named AppRunner process - this is O(1) and non-blocking
         var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
-        if (runnerProcesses.Any())
+        if (runnerProcesses.Length > 0)
         {
             isRunning = true;
         }
-        // NOTE: Removed dotnet module enumeration fallback - iterating p.Modules is a blocking 
-        // Win32 syscall that can stall for 100-300ms per process, causing UI freezes when 
-        // called on the telemetry timer callback. Named process check is sufficient.
+
+        foreach (var p in runnerProcesses)
+        {
+            p.Dispose();
+        }
 
         if (isRunning)
         {
@@ -546,7 +565,7 @@ public class WallpaperService
             {
                 string decodeArg = softDecode ? " --software-decode" : string.Empty;
                 string muteArg = $" --mute-audio {isMuted.ToString().ToLowerInvariant()}";
-                int currentPid = System.Diagnostics.Process.GetCurrentProcess().Id;
+                int currentPid = Environment.ProcessId;
                 string args = $"--detach --wallpaper {index} --silent --pause-mode {mode}{decodeArg}{muteArg} --ui-pid {currentPid}";
 
                 DiagnosticsService.SetAction($"Wallpaper Service Starting process: {args}");
@@ -631,6 +650,67 @@ public class WallpaperService
     }
 
     public int GetActiveWallpaperIndex() => _activeWallpaperIndex;
+
+    private readonly SemaphoreSlim _gpuApplySemaphore = new SemaphoreSlim(1, 1);
+
+    /// <summary>
+    /// Updates the GPU registry routing and restarts the Wallpaper Engine
+    /// if it is currently running to ensure the preference takes effect immediately.
+    /// </summary>
+    public async Task ApplyGpuPreferenceAsync(GpuPreference mode)
+    {
+        await _gpuApplySemaphore.WaitAsync();
+        try
+        {
+            // 1. Write GPU routing to Registry
+            _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, mode);
+
+            // 2. Restart engine if currently running
+            if (IsEngineRunning() && _activeWallpaperIndex > 0)
+            {
+                int activeIndex = _activeWallpaperIndex;
+                await StopPlaybackAsync();
+
+                // Wait for the AppRunner process to fully release its GPU handle
+                await WaitForEngineExitAsync(2500);
+
+                // Brief additional cooldown before relaunching
+                await Task.Delay(300);
+
+                await LaunchWallpaperAsync(activeIndex);
+            }
+        }
+        finally
+        {
+            _gpuApplySemaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Polls until the WallpaperTurbo.AppRunner process has fully exited,
+    /// or until <paramref name="timeoutMs"/> elapses. Call after
+    /// <see cref="StopPlaybackAsync"/> before relaunching on a different GPU
+    /// to ensure the GPU D3D handle is released before the new process starts.
+    /// </summary>
+    public async Task WaitForEngineExitAsync(int timeoutMs = 2500)
+    {
+        await Task.Run(() =>
+        {
+            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            while (DateTime.UtcNow < deadline)
+            {
+                var procs = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
+                bool anyRunning = procs.Length > 0;
+                foreach (var p in procs)
+                {
+                    p.Dispose();
+                }
+
+                if (!anyRunning) return;
+                Thread.Sleep(100);
+            }
+        });
+    }
 
     public async Task<bool> DeleteWallpaperAsync(WallpaperEntry wp)
     {

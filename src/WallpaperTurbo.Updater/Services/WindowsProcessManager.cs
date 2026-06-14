@@ -14,7 +14,7 @@ public sealed class WindowsProcessManager : IProcessManager
         var processes = new List<Process>();
         processes.AddRange(Process.GetProcessesByName("WallpaperTurbo.AppRunner"));
         processes.AddRange(Process.GetProcessesByName("WallpaperTurbo.UI"));
-        var currentProcess = Process.GetCurrentProcess();
+        using var currentProcess = Process.GetCurrentProcess();
         var processesToShutdown = new List<Process>();
 
         foreach (var proc in processes)
@@ -25,9 +25,14 @@ public sealed class WindowsProcessManager : IProcessManager
                 {
                     processesToShutdown.Add(proc);
                 }
+                else
+                {
+                    proc.Dispose();
+                }
             }
             catch
             {
+                proc.Dispose();
             }
         }
 
@@ -67,19 +72,11 @@ public sealed class WindowsProcessManager : IProcessManager
             }
             return false;
         }
-
-        foreach (var proc in processesToShutdown)
+        finally
         {
-            try
+            foreach (var proc in processesToShutdown)
             {
-                if (!proc.HasExited)
-                {
-                    return false;
-                }
-            }
-            catch
-            {
-                return false;
+                try { proc.Dispose(); } catch { }
             }
         }
 
@@ -124,7 +121,7 @@ public sealed class WindowsProcessManager : IProcessManager
 
     public void ShutdownCurrentProcessGracefully()
     {
-        var currentProcess = Process.GetCurrentProcess();
+        using var currentProcess = Process.GetCurrentProcess();
         try
         {
             currentProcess.CloseMainWindow();

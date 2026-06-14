@@ -386,7 +386,7 @@ public class WallpaperPreviewService : IWallpaperPreviewService
         catch (Exception ex)
         {
             Debug.WriteLine($"{LogPrefix(sessionId)} InitPlayer exception: {ex.Message}");
-            TearDownPlayer_UIThread();
+            try { TearDownPlayer_UIThread(); } catch (Exception tdEx) { Debug.WriteLine($"{LogPrefix(sessionId)} TearDown during init exception handler also failed: {tdEx.Message}"); }
         }
     }
 

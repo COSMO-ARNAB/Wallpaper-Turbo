@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\WallpaperTurbo.Core\WallpaperTurbo.Core.csproj" />
     <ProjectReference Include="..\..\src\WallpaperTurbo.Updater\WallpaperTurbo.Updater.csproj" />
+    <ProjectReference Include="..\..\src\WallpaperTurbo.UI\WallpaperTurbo.UI.csproj" />
   </ItemGroup>
 
   <ItemGroup>
