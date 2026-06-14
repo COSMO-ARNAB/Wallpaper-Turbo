@@ -130,7 +130,7 @@ $downloadUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/v$Vers
 # authenticode) the verifier requirement.
 # ---------------------------------------------------------------------------
 switch ($Channel.ToLowerInvariant()) {
-    "stable"  { $minSig = "authenticode" }
+    "stable"  { $minSig = "sha256-only" }
     "preview" { $minSig = "sha256-only" }
     "nightly" { $minSig = "sha256-only" }
     default   { $minSig = "sha256-only" }

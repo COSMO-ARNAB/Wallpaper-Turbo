@@ -387,7 +387,7 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
     {
         switch (channel)
         {
-            case ReleaseChannel.Stable:  return SignatureRequirement.Authenticode;
+            case ReleaseChannel.Stable:  return SignatureRequirement.Sha256Only;
             case ReleaseChannel.Preview: return SignatureRequirement.Sha256Only;
             case ReleaseChannel.Nightly: return SignatureRequirement.Sha256Only;
             default:                     return SignatureRequirement.Sha256Only;
