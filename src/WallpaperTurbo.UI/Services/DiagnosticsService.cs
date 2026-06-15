@@ -185,7 +185,7 @@ public sealed class DiagnosticsService : ObservableObject
         while (true)
         {
             using var uiResponded = new ManualResetEventSlim(false);
-            
+
             try
             {
                 var dispatcher = Application.Current?.Dispatcher;
@@ -193,7 +193,20 @@ public sealed class DiagnosticsService : ObservableObject
                 {
                     dispatcher.BeginInvoke(new Action(() =>
                     {
-                        uiResponded.Set();
+                        // Defensive: if the watchdog timed out and disposed
+                        // uiResponded before the UI thread recovered, calling
+                        // Set() would throw ObjectDisposedException. Swallow
+                        // it explicitly — the hang was already reported, and
+                        // the next loop iteration will create a fresh event.
+                        try
+                        {
+                            uiResponded.Set();
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            // Watchdog already disposed this event after timeout.
+                            // Hang was already logged; next iteration handles it.
+                        }
                     }), DispatcherPriority.Send);
                 }
                 else
@@ -224,7 +237,7 @@ public sealed class DiagnosticsService : ObservableObject
                 
                 try
                 {
-                    string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                    string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo", "Logs");
                     Directory.CreateDirectory(logDir);
                     string logPath = Path.Combine(logDir, "ui-hang-report.txt");
                     File.WriteAllText(logPath, hangMessage);

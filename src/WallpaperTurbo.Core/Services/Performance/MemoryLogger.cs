@@ -10,16 +10,25 @@ namespace WallpaperTurbo.Core.Services.Performance;
 /// </summary>
 public static class MemoryLogger
 {
-    private static readonly string LogFilePath;
+    private static readonly string LogFilePath = "";
     private static readonly object _lock = new object();
-    private static bool _headerWritten = false;
+    private static bool _initialized = false;
 
     static MemoryLogger()
     {
-        string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-        Directory.CreateDirectory(logDir);
-        LogFilePath = Path.Combine(logDir, "memory_usage.csv");
-        EnsureHeader();
+        try
+        {
+            string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo", "Logs");
+            Directory.CreateDirectory(logDir);
+            LogFilePath = Path.Combine(logDir, "memory_usage.csv");
+            EnsureHeader();
+            _initialized = true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[MemoryLogger] Failed to initialize: {ex.Message}");
+            _initialized = false;
+        }
     }
 
     private static void EnsureHeader()
@@ -30,7 +39,7 @@ public static class MemoryLogger
             {
                 WriteToFile("Timestamp,Process,PrivateMemory_MB,WorkingSet_MB,ManagedMemory_MB,GCHeap_MB,Handles,Threads\n");
             }
-            _headerWritten = true;
+
         }
         catch
         {
@@ -40,6 +49,7 @@ public static class MemoryLogger
 
     public static void LogMemoryStats(string processName)
     {
+        if (!_initialized) return;
         try
         {
             using var process = Process.GetCurrentProcess();

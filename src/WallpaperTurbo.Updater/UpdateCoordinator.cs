@@ -109,7 +109,8 @@ public sealed class UpdateCoordinator : IDisposable
         {
             if (_currentState != UpdateState.Idle && 
                 _currentState != UpdateState.Failed && 
-                _currentState != UpdateState.UpToDate)
+                _currentState != UpdateState.UpToDate &&
+                _currentState != UpdateState.UpdateAvailable)
             {
                 newCts.Dispose();
                 return;

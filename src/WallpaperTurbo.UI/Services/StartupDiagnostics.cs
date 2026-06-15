@@ -10,7 +10,11 @@ public static class StartupDiagnostics
 {
     private static readonly object _lock = new();
     private static bool _isInitialized = false;
-    private static readonly string LogFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs", "startup-diagnostics.log");
+    private static readonly string LogFilePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "WallpaperTurbo",
+        "Logs",
+        "startup-diagnostics.log");
     private static readonly Dictionary<string, Stopwatch> _stopwatches = new();
 
     public static void Initialize()

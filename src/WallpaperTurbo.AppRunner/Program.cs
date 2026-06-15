@@ -128,7 +128,54 @@ internal static class Program
         }
     }
 
-    private static async Task<int> Main(
+    private static string CrashLogPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "WallpaperTurbo",
+        "Logs",
+        "apprunner-crash.log");
+
+    private static void EnsureCrashLogDirectory()
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(CrashLogPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+        }
+        catch { }
+    }
+
+    private static void LogCrash(Exception ex, string context)
+    {
+        try
+        {
+            EnsureCrashLogDirectory();
+            string log = $"[{DateTime.Now:O}] [{context}] {ex.GetType().Name}: {ex.Message}{Environment.NewLine}{ex.StackTrace}{Environment.NewLine}";
+            File.AppendAllText(CrashLogPath, log);
+        }
+        catch { }
+    }
+
+    private static async Task<int> Main(string[] args)
+    {
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+                LogCrash(ex, "UNHANDLED");
+        };
+
+        try
+        {
+            return await MainImpl(args);
+        }
+        catch (Exception ex)
+        {
+            LogCrash(ex, "CAUGHT");
+            throw;
+        }
+    }
+
+    private static async Task<int> MainImpl(
         string[] args)
     {
         try
@@ -262,7 +309,9 @@ internal static class Program
         {
             try
             {
-                string logPath = Path.Combine(AppContext.BaseDirectory, "wallpaper.log");
+                string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo", "Logs");
+                Directory.CreateDirectory(logDir);
+                string logPath = Path.Combine(logDir, "wallpaper.log");
                 var fileStream = new FileStream(logPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
                 _logWriter = new StreamWriter(fileStream) { AutoFlush = true };
                 Console.SetOut(_logWriter);

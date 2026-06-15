@@ -109,6 +109,7 @@ public partial class App : Application
             Application.Current.DispatcherUnhandledException += (s, ev) =>
             {
                 Services.StartupDiagnostics.LogException("Application.Current.DispatcherUnhandledException", ev.Exception);
+                ev.Handled = true;
             };
         }
 

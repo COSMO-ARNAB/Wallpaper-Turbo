@@ -64,4 +64,24 @@ public class GitHubReleaseProviderChannelValidationTests
         Assert.NotNull(result);
         Assert.Equal(ReleaseChannel.Stable, result!.Channel);
     }
+
+    [Fact]
+    public void DefaultSignatureRequirement_StableIsSha256Only()
+    {
+        // v1.2.5: The Stable channel no longer requires an Authenticode
+        // signature by default. The installer is unsigned, so falling back to
+        // Authenticode would cause every Stable-channel update to be rejected.
+        // Sha256Only is the floor across all channels.
+        Assert.Equal(SignatureRequirement.Sha256Only, GitHubReleaseProvider.DefaultSignatureRequirementForChannel(ReleaseChannel.Stable));
+    }
+
+    [Fact]
+    public void DefaultSignatureRequirement_AllChannelsDefaultToSha256Only()
+    {
+        // Belt-and-braces check: every channel must floor to Sha256Only,
+        // matching the build-update-manifest.ps1 channel->sig mapping.
+        Assert.Equal(SignatureRequirement.Sha256Only, GitHubReleaseProvider.DefaultSignatureRequirementForChannel(ReleaseChannel.Stable));
+        Assert.Equal(SignatureRequirement.Sha256Only, GitHubReleaseProvider.DefaultSignatureRequirementForChannel(ReleaseChannel.Preview));
+        Assert.Equal(SignatureRequirement.Sha256Only, GitHubReleaseProvider.DefaultSignatureRequirementForChannel(ReleaseChannel.Nightly));
+    }
 }

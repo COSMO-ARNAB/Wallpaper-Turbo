@@ -194,6 +194,13 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
     public async Task RunStartupCheckAsync()
     {
         UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"Entry. CheckOnStartup={_settings.CheckOnStartup} Channel={_settings.ReleaseChannel}");
+        if (!_settings.AutoUpdateEnabled)
+        {
+            UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", "AutoUpdateEnabled is false; skipping startup check.");
+            Debug.WriteLine("[UpdaterViewModel] Auto updates disabled; skipping startup check.");
+            return;
+        }
+
         if (!_settings.CheckOnStartup)
         {
             UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", "CheckOnStartup is false; skipping.");

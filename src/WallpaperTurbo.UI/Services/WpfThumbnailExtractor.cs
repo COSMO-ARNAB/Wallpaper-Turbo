@@ -180,16 +180,16 @@ public class WpfThumbnailExtractor : IThumbnailExtractor
             return await tcs.Task;
         }
 
-        // On timeout, cleanly shut down the STA thread by triggering localCts
+        // On timeout, cleanly shut down the STA thread by triggering localCts.
+        // The cancellation registration already called tcs.TrySetCanceled(),
+        // so we throw the appropriate exception for the caller.
         localCts.Cancel();
 
         if (cancellationToken.IsCancellationRequested)
         {
-            tcs.TrySetCanceled();
             throw new OperationCanceledException(cancellationToken);
         }
 
-        tcs.TrySetException(new TimeoutException($"Video thumbnail extraction exceeded 6000ms for '{mediaPath}'."));
         throw new TimeoutException($"Video thumbnail extraction exceeded 6000ms for '{mediaPath}'.");
     }
 

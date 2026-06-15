@@ -127,7 +127,7 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
         UpdaterDiagnostic.Log("GitHubReleaseProvider.ParseRelease", $"Parsed version: {version} (Major={version.Major}, Minor={version.Minor}, Patch={version.Patch}, PreRelease='{version.PreReleaseLabel}')");
 
         ReleaseChannel releaseChannel = ReleaseChannel.Stable;
-        if (!string.IsNullOrEmpty(version.PreReleaseLabel))
+        if (isPrerelease || !string.IsNullOrEmpty(version.PreReleaseLabel))
         {
             if (version.PreReleaseLabel.Contains("beta", StringComparison.OrdinalIgnoreCase) ||
                 version.PreReleaseLabel.Contains("rc", StringComparison.OrdinalIgnoreCase))

@@ -256,20 +256,14 @@ public partial class SettingsViewModel : ObservableObject
         EngineLogsText = engineLogsText;
     }
 
-    internal static string ReadEngineLogsText(string? baseDir = null)
+    internal static string ReadEngineLogsText(string? overrideLogDir = null)
     {
         try
         {
-            baseDir ??= AppDomain.CurrentDomain.BaseDirectory;
-            // Try to find AppRunner output directory
-            string appRunnerDir = baseDir;
-            string localLog = Path.Combine(baseDir, "wallpaper.log");
-            if (!File.Exists(localLog))
-            {
-                string srcPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
-                appRunnerDir = Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows", "win-x64");
-                localLog = Path.Combine(appRunnerDir, "wallpaper.log");
-            }
+            string logDir = overrideLogDir ?? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "WallpaperTurbo", "Logs");
+            string localLog = Path.Combine(logDir, "wallpaper.log");
 
             if (File.Exists(localLog))
             {

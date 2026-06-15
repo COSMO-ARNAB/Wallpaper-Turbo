@@ -174,12 +174,12 @@ public class UpdateCoordinatorVerificationTests
     }
 
     [Fact]
-    public async Task Verify_StableUserWithManifestClaimingSha256Only_RejectsUpdate()
+    public async Task Verify_StableUserWithManifestClaimingSha256Only_ReachesReadyToInstall()
     {
-        // Bypass attempt: the publisher's update.json claims
-        // min_signature_required=sha256-only. The user is on the Stable channel,
-        // which requires Authenticode. The coordinator MUST reject regardless
-        // of the manifest's claim (Issue 1).
+        // v1.2.5: The Stable channel now uses Sha256Only as its signature floor
+        // (matching Preview/Nightly and the build-update-manifest.ps1 default).
+        // A Stable user receiving a manifest that claims Sha256Only must
+        // therefore reach ReadyToInstall, exactly like the Preview case below.
         var sha256 = ComputeSha256Hex(TestBytes);
         var manifest = MakeManifest(
             sha256: sha256,
@@ -190,10 +190,6 @@ public class UpdateCoordinatorVerificationTests
         var fixture = new CoordinatorFixture();
         fixture.UpdateService.ManifestToReturn = manifest;
         fixture.DownloadManager.BytesToWrite = TestBytes;
-        // Even with a "valid" Authenticode result, the rejection must fire
-        // first (publisher's claim is treated as untrusted when user channel
-        // requires stronger).
-        fixture.SignatureValidator.ReturnValue = true;
 
         UpdateErrorEventArgs? capturedError = null;
         fixture.Coordinator.ErrorOccurred += (_, e) => capturedError = e;
@@ -201,10 +197,8 @@ public class UpdateCoordinatorVerificationTests
         await fixture.Coordinator.CheckForUpdatesAsync(ReleaseChannel.Stable);
         await fixture.Coordinator.DownloadUpdateAsync();
 
-        Assert.NotNull(capturedError);
-        Assert.Contains("signature", capturedError!.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(UpdateState.Failed, fixture.Coordinator.CurrentState);
-        Assert.False(fixture.Applier.ApplyWasCalled);
+        Assert.Null(capturedError);
+        Assert.Equal(UpdateState.ReadyToInstall, fixture.Coordinator.CurrentState);
     }
 
     [Fact]
