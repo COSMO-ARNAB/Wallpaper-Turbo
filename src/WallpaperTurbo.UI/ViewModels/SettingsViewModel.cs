@@ -207,6 +207,10 @@ public partial class SettingsViewModel : ObservableObject
             // Debounce: wait 600 ms so rapid clicks only trigger one restart
             await Task.Delay(600, ct);
 
+            // Guard: if a newer selection arrived right after the debounce delay
+            // completed, bail out — the new CTS will handle the apply.
+            ct.ThrowIfCancellationRequested();
+
             // Let the WallpaperService handle registry updates and engine restart (no double saving)
             await _wallpaperService.ApplyGpuPreferenceAsync(value);
         }

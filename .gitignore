@@ -39,6 +39,7 @@ src/WallpaperTurbo.AppRunner/Assets/*.mp4
 # Scratch / Temp / Dev Notes (root level)
 # ─────────────────────────────────────────────
 scratch/
+.planning/
 decoded-structure.txt
 project-structure.txt
 virtualization_diagnostic.log

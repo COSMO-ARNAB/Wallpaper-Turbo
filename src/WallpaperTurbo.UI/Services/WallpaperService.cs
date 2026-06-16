@@ -347,19 +347,10 @@ public class WallpaperService
 
         _manifestPath = Path.Combine(_appRunnerDir, "Assets", "WallpaperManifest.json");
 
-        // Sync GPU preference registry on startup
-        try
-        {
-            var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
-            if (registryPref != settings.GpuPreference)
-            {
-                _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, settings.GpuPreference);
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[WallpaperService] Startup GPU preference sync failed: {ex.Message}");
-        }
+        // GPU preference registry sync is performed in LaunchWallpaperAsync (on a background
+        // thread, immediately before Process.Start) rather than here in the constructor.
+        // This avoids blocking the DI startup thread and prevents race conditions with
+        // the UI's own apply path.
     }
 
     public async Task<List<WallpaperEntry>> GetWallpapersAsync()
@@ -563,6 +554,24 @@ public class WallpaperService
         {
             try
             {
+                // Sync GPU preference to Windows registry immediately before launch.
+                // This ensures the registry matches the persisted setting at the exact
+                // moment the OS evaluates the exe's GPU routing, even if the registry
+                // was purged (clean install, CCleaner, driver update) or modified externally.
+                try
+                {
+                    var settings = _settingsStore.Load();
+                    var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
+                    if (registryPref != settings.GpuPreference)
+                    {
+                        _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, settings.GpuPreference);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WallpaperService] GPU preference registry sync failed: {ex.Message}");
+                }
+
                 string decodeArg = softDecode ? " --software-decode" : string.Empty;
                 string muteArg = $" --mute-audio {isMuted.ToString().ToLowerInvariant()}";
                 int currentPid = Environment.ProcessId;
