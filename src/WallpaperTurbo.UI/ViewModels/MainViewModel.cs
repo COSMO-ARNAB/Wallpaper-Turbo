@@ -16,8 +16,21 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly WallpaperService _wallpaperService;
     private readonly TelemetryService _telemetryService;
     private readonly IWallpaperLibraryService _libraryService;
+    private readonly ISettingsStore _settingsStore;
     private readonly UpdaterViewModel _updater;
     private readonly LayoutHostViewModel _layoutHostViewModel;
+
+    // Import cancellation / progress support
+    private CancellationTokenSource? _importCts;
+
+    [ObservableProperty]
+    private bool _isImporting;
+
+    [ObservableProperty]
+    private int _importProgressPercent;
+
+    [ObservableProperty]
+    private string _importProgressText = string.Empty;
 
     [ObservableProperty]
     private object? _currentPageViewModel;
@@ -105,6 +118,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         WallpaperService wallpaperService,
         TelemetryService telemetryService,
         IWallpaperLibraryService libraryService,
+        ISettingsStore settingsStore,
         UpdaterViewModel updater,
         DashboardViewModel dashboardViewModel,
         LibraryViewModel libraryViewModel,
@@ -115,11 +129,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _wallpaperService = wallpaperService;
         _telemetryService = telemetryService;
         _libraryService = libraryService;
+        _settingsStore = settingsStore;
         _updater = updater;
         _dashboardViewModel = dashboardViewModel;
         _libraryViewModel = libraryViewModel;
         _settingsViewModel = settingsViewModel;
         _layoutHostViewModel = layoutHostViewModel;
+
+        _libraryService.MetadataChanged += OnWallpaperMetadataChanged;
 
         // Initialize active view to Dashboard
         _currentPageViewModel = _dashboardViewModel;
@@ -158,6 +175,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Check initial engine status
         UpdateEngineStatus();
+
+        // Defer checking for version update release notes modal to non-blocking application idle priority
+        System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+        {
+            CheckForVersionUpdate();
+        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
         StartupDiagnostics.LogWithMemory("MainViewModel constructor EXIT");
     }
 
@@ -306,17 +330,48 @@ public partial class MainViewModel : ObservableObject, IDisposable
             Multiselect = true
         };
 
-        if (openFileDialog.ShowDialog() == true)
-        {
-            var files = openFileDialog.FileNames;
-            int successCount = 0;
+        if (openFileDialog.ShowDialog() != true)
+            return;
 
-            foreach (var file in files)
+        var files = openFileDialog.FileNames;
+        int successCount = 0;
+        bool wasCanceled = false;
+
+        // Cancel any previous in-flight import and create a fresh CTS
+        _importCts?.Cancel();
+        _importCts?.Dispose();
+        _importCts = new CancellationTokenSource();
+        var cts = _importCts;
+
+        IsImporting = true;
+        ImportProgressPercent = 0;
+        ImportProgressText = $"Preparing to import {files.Length} wallpaper(s)...";
+        DialogTitle = "Importing Wallpapers";
+        DialogMessage = ImportProgressText;
+        IsDialogCancelVisible = true;
+        DialogCancelCommand = CancelImportCommand;
+            DialogConfirmCommand = new RelayCommand(() => { }); // no-op during import; Confirm is wired after completion
+        IsDialogVisible = true;
+
+        try
+        {
+            for (int i = 0; i < files.Length; i++)
             {
+                cts.Token.ThrowIfCancellationRequested();
+                string file = files[i];
+                ImportProgressText = $"Importing {i + 1} of {files.Length}: {System.IO.Path.GetFileName(file)}";
+                DialogMessage = ImportProgressText;
+
+                var progress = new Progress<ImportProgress>(p =>
+                {
+                    ImportProgressPercent = p.Percent;
+                    ImportProgressText = $"Importing {i + 1} of {files.Length}: {p.Message}";
+                    DialogMessage = ImportProgressText;
+                });
+
                 try
                 {
-                    // Trigger the non-blocking import pipeline for each file
-                    await _libraryService.ImportWallpaperAsync(
+                    var imported = await _libraryService.ImportWallpaperAsync(
                         file,
                         async (completedWp) =>
                         {
@@ -326,9 +381,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
                                 await _dashboardViewModel.LoadLibraryAsync();
                                 await _libraryViewModel.LoadLibraryAsync();
                             });
-                        }, CancellationToken.None);
+                        },
+                        cts.Token,
+                        progress);
+
+                    // Register the newly imported wallpaper in the Recently Used list
+                    _dashboardViewModel.RegisterPlayedWallpaper(imported);
 
                     successCount++;
+                }
+                catch (OperationCanceledException)
+                {
+                    wasCanceled = true;
+                    break;
                 }
                 catch (Exception ex)
                 {
@@ -336,20 +401,47 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 }
             }
 
-            // Instantly load placeholders for transient fluid UI
+            // Refresh library with imported wallpapers
             await _dashboardViewModel.LoadLibraryAsync();
             await _libraryViewModel.LoadLibraryAsync();
 
-            // If some or all imports failed, show a helpful status dialog
-            if (successCount < files.Length)
+            // Always show a completion dialog that stays until the user dismisses it
+            DialogTitle = "Import Complete";
+            IsDialogCancelVisible = false;
+            DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
+
+            if (wasCanceled)
             {
-                DialogTitle = "Import Status";
-                DialogMessage = $"Successfully imported {successCount} of {files.Length} wallpapers.\n\nSome files could not be imported due to file locks or invalid formats.";
-                IsDialogCancelVisible = false;
-                DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
-                IsDialogVisible = true;
+                DialogMessage = successCount > 0
+                    ? $"Import was cancelled after successfully importing {successCount} of {files.Length} wallpaper(s)."
+                    : "Import was cancelled. No wallpapers were imported.";
+            }
+            else if (successCount < files.Length)
+            {
+                DialogMessage = files.Length == 1
+                    ? "The selected file could not be imported. It may be locked, in an unsupported format, or a duplicate."
+                    : $"Successfully imported {successCount} of {files.Length} wallpapers.\n\nSome files could not be imported due to file locks or invalid formats.";
+            }
+            else
+            {
+                DialogMessage = files.Length == 1
+                    ? "Wallpaper imported successfully!"
+                    : $"All {successCount} wallpapers imported successfully!";
             }
         }
+        finally
+        {
+            IsImporting = false;
+            ImportProgressPercent = 0;
+            ImportProgressText = string.Empty;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelImport()
+    {
+        _importCts?.Cancel();
+        ImportProgressText = "Cancelling import...";
     }
 
     public async Task ShutdownAsync()
@@ -370,9 +462,33 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Unsubscribe from telemetry events to prevent reference leak
         _telemetryService.MetricsUpdated -= OnMetricsUpdated;
+        _libraryService.MetadataChanged -= OnWallpaperMetadataChanged;
     }
 
     #endregion
+
+    private void OnWallpaperMetadataChanged(object? sender, WallpaperEntry e)
+    {
+        System.Windows.Application.Current?.Dispatcher?.InvokeAsync(async () =>
+        {
+            try
+            {
+                await _dashboardViewModel.LoadLibraryAsync();
+                await _libraryViewModel.LoadLibraryAsync();
+
+                // Update active title/specs if the edited wallpaper is currently playing
+                string title = e.Title ?? string.Empty;
+                if (ActiveWallpaperTitle == title || ActiveWallpaperTitle == e.Title)
+                {
+                    SetActiveWallpaperInfo(title, $"{e.Resolution} • {e.Fps}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainViewModel] Failed to refresh after metadata change: {ex.Message}");
+            }
+        });
+    }
 
     [RelayCommand]
     private void ShowFeatureComingSoon(string featureName)
@@ -412,5 +528,36 @@ public partial class MainViewModel : ObservableObject, IDisposable
         });
         DialogCancelCommand = new RelayCommand(() => IsDialogVisible = false);
         IsDialogVisible = true;
+    }
+
+    private void CheckForVersionUpdate()
+    {
+        try
+        {
+            var settings = _settingsStore.Load();
+            string currentVersion = _updater.CurrentVersion;
+            string lastVersion = settings.LastRunVersion;
+
+            if (lastVersion != currentVersion)
+            {
+                // Show the "What's New" dialog with curating highlights
+                DialogTitle = $"What's New in v{currentVersion}";
+                DialogMessage = "• Integrated cancellation and progress tracking for wallpaper imports.\n" +
+                                "• Added smooth animations for Play and Delete library actions.\n" +
+                                "• Implemented 'Start with Windows' auto-start configurations.\n" +
+                                "• Enhanced wallpaper metadata management and performance.";
+                IsDialogCancelVisible = false;
+                DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
+                IsDialogVisible = true;
+
+                // Persist the current version as LastRunVersion
+                settings.LastRunVersion = currentVersion;
+                _settingsStore.Save(settings);
+            }
+        }
+        catch (Exception ex)
+        {
+            StartupDiagnostics.Log($"Failed to check version update: {ex.Message}");
+        }
     }
 }

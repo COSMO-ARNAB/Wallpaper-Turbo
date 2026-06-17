@@ -258,12 +258,33 @@ public class WallpaperEntry : ObservableObject
         set => SetProperty(ref _isFallbackThumbnail, value);
     }
 
-    // Derived visual helpers
-    public string Resolution => Id.Contains("frieren") || Id.Contains("crimson") ? "3840 x 2160" : "3440 x 1440";
-    public string Fps => Id.Contains("frieren") || Id.Contains("crimson") ? "60 FPS" : "30 FPS";
+    private string _resolution = string.Empty;
+    [JsonPropertyName("resolution")]
+    public string Resolution
+    {
+        get => string.IsNullOrEmpty(_resolution) ? "1920 x 1080" : _resolution;
+        set => SetProperty(ref _resolution, value);
+    }
+
+    private string _fps = string.Empty;
+    [JsonPropertyName("fps")]
+    public string Fps
+    {
+        get => string.IsNullOrEmpty(_fps) ? "30 FPS" : _fps;
+        set => SetProperty(ref _fps, value);
+    }
+
+    private bool _isUserImported;
+    [JsonPropertyName("isUserImported")]
+    public bool IsUserImported
+    {
+        get => _isUserImported;
+        set => SetProperty(ref _isUserImported, value);
+    }
+
     public string TagsDisplay => string.Join(" • ", Tags).ToUpperInvariant();
     [JsonIgnore]
-    public bool IsDeletable => true;
+    public bool IsDeletable => IsUserImported;
 }
 
 public class WallpaperManifest

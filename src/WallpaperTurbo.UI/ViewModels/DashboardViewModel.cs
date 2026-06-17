@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
 using WallpaperTurbo.Core.Display;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
@@ -148,6 +149,7 @@ public partial class DashboardViewModel : ObservableObject
         {
             _muteAudio = settings.MuteAudio;
             _pauseOnMaximized = settings.PauseOnMaximized;
+            _startWithWindows = settings.StartWithWindows;
         }
         finally
         {
@@ -199,6 +201,7 @@ public partial class DashboardViewModel : ObservableObject
             {
                 if (MuteAudio != newSettings.MuteAudio) MuteAudio = newSettings.MuteAudio;
                 if (PauseOnMaximized != newSettings.PauseOnMaximized) PauseOnMaximized = newSettings.PauseOnMaximized;
+                if (StartWithWindows != newSettings.StartWithWindows) StartWithWindows = newSettings.StartWithWindows;
             }
             finally
             {
@@ -227,6 +230,78 @@ public partial class DashboardViewModel : ObservableObject
         var settings = _settingsStore.Load();
         settings.PauseOnMaximized = value;
         _settingsStore.Save(settings);
+    }
+
+    partial void OnStartWithWindowsChanged(bool value)
+    {
+        if (_isSyncing) return;
+
+        try
+        {
+            ApplyStartWithWindows(value);
+
+            var settings = _settingsStore.Load();
+            settings.StartWithWindows = value;
+            _settingsStore.Save(settings);
+        }
+        catch (Exception ex)
+        {
+            // Revert the toggle so the UI reflects the actual registry state
+            _isSyncing = true;
+            try
+            {
+                StartWithWindows = !value;
+            }
+            finally
+            {
+                _isSyncing = false;
+            }
+
+            ShowErrorDialog($"Could not update Start with Windows setting.\n\n{ex.Message}");
+        }
+    }
+
+    private void ShowErrorDialog(string message)
+    {
+        System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+        {
+            var mainVm = App.GetService<MainViewModel>();
+            mainVm.DialogTitle = "Start with Windows";
+            mainVm.DialogMessage = message;
+            mainVm.IsDialogCancelVisible = false;
+            mainVm.DialogConfirmCommand = new RelayCommand(() => mainVm.IsDialogVisible = false);
+            mainVm.IsDialogVisible = true;
+        });
+    }
+
+    private const string RunKeyPath = StartupConstants.RunKeyPath;
+    private const string RunValueName = StartupConstants.RunValueName;
+
+    private static void ApplyStartWithWindows(bool enabled)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, true)
+                            ?? Registry.CurrentUser.CreateSubKey(RunKeyPath);
+
+            if (enabled)
+            {
+                string? exePath = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    key.SetValue(RunValueName, $"\"{exePath}\"");
+                }
+            }
+            else
+            {
+                key.DeleteValue(RunValueName, throwOnMissingValue: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to update Start with Windows registry key: {ex.Message}");
+            throw; // Let the caller decide whether to revert the UI toggle
+        }
     }
 
     public void UpdateGreeting()
@@ -622,7 +697,7 @@ public partial class DashboardViewModel : ObservableObject
         return double.IsFinite(percentage) ? percentage : 0.0;
     }
 
-    private void RegisterPlayedWallpaper(WallpaperEntry wp)
+    public void RegisterPlayedWallpaper(WallpaperEntry wp)
     {
         if (wp == null) return;
         

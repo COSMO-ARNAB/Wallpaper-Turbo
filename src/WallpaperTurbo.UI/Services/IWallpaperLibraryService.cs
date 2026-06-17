@@ -11,6 +11,11 @@ namespace WallpaperTurbo.UI.Services;
 public interface IWallpaperLibraryService
 {
     /// <summary>
+    /// Raised when wallpaper metadata has been updated for an existing entry.
+    /// </summary>
+    event EventHandler<WallpaperEntry>? MetadataChanged;
+
+    /// <summary>
     /// Asynchronously retrieves the merged list of default and user-imported wallpapers.
     /// </summary>
     /// <param name="cancellationToken">Coordinated token for cancel actions.</param>
@@ -22,7 +27,12 @@ public interface IWallpaperLibraryService
     /// <param name="sourceFilePath">The source media file path.</param>
     /// <param name="onThumbnailCompleted">Callback fired when background dispatcher STA thumbnail finishes.</param>
     /// <param name="cancellationToken">Coordinated token for cancel actions.</param>
-    Task<WallpaperEntry> ImportWallpaperAsync(string sourceFilePath, Action<WallpaperEntry> onThumbnailCompleted, CancellationToken cancellationToken = default);
+    Task<WallpaperEntry> ImportWallpaperAsync(string sourceFilePath, Action<WallpaperEntry> onThumbnailCompleted, CancellationToken cancellationToken = default, IProgress<ImportProgress>? progress = null);
+
+    /// <summary>
+    /// Updates editable metadata for an imported wallpaper and persists it to both the manifest and metadata.json.
+    /// </summary>
+    Task<bool> UpdateWallpaperMetadataAsync(string guid, string? title, string? author, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gracefully cancels outstanding background tasks and awaits manifest writes before app process exits.
@@ -33,4 +43,16 @@ public interface IWallpaperLibraryService
     /// Deletes an imported wallpaper by removing it from the user manifest and deleting its folder on disk.
     /// </summary>
     Task<bool> DeleteWallpaperAsync(string guid, CancellationToken cancellationToken = default);
+}
+
+public sealed class ImportProgress
+{
+    public ImportProgress(int percent, string message)
+    {
+        Percent = Math.Clamp(percent, 0, 100);
+        Message = message;
+    }
+
+    public int Percent { get; }
+    public string Message { get; }
 }

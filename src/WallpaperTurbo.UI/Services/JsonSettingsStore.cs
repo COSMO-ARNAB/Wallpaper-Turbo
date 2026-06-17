@@ -87,6 +87,8 @@ public class JsonSettingsStore : ISettingsStore
             Layout = source.Layout,
             PauseOnMaximized = source.PauseOnMaximized,
             MuteAudio = source.MuteAudio,
+            StartWithWindows = source.StartWithWindows,
+            LastRunVersion = source.LastRunVersion,
             GpuPreference = source.GpuPreference
         };
     }

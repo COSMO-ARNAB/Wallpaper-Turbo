@@ -11,7 +11,7 @@ namespace WallpaperTurbo.UI.Services;
 
 public class WpfThumbnailExtractor : IThumbnailExtractor
 {
-    private static readonly string[] VideoExtensions = { ".mp4", ".webm", ".mkv", ".gif" };
+    private static readonly string[] VideoExtensions = { ".mp4", ".webm", ".mkv" };
 
     public Task<string> ExtractThumbnailAsync(string mediaPath, string outputDirectory, CancellationToken cancellationToken)
     {
@@ -119,7 +119,7 @@ public class WpfThumbnailExtractor : IThumbnailExtractor
                         var encoder = new JpegBitmapEncoder { QualityLevel = 85 };
                         encoder.Frames.Add(BitmapFrame.Create(renderTarget));
 
-                        string outputPath = Path.Combine(outputDirectory, "thumbnail.jpg");
+                        string outputPath = Path.Combine(outputDirectory, $"{Guid.NewGuid():N}.jpg");
                         using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
                         {
                             encoder.Save(fs);
@@ -219,7 +219,7 @@ public class WpfThumbnailExtractor : IThumbnailExtractor
                 var encoder = new JpegBitmapEncoder { QualityLevel = 85 };
                 encoder.Frames.Add(BitmapFrame.Create(scaledBitmap));
 
-                string outputPath = Path.Combine(outputDirectory, "thumbnail.jpg");
+                string outputPath = Path.Combine(outputDirectory, $"{Guid.NewGuid():N}.jpg");
                 using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
                     encoder.Save(fs);

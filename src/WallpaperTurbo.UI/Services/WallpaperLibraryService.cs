@@ -35,6 +35,8 @@ public class WallpaperLibraryService : IWallpaperLibraryService
     private readonly object _tasksLock = new();
     private readonly CancellationTokenSource _shutdownCts = new();
 
+    public event EventHandler<WallpaperEntry>? MetadataChanged;
+
     public WallpaperLibraryService(IThumbnailExtractor thumbnailExtractor)
     {
         _thumbnailExtractor = thumbnailExtractor;
@@ -91,6 +93,24 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                         // Map relative video path directly to absolute installation path for hover & extract operations
                         string originalVideoRelative = wp.Video;
                         wp.Video = Path.Combine(_appRunnerDir, wp.Video);
+                        
+                        // Default wallpapers are not user-imported and thus not deletable
+                        wp.IsUserImported = false;
+                        
+                        // Set resolution/fps for default wallpapers based on known IDs if not already set
+                        if (string.IsNullOrEmpty(wp.Resolution) || wp.Resolution == "1920 x 1080")
+                        {
+                            if (wp.Id.Contains("frieren") || wp.Id.Contains("crimson"))
+                            {
+                                wp.Resolution = "3840 x 2160";
+                                wp.Fps = "60 FPS";
+                            }
+                            else if (wp.Id.Contains("retrowave") || wp.Id.Contains("forest"))
+                            {
+                                wp.Resolution = "3440 x 1440";
+                                wp.Fps = "30 FPS";
+                            }
+                        }
                         
                         // We store extracted thumbnails locally because installation folder is read-only
                         string localThumbDir = Path.Combine(_localAppDir, "Thumbnails");
@@ -199,6 +219,8 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                 {
                     foreach (var wp in userManifest.Wallpapers)
                     {
+                        wp.IsUserImported = true;
+
                         // Safe isolation check: quarantine entry if video file is missing
                         if (!File.Exists(wp.Video))
                         {
@@ -324,13 +346,15 @@ public class WallpaperLibraryService : IWallpaperLibraryService
         return allWallpapers;
     }
 
-    public async Task<WallpaperEntry> ImportWallpaperAsync(string sourceFilePath, Action<WallpaperEntry> onThumbnailCompleted, CancellationToken cancellationToken = default)
+    public async Task<WallpaperEntry> ImportWallpaperAsync(string sourceFilePath, Action<WallpaperEntry> onThumbnailCompleted, CancellationToken cancellationToken = default, IProgress<ImportProgress>? progress = null)
     {
         // 1. Lightweight Media Validation
         if (!File.Exists(sourceFilePath))
         {
             throw new FileNotFoundException($"Import failed: Source file not found at '{sourceFilePath}'");
         }
+
+        progress?.Report(new ImportProgress(0, $"Validating {Path.GetFileName(sourceFilePath)}"));
 
         string ext = Path.GetExtension(sourceFilePath).ToLowerInvariant();
         string[] allowedExtensions = { ".mp4", ".webm", ".mkv", ".gif", ".jpg", ".jpeg", ".png" };
@@ -359,7 +383,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
             throw new IOException($"Import failed: Source file is locked or corrupted. Detail: {ex.Message}", ex);
         }
 
-        string name = Path.GetFileNameWithoutExtension(sourceFilePath);
+        string name = SanitizeTitle(Path.GetFileNameWithoutExtension(sourceFilePath));
 
         // 2. Intelligent Deduplication Check
         string fileHash = await CalculateFileHeaderHashAsync(sourceFilePath, cancellationToken);
@@ -373,7 +397,9 @@ public class WallpaperLibraryService : IWallpaperLibraryService
         string guid = Guid.NewGuid().ToString();
         string targetDir = Path.Combine(_wallpapersDir, guid);
         string targetVideoPath = Path.Combine(targetDir, $"wallpaper{ext}");
+        EnsureDestinationHasSpace(targetVideoPath, fileInfo.Length);
 
+        bool manifestSaved = false;
         try
         {
             // Transaction Start
@@ -383,7 +409,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
             using (var sourceStream = new FileStream(sourceFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
             using (var destinationStream = new FileStream(targetVideoPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
             {
-                await sourceStream.CopyToAsync(destinationStream, cancellationToken);
+                await CopyWithProgressAsync(sourceStream, destinationStream, fileInfo.Length, progress, $"Copying {fileInfo.Name}", cancellationToken);
             }
 
             // Create transient manifest entry using App default icon as a placeholder
@@ -396,6 +422,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                 Thumbnail = placeholderThumb,
                 Author = "Local User",
                 IsFallbackThumbnail = true,
+                IsUserImported = true,
                 Tags = new List<string> { "Imported", ext.TrimStart('.') }
             };
 
@@ -404,6 +431,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
 
             // Add transient entry to manifest immediately for fluid UX
             await SaveUserWallpaperToManifestAsync(newWp, cancellationToken);
+            manifestSaved = true;
 
             // 4. Queue async background thumbnail extraction (runs inside a bounded queue)
             System.Diagnostics.Debug.WriteLine($"[Thumbnail Start] Initiating imported wallpaper thumbnail extraction for '{newWp.Title}'...");
@@ -470,37 +498,179 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                 {
                     Directory.Delete(targetDir, true);
                 }
+
+                if (manifestSaved)
+                {
+                    await RemoveUserWallpaperFromManifestAsync(guid, CancellationToken.None);
+                }
             }
-            catch { }
+            catch (Exception rollbackEx)
+            {
+                System.Diagnostics.Debug.WriteLine($"Import rollback incomplete for '{targetDir}': {rollbackEx.Message}");
+            }
 
             throw;
         }
     }
 
-    private async Task<WallpaperEntry?> CheckForDuplicateAsync(long length, string hash, CancellationToken cancellationToken)
+    private static string SanitizeTitle(string title)
     {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return "Imported Wallpaper";
+        }
+
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var cleaned = new string(title.Select(ch =>
+        {
+            if (char.IsControl(ch) || invalidChars.Contains(ch))
+            {
+                return ' ';
+            }
+
+            return ch;
+        }).ToArray());
+
+        cleaned = string.Join(' ', cleaned.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries));
+        return string.IsNullOrWhiteSpace(cleaned) ? "Imported Wallpaper" : cleaned;
+    }
+
+    private void EnsureDestinationHasSpace(string targetPath, long requiredBytes)
+    {
+        string? root = Path.GetPathRoot(targetPath);
+        if (string.IsNullOrWhiteSpace(root)) return;
+
+        try
+        {
+            var drive = new DriveInfo(root);
+            if (!drive.IsReady) return;
+
+            long safetyMargin = Math.Max(requiredBytes / 20, 64L * 1024 * 1024);
+            long totalRequired = checked(requiredBytes + safetyMargin);
+            if (drive.AvailableFreeSpace < totalRequired)
+            {
+                string availableMb = (drive.AvailableFreeSpace / (1024.0 * 1024.0)).ToString("0");
+                string requiredMb = (totalRequired / (1024.0 * 1024.0)).ToString("0");
+                throw new IOException($"Not enough free disk space on {drive.Name}. Available: {availableMb} MB, required including safety margin: {requiredMb} MB.");
+            }
+        }
+        catch (IOException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to check disk space before import: {ex.Message}");
+        }
+    }
+
+    private static async Task CopyWithProgressAsync(Stream sourceStream, Stream destinationStream, long totalBytes, IProgress<ImportProgress>? progress, string fileName, CancellationToken cancellationToken)
+    {
+        byte[] buffer = new byte[1024 * 1024];
+        long totalRead = 0;
+        int lastReportedPercent = -1;
+        var lastReportedTime = System.Diagnostics.Stopwatch.StartNew();
+        const int MinReportIntervalMs = 250;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int bytesRead = await sourceStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+            if (bytesRead == 0) break;
+
+            await destinationStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+            totalRead += bytesRead;
+
+            int percent = totalBytes > 0 ? (int)((totalRead * 100) / totalBytes) : 100;
+            bool percentJump = percent - lastReportedPercent >= 5;
+            bool timeElapsed = lastReportedTime.ElapsedMilliseconds >= MinReportIntervalMs;
+
+            if (progress != null && percent != 100 && (percentJump || timeElapsed))
+            {
+                lastReportedPercent = percent;
+                lastReportedTime.Restart();
+                progress.Report(new ImportProgress(percent, $"{fileName}: {percent}% copied"));
+            }
+        }
+
+        progress?.Report(new ImportProgress(100, $"{fileName}: copy complete"));
+    }
+
+    public async Task<bool> UpdateWallpaperMetadataAsync(string guid, string? title, string? author, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(guid)) return false;
+
         await _manifestLock.WaitAsync(cancellationToken);
         try
         {
-            if (!File.Exists(_manifestPath)) return null;
+            if (!File.Exists(_manifestPath)) return false;
 
             string json = await File.ReadAllTextAsync(_manifestPath, cancellationToken);
             var manifest = JsonSerializer.Deserialize<UserWallpaperManifest>(json);
-            if (manifest != null)
+            if (manifest == null) return false;
+
+            var wp = manifest.Wallpapers.FirstOrDefault(w => w.Id == guid);
+            if (wp == null) return false;
+
+            if (title != null)
             {
-                foreach (var wp in manifest.Wallpapers)
+                string sanitized = SanitizeTitle(title);
+                if (string.IsNullOrWhiteSpace(sanitized)) return false;
+                wp.Title = sanitized;
+            }
+
+            if (author != null)
+            {
+                wp.Author = string.IsNullOrWhiteSpace(author) ? "Local User" : author.Trim();
+            }
+
+            await SaveManifestAtomicAsync(manifest, cancellationToken);
+            await UpdateMetadataJsonAsync(Path.GetDirectoryName(wp.Video) ?? _wallpapersDir, wp, cancellationToken);
+
+            // Notify listeners so in-memory UI lists can refresh live
+            MetadataChanged?.Invoke(this, wp);
+            return true;
+        }
+        finally
+        {
+            _manifestLock.Release();
+        }
+    }
+
+    private async Task<WallpaperEntry?> CheckForDuplicateAsync(long length, string hash, CancellationToken cancellationToken)
+    {
+        // Collect candidate paths under the lock, then hash outside the lock to avoid blocking manifest writers.
+        List<string> candidatePaths = new();
+
+        await _manifestLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (File.Exists(_manifestPath))
+            {
+                string json = await File.ReadAllTextAsync(_manifestPath, cancellationToken);
+                var manifest = JsonSerializer.Deserialize<UserWallpaperManifest>(json);
+                if (manifest != null)
                 {
-                    if (File.Exists(wp.Video))
+                    foreach (var wp in manifest.Wallpapers)
                     {
-                        var info = new FileInfo(wp.Video);
-                        if (info.Length == length)
-                        {
-                            string currentHash = await CalculateFileHeaderHashAsync(wp.Video, cancellationToken);
-                            if (currentHash == hash)
-                            {
-                                return wp;
-                            }
-                        }
+                        if (File.Exists(wp.Video) && new FileInfo(wp.Video).Length == length)
+                            candidatePaths.Add(wp.Video);
+                    }
+                }
+            }
+
+            string defaultManifestPath = Path.Combine(_appRunnerDir, "Assets", "WallpaperManifest.json");
+            if (File.Exists(defaultManifestPath))
+            {
+                string defaultJson = await File.ReadAllTextAsync(defaultManifestPath, cancellationToken);
+                var defaultManifest = JsonSerializer.Deserialize<UserWallpaperManifest>(defaultJson);
+                if (defaultManifest != null)
+                {
+                    foreach (var wp in defaultManifest.Wallpapers)
+                    {
+                        string videoPath = ResolveManifestVideoPath(wp.Video);
+                        if (File.Exists(videoPath) && new FileInfo(videoPath).Length == length)
+                            candidatePaths.Add(videoPath);
                     }
                 }
             }
@@ -510,7 +680,69 @@ public class WallpaperLibraryService : IWallpaperLibraryService
         {
             _manifestLock.Release();
         }
+
+        foreach (var path in candidatePaths)
+        {
+            try
+            {
+                string currentHash = await CalculateFileHeaderHashAsync(path, cancellationToken);
+                if (currentHash == hash)
+                {
+                    // Find the matching WallpaperEntry from either manifest for return
+                    var wp = await FindWallpaperEntryByVideoPathAsync(path, cancellationToken);
+                    if (wp != null) return wp;
+                }
+            }
+            catch { }
+        }
+
         return null;
+    }
+
+    private async Task<WallpaperEntry?> FindWallpaperEntryByVideoPathAsync(string videoPath, CancellationToken cancellationToken)
+    {
+        await _manifestLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (File.Exists(_manifestPath))
+            {
+                string json = await File.ReadAllTextAsync(_manifestPath, cancellationToken);
+                var manifest = JsonSerializer.Deserialize<UserWallpaperManifest>(json);
+                if (manifest != null)
+                {
+                    var wp = manifest.Wallpapers.FirstOrDefault(w => w.Video.Equals(videoPath, StringComparison.OrdinalIgnoreCase));
+                    if (wp != null) return wp;
+                }
+            }
+
+            string defaultManifestPath = Path.Combine(_appRunnerDir, "Assets", "WallpaperManifest.json");
+            if (File.Exists(defaultManifestPath))
+            {
+                string defaultJson = await File.ReadAllTextAsync(defaultManifestPath, cancellationToken);
+                var defaultManifest = JsonSerializer.Deserialize<UserWallpaperManifest>(defaultJson);
+                if (defaultManifest != null)
+                {
+                    var wp = defaultManifest.Wallpapers.FirstOrDefault(w => ResolveManifestVideoPath(w.Video).Equals(videoPath, StringComparison.OrdinalIgnoreCase));
+                    if (wp != null) return wp;
+                }
+            }
+        }
+        catch { }
+        finally
+        {
+            _manifestLock.Release();
+        }
+        return null;
+    }
+
+    private string ResolveManifestVideoPath(string videoPath)
+    {
+        if (Path.IsPathRooted(videoPath))
+        {
+            return videoPath;
+        }
+
+        return Path.Combine(_appRunnerDir, videoPath);
     }
 
     private async Task<string> CalculateFileHeaderHashAsync(string path, CancellationToken cancellationToken)
@@ -563,6 +795,64 @@ public class WallpaperLibraryService : IWallpaperLibraryService
 
         string json = JsonSerializer.Serialize(metadata, s_writeIndentedOptions);
         await File.WriteAllTextAsync(metadataPath, json, cancellationToken);
+    }
+
+    private async Task UpdateMetadataJsonAsync(string directory, WallpaperEntry entry, CancellationToken cancellationToken)
+    {
+        string metadataPath = Path.Combine(directory, "metadata.json");
+        Dictionary<string, object> metadata;
+
+        try
+        {
+            if (File.Exists(metadataPath))
+            {
+                string existingJson = await File.ReadAllTextAsync(metadataPath, cancellationToken);
+                metadata = JsonSerializer.Deserialize<Dictionary<string, object>>(existingJson) ?? new Dictionary<string, object>();
+            }
+            else
+            {
+                metadata = new Dictionary<string, object>();
+            }
+        }
+        catch
+        {
+            metadata = new Dictionary<string, object>();
+        }
+
+        metadata["SchemaVersion"] = metadata.ContainsKey("SchemaVersion") ? metadata["SchemaVersion"] : 1;
+        metadata["Id"] = entry.Id;
+        metadata["Title"] = entry.Title;
+        metadata["VideoPath"] = entry.Video;
+        metadata["ThumbnailPath"] = entry.Thumbnail;
+        metadata["Author"] = entry.Author;
+        metadata["Tags"] = entry.Tags;
+
+        string json = JsonSerializer.Serialize(metadata, s_writeIndentedOptions);
+        await File.WriteAllTextAsync(metadataPath, json, cancellationToken);
+    }
+
+    private async Task RemoveUserWallpaperFromManifestAsync(string guid, CancellationToken cancellationToken)
+    {
+        await _manifestLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!File.Exists(_manifestPath)) return;
+
+            string json = await File.ReadAllTextAsync(_manifestPath, cancellationToken);
+            var manifest = JsonSerializer.Deserialize<UserWallpaperManifest>(json);
+            if (manifest == null) return;
+
+            var wp = manifest.Wallpapers.FirstOrDefault(w => w.Id == guid);
+            if (wp != null)
+            {
+                manifest.Wallpapers.Remove(wp);
+                await SaveManifestAtomicAsync(manifest, cancellationToken);
+            }
+        }
+        finally
+        {
+            _manifestLock.Release();
+        }
     }
 
     private async Task SaveUserWallpaperToManifestAsync(WallpaperEntry entry, CancellationToken cancellationToken)

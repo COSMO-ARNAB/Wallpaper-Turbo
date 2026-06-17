@@ -120,12 +120,16 @@
                                                                FontSize="14"
                                                                RenderTransformOrigin="0.5,0.5">
                                                     <ui:SymbolIcon.RenderTransform>
-                                                        <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                                        <TransformGroup>
+                                                            <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                                            <RotateTransform Angle="0" />
+                                                        </TransformGroup>
                                                     </ui:SymbolIcon.RenderTransform>
                                                 </ui:SymbolIcon>
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="PlayRing" Property="Background" Value="#00F5D4" />
                                                     <Trigger.EnterActions>
                                                         <BeginStoryboard>
                                                             <Storyboard>
@@ -139,10 +143,15 @@
                                                                         <QuadraticEase EasingMode="EaseOut" />
                                                                     </DoubleAnimation.EasingFunction>
                                                                 </DoubleAnimation>
-                                                                <DoubleAnimation Storyboard.TargetName="PlayRing" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.Opacity)" To="0.8" Duration="0:0:0.18" />
-                                                                <DoubleAnimation Storyboard.TargetName="PlayRing" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.BlurRadius)" To="20" Duration="0:0:0.18" />
-                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(ScaleTransform.ScaleX)" To="1.1" Duration="0:0:0.18" />
-                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(ScaleTransform.ScaleY)" To="1.1" Duration="0:0:0.18" />
+                                                                <DoubleAnimation Storyboard.TargetName="PlayRing" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.Opacity)" To="0.9" Duration="0:0:0.18" />
+                                                                <DoubleAnimation Storyboard.TargetName="PlayRing" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.BlurRadius)" To="22" Duration="0:0:0.18" />
+                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)" To="1.15" Duration="0:0:0.18" />
+                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)" To="1.15" Duration="0:0:0.18" />
+                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(TransformGroup.Children)[1].(RotateTransform.Angle)" To="15" Duration="0:0:0.18">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
                                                             </Storyboard>
                                                         </BeginStoryboard>
                                                     </Trigger.EnterActions>
@@ -161,8 +170,13 @@
                                                                 </DoubleAnimation>
                                                                 <DoubleAnimation Storyboard.TargetName="PlayRing" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.Opacity)" To="0.0" Duration="0:0:0.2" />
                                                                 <DoubleAnimation Storyboard.TargetName="PlayRing" Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.BlurRadius)" To="12" Duration="0:0:0.2" />
-                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.2" />
-                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.2" />
+                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.2" />
+                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.2" />
+                                                                <DoubleAnimation Storyboard.TargetName="PlayIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(TransformGroup.Children)[1].(RotateTransform.Angle)" To="0" Duration="0:0:0.2">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
                                                             </Storyboard>
                                                         </BeginStoryboard>
                                                     </Trigger.ExitActions>
@@ -183,9 +197,65 @@
                                         Panel.ZIndex="20">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
-                                            <Border x:Name="btnBorder" Background="{StaticResource Surface2Brush}" CornerRadius="13" BorderBrush="{StaticResource BorderDefaultBrush}" BorderThickness="1">
-                                                <ui:SymbolIcon x:Name="btnIcon" Symbol="Delete20" Foreground="{StaticResource StatusErrBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" />
+                                            <Border x:Name="btnBorder" Background="{StaticResource Surface2Brush}" CornerRadius="13" BorderBrush="{StaticResource BorderDefaultBrush}" BorderThickness="1" RenderTransformOrigin="0.5,0.5">
+                                                <Border.RenderTransform>
+                                                    <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                                </Border.RenderTransform>
+                                                <ui:SymbolIcon x:Name="btnIcon" Symbol="Delete20" Foreground="{StaticResource StatusErrBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" RenderTransformOrigin="0.5,0.5">
+                                                    <ui:SymbolIcon.RenderTransform>
+                                                        <RotateTransform Angle="0" />
+                                                    </ui:SymbolIcon.RenderTransform>
+                                                </ui:SymbolIcon>
                                             </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="btnBorder" Property="Background" Value="#FF3366" />
+                                                    <Setter TargetName="btnBorder" Property="BorderBrush" Value="#FF5588" />
+                                                    <Setter TargetName="btnIcon" Property="Foreground" Value="White" />
+                                                    <Trigger.EnterActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetName="btnBorder" Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)" To="1.2" Duration="0:0:0.15">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                                <DoubleAnimation Storyboard.TargetName="btnBorder" Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)" To="1.2" Duration="0:0:0.15">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                                <DoubleAnimation Storyboard.TargetName="btnIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(RotateTransform.Angle)" To="-15" Duration="0:0:0.15">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.EnterActions>
+                                                    <Trigger.ExitActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetName="btnBorder" Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.15">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                                <DoubleAnimation Storyboard.TargetName="btnBorder" Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.15">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                                <DoubleAnimation Storyboard.TargetName="btnIcon" Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(RotateTransform.Angle)" To="0" Duration="0:0:0.15">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.ExitActions>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Button.Template>
                                     <Button.Style>

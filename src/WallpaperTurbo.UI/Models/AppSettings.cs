@@ -11,6 +11,9 @@ public class AppSettings
     public string Layout { get; set; } = "Minimal";
     public bool PauseOnMaximized { get; set; } = true;
     public bool MuteAudio { get; set; } = true;
+    public bool StartWithWindows { get; set; } = true;
+
+    public string LastRunVersion { get; set; } = string.Empty;
 
     [JsonConverter(typeof(GpuPreferenceJsonConverter))]
     public GpuPreference GpuPreference { get; set; } = GpuPreference.Auto;

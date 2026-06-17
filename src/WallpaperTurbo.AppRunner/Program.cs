@@ -36,6 +36,19 @@ internal static class Program
     private static ForegroundWindowWatcher? _foregroundWatcher;
     private static bool _muteAudio = true;
 
+    /// <summary>
+    /// Resolves a wallpaper video path to an absolute path.
+    /// If the path is already rooted (e.g. user-imported wallpapers stored in LocalAppData),
+    /// returns it as-is. Otherwise, combines it with the AppRunner base directory (default wallpapers).
+    /// </summary>
+    private static string ResolveWallpaperVideoPath(string video)
+    {
+        if (string.IsNullOrWhiteSpace(video))
+            throw new InvalidOperationException("Wallpaper video path is null or empty.");
+
+        return Path.IsPathRooted(video) ? video : Path.Combine(AppContext.BaseDirectory, video);
+    }
+
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     private static extern bool SetConsoleCtrlHandler(ConsoleCtrlDelegate handler, bool add);
 
@@ -616,10 +629,7 @@ internal static class Program
             //
             WallpaperEntry wallpaper = _mergedWallpapers[finalWallpaperIndex - 1];
 
-            string videoPath =
-                Path.Combine(
-                    AppContext.BaseDirectory,
-                    wallpaper.Video);
+            string videoPath = ResolveWallpaperVideoPath(wallpaper.Video);
 
             Console.WriteLine(
                 $"Loaded wallpaper: {wallpaper.Title}");
@@ -825,7 +835,7 @@ internal static class Program
                         freshPipeline.Initialize(_hwnd);
 
                         var freshWallpaper = _mergedWallpapers[finalWallpaperIndex - 1];
-                        string freshVideoPath = Path.Combine(AppContext.BaseDirectory, freshWallpaper.Video);
+                        string freshVideoPath = ResolveWallpaperVideoPath(freshWallpaper.Video);
                         if (File.Exists(freshVideoPath))
                         {
                             freshPipeline.LoadMedia(freshVideoPath);
@@ -1565,6 +1575,15 @@ internal static class Program
             return;
         }
 
+        // Reload manifests so newly imported wallpapers are visible without restarting AppRunner
+        if (!ReloadMergedWallpapers(wallpapers))
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("[Swap] Manifest reload failed; aborting swap to avoid stale state.");
+            Console.ResetColor();
+            return;
+        }
+
         if (newIndex < 1 || newIndex > wallpapers.Count)
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -1574,7 +1593,7 @@ internal static class Program
         }
 
         WallpaperEntry newWallpaper = wallpapers[newIndex - 1];
-        string videoPath = Path.Combine(AppContext.BaseDirectory, newWallpaper.Video);
+        string videoPath = ResolveWallpaperVideoPath(newWallpaper.Video);
 
         if (!File.Exists(videoPath))
         {
@@ -1644,6 +1663,64 @@ internal static class Program
                 Console.ResetColor();
             }
         });
+    }
+
+    private static bool ReloadMergedWallpapers(List<WallpaperEntry> wallpapers)
+    {
+        try
+        {
+            var fresh = new List<WallpaperEntry>();
+
+            // Default manifest
+            string manifestPath = Path.Combine(AppContext.BaseDirectory, "Assets", "WallpaperManifest.json");
+            if (File.Exists(manifestPath))
+            {
+                try
+                {
+                    var defaultManifest = WallpaperLibrary.Load(manifestPath);
+                    if (defaultManifest.Wallpapers != null)
+                        fresh.AddRange(defaultManifest.Wallpapers);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[Manifest] Failed to reload default manifest: {ex.Message}");
+                }
+            }
+
+            // User manifest
+            string userManifestPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "WallpaperTurbo", "WallpaperManifest.json");
+            if (File.Exists(userManifestPath))
+            {
+                try
+                {
+                    var userManifest = WallpaperLibrary.Load(userManifestPath);
+                    if (userManifest.Wallpapers != null)
+                        fresh.AddRange(userManifest.Wallpapers);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[Manifest] Failed to reload user manifest: {ex.Message}");
+                }
+            }
+
+            if (fresh.Count == 0)
+            {
+                Console.Error.WriteLine("[Manifest] Reload yielded zero wallpapers; keeping previous list.");
+                return false;
+            }
+
+            wallpapers.Clear();
+            wallpapers.AddRange(fresh);
+            Console.WriteLine($"[Manifest] Reloaded {fresh.Count} wallpapers from disk.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Manifest] Reload failed, keeping stale list: {ex.Message}");
+            return false;
+        }
     }
 
     private static void ShowMissingWallpaperWarning(

@@ -66,15 +66,20 @@ public class SettingsViewModelGpuPreferenceTests
 
     private sealed class FakeWallpaperLibraryService : IWallpaperLibraryService
     {
+        public event EventHandler<WallpaperEntry>? MetadataChanged;
+
         public Task<IReadOnlyList<WallpaperEntry>> GetWallpapersAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<WallpaperEntry>>(Array.Empty<WallpaperEntry>());
 
-        public Task<WallpaperEntry> ImportWallpaperAsync(string sourceFilePath, Action<WallpaperEntry> onThumbnailCompleted, CancellationToken cancellationToken = default)
+        public Task<WallpaperEntry> ImportWallpaperAsync(string sourceFilePath, Action<WallpaperEntry> onThumbnailCompleted, CancellationToken cancellationToken = default, IProgress<ImportProgress>? progress = null)
             => throw new NotImplementedException();
 
         public Task ShutdownAsync() => Task.CompletedTask;
 
         public Task<bool> DeleteWallpaperAsync(string guid, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+
+        public Task<bool> UpdateWallpaperMetadataAsync(string guid, string? title, string? author, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
     }
 
