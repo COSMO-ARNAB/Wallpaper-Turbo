@@ -301,7 +301,8 @@
             <Border Width="460"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Style="{StaticResource Card}"
+                    CornerRadius="12"
+                    Background="#F20F121D"
                     BorderBrush="{StaticResource AccentBrush}"
                     BorderThickness="1.5"
                     Padding="0">
@@ -333,8 +334,8 @@
 
                     <TextBlock Grid.Row="1" 
                                Text="We've polished the experience and added new features to make your desktop even more dynamic."
-                               FontSize="12" 
-                               Foreground="{StaticResource TextSecondaryBrush}" 
+                               FontSize="13" 
+                               Foreground="#CBD5E1" 
                                TextWrapping="Wrap" 
                                Margin="0,0,0,16" 
                                LineHeight="18"/>
@@ -343,13 +344,21 @@
                     <ItemsControl Grid.Row="2" ItemsSource="{Binding WhatsNewHighlights}" Margin="0,0,0,20">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="0,0,0,10">
+                                <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <ui:SymbolIcon Grid.Column="0" Symbol="Checkmark24" Foreground="{StaticResource AccentBrush}" FontSize="14" Margin="0,2,10,0" VerticalAlignment="Top" />
-                                    <TextBlock Grid.Column="1" Text="{Binding}" Style="{StaticResource BodyStyle}" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" VerticalAlignment="Top" LineHeight="16"/>
+                                    <TextBlock Grid.Column="1" 
+                                               Text="{Binding}" 
+                                               Style="{StaticResource FontBase}" 
+                                               FontSize="13.5"
+                                               FontWeight="Medium"
+                                               Foreground="#F8FAFC" 
+                                               TextWrapping="Wrap" 
+                                               VerticalAlignment="Top" 
+                                               LineHeight="20"/>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
