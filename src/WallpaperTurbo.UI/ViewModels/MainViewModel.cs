@@ -96,6 +96,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private ICommand? _dialogCancelCommand;
 
+    [ObservableProperty]
+    private bool _isWhatsNewVisible;
+
+    [ObservableProperty]
+    private string _whatsNewVersion = string.Empty;
+
+    [ObservableProperty]
+    private System.Collections.Generic.List<string> _whatsNewHighlights = new();
+
+    [ObservableProperty]
+    private ICommand? _whatsNewCloseCommand;
+
     public System.Collections.ObjectModel.ObservableCollection<MonitorTopologyItem> Monitors { get; } = new();
 
     [ObservableProperty]
@@ -142,9 +154,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _libraryService.MetadataChanged += OnWallpaperMetadataChanged;
 
-        // Initialize active view to Dashboard
         _currentPageViewModel = _dashboardViewModel;
         StartupDiagnostics.Log("CurrentPageViewModel assigned: DashboardViewModel");
+
+        WhatsNewCloseCommand = new RelayCommand(() => IsWhatsNewVisible = false);
 
         // Hook up telemetry polling updates
         _telemetryService.MetricsUpdated += OnMetricsUpdated;
@@ -544,15 +557,31 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
             if (lastVersion != currentVersion)
             {
-                // Show the "What's New" dialog with curating highlights
-                DialogTitle = $"What's New in v{currentVersion}";
-                DialogMessage = "• Integrated cancellation and progress tracking for wallpaper imports.\n" +
-                                "• Added smooth animations for Play and Delete library actions.\n" +
-                                "• Implemented 'Start with Windows' auto-start configurations.\n" +
-                                "• Enhanced wallpaper metadata management and performance.";
-                IsDialogCancelVisible = false;
-                DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
-                IsDialogVisible = true;
+                if (string.Equals(settings.Layout, "Minimal", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Show the premium glassmorphic Minimal layout What's New modal
+                    WhatsNewVersion = currentVersion;
+                    WhatsNewHighlights = new System.Collections.Generic.List<string>
+                    {
+                        "Dynamic glassbackdrop options (Acrylic, Mica, None) and smooth opacity adjustment slider inside Settings.",
+                        "Optimized wallpaper engine startup and hardware acceleration decoding stability.",
+                        "Improved titlebar click hit-testing, resolving unclickable min/max/close buttons.",
+                        "Added navigation Back button on Library view to easily return to your dashboard."
+                    };
+                    IsWhatsNewVisible = true;
+                }
+                else
+                {
+                    // Show the "What's New" dialog inside the standard reddish dialog for Techie layout
+                    DialogTitle = $"What's New in v{currentVersion}";
+                    DialogMessage = "• Integrated dynamic glass backdrop custom controls and settings.\n" +
+                                    "• Added smooth animations for Play and Delete library actions.\n" +
+                                    "• Implemented 'Start with Windows' auto-start configurations.\n" +
+                                    "• Enhanced wallpaper metadata management and performance.";
+                    IsDialogCancelVisible = false;
+                    DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
+                    IsDialogVisible = true;
+                }
 
                 // Persist the current version as LastRunVersion
                 settings.LastRunVersion = currentVersion;
