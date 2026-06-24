@@ -89,7 +89,9 @@ public class JsonSettingsStore : ISettingsStore
             MuteAudio = source.MuteAudio,
             StartWithWindows = source.StartWithWindows,
             LastRunVersion = source.LastRunVersion,
-            GpuPreference = source.GpuPreference
+            GpuPreference = source.GpuPreference,
+            GlassBackdrop = source.GlassBackdrop,
+            GlassOpacity = source.GlassOpacity
         };
     }
 }

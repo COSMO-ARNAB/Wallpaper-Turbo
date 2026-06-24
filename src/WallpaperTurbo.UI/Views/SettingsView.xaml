@@ -117,7 +117,7 @@
                         </Grid>
 
                         <!-- Language Selection -->
-                        <Grid Margin="0,0,0,4">
+                        <Grid Margin="0,0,0,16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -128,6 +128,43 @@
                             <ComboBox Grid.Column="2" SelectedValue="{Binding SelectedLanguage}" SelectedValuePath="Content" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <ComboBoxItem Content="English" />
                             </ComboBox>
+                        </Grid>
+
+                        <!-- Glass Backdrop Selection -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="VideoClip24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                <TextBlock Text="Glass Backdrop" Style="{StaticResource BodyStyle}" />
+                                <TextBlock Text="Select dynamic window blur type" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,1,0,0" />
+                            </StackPanel>
+                            <ComboBox Grid.Column="2" SelectedValue="{Binding SelectedGlassBackdrop}" SelectedValuePath="Content" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center" Cursor="Hand">
+                                <ComboBoxItem Content="Acrylic" />
+                                <ComboBoxItem Content="Mica" />
+                                <ComboBoxItem Content="None" />
+                            </ComboBox>
+                        </Grid>
+
+                        <!-- Glass Opacity Control -->
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Grid.Column="0" Symbol="Layer24" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                <TextBlock Text="Glass Opacity" Style="{StaticResource BodyStyle}" />
+                                <TextBlock Text="Set backdrop translucency level" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,1,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Slider Minimum="0" Maximum="90" Value="{Binding SelectedGlassOpacityPercent}" TickFrequency="5" IsSnapToTickEnabled="True" Width="96" VerticalAlignment="Center" Margin="0,0,8,0" Cursor="Hand"/>
+                                <TextBlock Text="{Binding SelectedGlassOpacityPercent, StringFormat='{}{0}%'}" Width="36" Style="{StaticResource BodyStyle}" TextAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Border>

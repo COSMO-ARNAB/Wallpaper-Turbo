@@ -15,6 +15,9 @@ public class AppSettings
 
     public string LastRunVersion { get; set; } = string.Empty;
 
+    public string GlassBackdrop { get; set; } = "Acrylic";
+    public double GlassOpacity { get; set; } = 0.40;
+
     [JsonConverter(typeof(GpuPreferenceJsonConverter))]
     public GpuPreference GpuPreference { get; set; } = GpuPreference.Auto;
 }

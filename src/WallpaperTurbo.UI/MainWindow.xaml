@@ -11,7 +11,8 @@
         Icon="Assets/Branding/wallpaper-turbo.png"
         Height="780" Width="1240"
         Background="Transparent"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None">
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="56"

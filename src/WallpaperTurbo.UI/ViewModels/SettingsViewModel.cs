@@ -34,6 +34,8 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _selectedTheme = "System";
     [ObservableProperty] private string _selectedLayout = "Minimal";
+    [ObservableProperty] private string _selectedGlassBackdrop = "Acrylic";
+    [ObservableProperty] private int _selectedGlassOpacityPercent = 40;
     [ObservableProperty] private GpuPreference _selectedGpuPreference = GpuPreference.Auto;
     [ObservableProperty] private bool _isGpuSwitching = false;
     [ObservableProperty] private bool _pauseOnFullscreen = true;
@@ -65,6 +67,8 @@ public partial class SettingsViewModel : ObservableObject
         {
             _selectedTheme = settings.Theme;
             _selectedLayout = settings.Layout;
+            _selectedGlassBackdrop = settings.GlassBackdrop;
+            _selectedGlassOpacityPercent = (int)Math.Round(settings.GlassOpacity * 100);
             _pauseOnFullscreen = settings.PauseOnMaximized;
             _muteWallpaperAudio = settings.MuteAudio;
             _selectedGpuPreference = settings.GpuPreference;
@@ -98,6 +102,9 @@ public partial class SettingsViewModel : ObservableObject
             {
                 if (SelectedTheme != newSettings.Theme) SelectedTheme = newSettings.Theme;
                 if (SelectedLayout != newSettings.Layout) SelectedLayout = newSettings.Layout;
+                if (SelectedGlassBackdrop != newSettings.GlassBackdrop) SelectedGlassBackdrop = newSettings.GlassBackdrop;
+                int newPercent = (int)Math.Round(newSettings.GlassOpacity * 100);
+                if (SelectedGlassOpacityPercent != newPercent) SelectedGlassOpacityPercent = newPercent;
                 if (PauseOnFullscreen != newSettings.PauseOnMaximized) PauseOnFullscreen = newSettings.PauseOnMaximized;
                 if (MuteWallpaperAudio != newSettings.MuteAudio) MuteWallpaperAudio = newSettings.MuteAudio;
                 if (SelectedGpuPreference != newSettings.GpuPreference) SelectedGpuPreference = newSettings.GpuPreference;
@@ -178,6 +185,24 @@ public partial class SettingsViewModel : ObservableObject
 
         var settings = _settingsStore.Load();
         settings.Layout = value;
+        _settingsStore.Save(settings);
+    }
+
+    partial void OnSelectedGlassBackdropChanged(string value)
+    {
+        if (_isSyncing) return;
+
+        var settings = _settingsStore.Load();
+        settings.GlassBackdrop = value;
+        _settingsStore.Save(settings);
+    }
+
+    partial void OnSelectedGlassOpacityPercentChanged(int value)
+    {
+        if (_isSyncing) return;
+
+        var settings = _settingsStore.Load();
+        settings.GlassOpacity = value / 100.0;
         _settingsStore.Save(settings);
     }
 
@@ -305,6 +330,8 @@ public partial class SettingsViewModel : ObservableObject
             PauseOnFullscreen = true;
             SelectedTheme = "Dark";
             SelectedLayout = "Minimal";
+            SelectedGlassBackdrop = "Acrylic";
+            SelectedGlassOpacityPercent = 40;
             MuteWallpaperAudio = true;
             SelectedGpuPreference = GpuPreference.Auto;
             AutoStartWallpaperEngine = true;

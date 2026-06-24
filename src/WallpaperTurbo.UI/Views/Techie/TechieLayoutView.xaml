@@ -232,9 +232,6 @@
 
             <!-- WPF-UI Native Snap Titlebar & Command Header -->
             <Grid Grid.Row="0" Height="64">
-                <!-- TitleBar spans only the far right button section to avoid intercepting custom button clicks, while retaining native window control snaps -->
-                <ui:TitleBar Title="" Height="64" HorizontalAlignment="Right" Width="140" VerticalAlignment="Stretch" Padding="0,0,8,0"/>
-                
                 <!-- Our custom Command Bar content overlay (interactivity is preserved because interactive buttons are hit-testable, while blank space clicks through to titlebar) -->
                 <Border Padding="24,12" Height="64" VerticalAlignment="Center" Background="{x:Null}" IsHitTestVisible="True" WindowChrome.IsHitTestVisibleInChrome="True">
                     <Grid>
@@ -360,6 +357,9 @@
                         </StackPanel>
                     </Grid>
                 </Border>
+
+                <!-- TitleBar spans only the far right button section to avoid intercepting custom button clicks, while retaining native window control snaps -->
+                <ui:TitleBar Title="" Height="64" HorizontalAlignment="Right" Width="140" VerticalAlignment="Stretch" Padding="0,0,8,0" WindowChrome.IsHitTestVisibleInChrome="True"/>
             </Grid>
 
             <!-- NON-INTRUSIVE UPDATE NOTIFICATION BANNER -->

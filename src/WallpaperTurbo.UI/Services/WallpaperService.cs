@@ -320,6 +320,7 @@ public class WallpaperService
     private List<WallpaperEntry> _wallpapers = new();
     private int _activeWallpaperIndex = -1;
     private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
+    private DateTime _lastStateFileWriteTime = DateTime.MinValue;
 
     public WallpaperSessionEventArgs? ActiveSession { get; private set; }
     public event EventHandler<WallpaperSessionEventArgs>? SessionStateChanged;
@@ -473,6 +474,7 @@ public class WallpaperService
                 _activeWallpaperIndex = -1;
                 UpdateActiveStates(-1);
             }
+            _lastStateFileWriteTime = DateTime.MinValue;
             var newSession = new WallpaperSessionEventArgs("", "", false, false);
             if (ActiveSession == null || ActiveSession.IsActive)
             {
@@ -492,6 +494,14 @@ public class WallpaperService
             string stateFilePath = Path.Combine(appDataDir, "active_state.json");
             if (File.Exists(stateFilePath))
             {
+                // Performance cache optimization: Check last write time before parsing JSON from disk
+                DateTime currentWriteTime = File.GetLastWriteTimeUtc(stateFilePath);
+                if (currentWriteTime == _lastStateFileWriteTime)
+                {
+                    return;
+                }
+                _lastStateFileWriteTime = currentWriteTime;
+
                 string title = string.Empty;
                 bool isPlaying = false;
                 int activeIndex = _activeWallpaperIndex;

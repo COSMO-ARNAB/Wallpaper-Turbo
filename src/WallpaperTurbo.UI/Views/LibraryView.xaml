@@ -14,10 +14,39 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- ROW 0: PAGE HEADER -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <TextBlock Text="Library" Style="{StaticResource TitleStyle}" Margin="0,0,0,4" />
+            <Button Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="Dashboard"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="0"
+                    Cursor="Hand"
+                    HorizontalAlignment="Left">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon x:Name="BackArrow" Symbol="ArrowLeft24" FontSize="20" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <ui:SymbolIcon.RenderTransform>
+                                    <TranslateTransform X="0" />
+                                </ui:SymbolIcon.RenderTransform>
+                            </ui:SymbolIcon>
+                            <TextBlock Text="Library" Style="{StaticResource TitleStyle}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BackArrow" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <TranslateTransform X="-4" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
             <TextBlock Text="Browse your collection and triple-click any card to play."
-                       Style="{StaticResource SecondaryStyle}" />
+                       Style="{StaticResource SecondaryStyle}" Margin="30,4,0,0" />
         </StackPanel>
 
         <Grid Grid.Row="1" Margin="0,0,0,20">

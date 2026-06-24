@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
+using WallpaperTurbo.UI.Models;
 
 namespace WallpaperTurbo.UI.Services;
 
@@ -21,6 +22,7 @@ public enum UIMaterialMode
 public partial class PresentationManager : ObservableObject, IDisposable
 {
     private readonly WallpaperService _wallpaperService;
+    private readonly ISettingsStore _settingsStore;
     private bool _disposed;
 
     [ObservableProperty]
@@ -32,10 +34,15 @@ public partial class PresentationManager : ObservableObject, IDisposable
     [ObservableProperty]
     private UIMaterialMode _materialMode = UIMaterialMode.Solid;
 
-    public PresentationManager(WallpaperService wallpaperService)
+    [ObservableProperty]
+    private double _overlayOpacity = 1.0;
+
+    public PresentationManager(WallpaperService wallpaperService, ISettingsStore settingsStore)
     {
         _wallpaperService = wallpaperService ?? throw new ArgumentNullException(nameof(wallpaperService));
+        _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
         _wallpaperService.SessionStateChanged += OnSessionStateChanged;
+        _settingsStore.SettingsChanged += OnSettingsStoreChanged;
         
         // Initial state sync
         SyncSessionState(_wallpaperService.ActiveSession);
@@ -46,6 +53,11 @@ public partial class PresentationManager : ObservableObject, IDisposable
         SyncSessionState(e);
     }
 
+    private void OnSettingsStoreChanged(object? sender, AppSettings e)
+    {
+        SyncSessionState(_wallpaperService.ActiveSession);
+    }
+
     private void SyncSessionState(WallpaperSessionEventArgs? session)
     {
         bool visible = session != null && session.IsActive && session.IsPlaying;
@@ -53,24 +65,36 @@ public partial class PresentationManager : ObservableObject, IDisposable
         
         if (dispatcher == null || dispatcher.CheckAccess())
         {
-            if (IsWallpaperVisible == visible)
-                return;
-
-            IsWallpaperVisible = visible;
-            BackdropMode = visible ? WindowBackdropMode.Acrylic : WindowBackdropMode.Mica;
-            MaterialMode = visible ? UIMaterialMode.Glass : UIMaterialMode.Solid;
+            ApplyState(visible);
         }
         else
         {
-            dispatcher.BeginInvoke(new Action(() =>
-            {
-                if (IsWallpaperVisible == visible)
-                    return;
+            dispatcher.BeginInvoke(new Action(() => ApplyState(visible)));
+        }
+    }
 
-                IsWallpaperVisible = visible;
-                BackdropMode = visible ? WindowBackdropMode.Acrylic : WindowBackdropMode.Mica;
-                MaterialMode = visible ? UIMaterialMode.Glass : UIMaterialMode.Solid;
-            }));
+    private void ApplyState(bool visible)
+    {
+        IsWallpaperVisible = visible;
+        if (visible)
+        {
+            var settings = _settingsStore.Load();
+            if (Enum.TryParse<WindowBackdropMode>(settings.GlassBackdrop, out var customBackdrop))
+            {
+                BackdropMode = customBackdrop;
+            }
+            else
+            {
+                BackdropMode = WindowBackdropMode.Acrylic;
+            }
+            OverlayOpacity = settings.GlassOpacity;
+            MaterialMode = UIMaterialMode.Glass;
+        }
+        else
+        {
+            BackdropMode = WindowBackdropMode.Mica;
+            OverlayOpacity = 1.0;
+            MaterialMode = UIMaterialMode.Solid;
         }
     }
 
@@ -79,5 +103,6 @@ public partial class PresentationManager : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
         _wallpaperService.SessionStateChanged -= OnSessionStateChanged;
+        _settingsStore.SettingsChanged -= OnSettingsStoreChanged;
     }
 }

@@ -66,7 +66,7 @@ public class PresentationManagerTests
         var gpu = new FakeGpuPreferenceService();
         var wallpaperService = new WallpaperService(lib, store, gpu);
 
-        using var presentationManager = new PresentationManager(wallpaperService);
+        using var presentationManager = new PresentationManager(wallpaperService, store);
 
         Assert.False(presentationManager.IsWallpaperVisible);
         Assert.Equal(WindowBackdropMode.Mica, presentationManager.BackdropMode);
@@ -81,7 +81,7 @@ public class PresentationManagerTests
         var gpu = new FakeGpuPreferenceService();
         var wallpaperService = new WallpaperService(lib, store, gpu);
 
-        using var presentationManager = new PresentationManager(wallpaperService);
+        using var presentationManager = new PresentationManager(wallpaperService, store);
 
         // Track property changed events
         int propertyChangedCount = 0;
@@ -125,7 +125,7 @@ public class PresentationManagerTests
         var gpu = new FakeGpuPreferenceService();
         var wallpaperService = new WallpaperService(lib, store, gpu);
 
-        using var presentationManager = new PresentationManager(wallpaperService);
+        using var presentationManager = new PresentationManager(wallpaperService, store);
 
         // First transition to active
         var activeSession = new WallpaperSessionEventArgs("Sunset Walk", "thumb.jpg", true, true);
@@ -154,7 +154,7 @@ public class PresentationManagerTests
         var gpu = new FakeGpuPreferenceService();
         var wallpaperService = new WallpaperService(lib, store, gpu);
 
-        using var presentationManager = new PresentationManager(wallpaperService);
+        using var presentationManager = new PresentationManager(wallpaperService, store);
 
         var activeSession = new WallpaperSessionEventArgs("Sunset Walk", "thumb.jpg", true, true);
         var inactiveSession = new WallpaperSessionEventArgs("", "", false, false);
