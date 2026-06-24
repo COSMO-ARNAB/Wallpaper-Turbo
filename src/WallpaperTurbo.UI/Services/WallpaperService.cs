@@ -293,6 +293,22 @@ public class WallpaperManifest
     public List<WallpaperEntry> Wallpapers { get; set; } = new();
 }
 
+public class WallpaperSessionEventArgs : EventArgs
+{
+    public string WallpaperTitle { get; }
+    public string ThumbnailPath { get; }
+    public bool IsPlaying { get; }
+    public bool IsActive { get; }
+
+    public WallpaperSessionEventArgs(string title, string thumbnailPath, bool isPlaying, bool isActive)
+    {
+        WallpaperTitle = title;
+        ThumbnailPath = thumbnailPath;
+        IsPlaying = isPlaying;
+        IsActive = isActive;
+    }
+}
+
 public class WallpaperService
 {
     private readonly IWallpaperLibraryService _libraryService;
@@ -304,6 +320,9 @@ public class WallpaperService
     private List<WallpaperEntry> _wallpapers = new();
     private int _activeWallpaperIndex = -1;
     private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
+
+    public WallpaperSessionEventArgs? ActiveSession { get; private set; }
+    public event EventHandler<WallpaperSessionEventArgs>? SessionStateChanged;
 
     private string _activePauseProfile = "Maximized";
     public string ActivePauseProfile
@@ -447,10 +466,19 @@ public class WallpaperService
         {
             SyncActiveStateFromFile();
         }
-        else if (_activeWallpaperIndex != -1)
+        else
         {
-            _activeWallpaperIndex = -1;
-            UpdateActiveStates(-1);
+            if (_activeWallpaperIndex != -1)
+            {
+                _activeWallpaperIndex = -1;
+                UpdateActiveStates(-1);
+            }
+            var newSession = new WallpaperSessionEventArgs("", "", false, false);
+            if (ActiveSession == null || ActiveSession.IsActive)
+            {
+                ActiveSession = newSession;
+                SessionStateChanged?.Invoke(this, newSession);
+            }
         }
 
         return isRunning;
@@ -464,12 +492,17 @@ public class WallpaperService
             string stateFilePath = Path.Combine(appDataDir, "active_state.json");
             if (File.Exists(stateFilePath))
             {
+                string title = string.Empty;
+                bool isPlaying = false;
+                int activeIndex = _activeWallpaperIndex;
+
                 using var fs = new FileStream(stateFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 using var doc = JsonDocument.Parse(fs);
                 var root = doc.RootElement;
                 if (root.TryGetProperty("ActiveWallpaperIndex", out var idxProp))
                 {
                     int index = idxProp.GetInt32();
+                    activeIndex = index;
                     if (index != _activeWallpaperIndex)
                     {
                         _activeWallpaperIndex = index;
@@ -492,7 +525,7 @@ public class WallpaperService
                 
                 if (root.TryGetProperty("ActiveWallpaperTitle", out var titleProp))
                 {
-                    string title = titleProp.GetString() ?? string.Empty;
+                    title = titleProp.GetString() ?? string.Empty;
                     if (!string.IsNullOrEmpty(title))
                     {
                         Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
@@ -510,7 +543,7 @@ public class WallpaperService
 
                 if (root.TryGetProperty("IsPlaying", out var playingProp))
                 {
-                    bool isPlaying = playingProp.GetBoolean();
+                    isPlaying = playingProp.GetBoolean();
                     Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                     {
                         var mainVm = App.GetService<MainViewModel>();
@@ -519,6 +552,29 @@ public class WallpaperService
                             mainVm.IsPlaying = isPlaying;
                         }
                     }));
+                }
+
+                if (activeIndex > 0 && activeIndex <= _wallpapers.Count && string.IsNullOrEmpty(title))
+                {
+                    title = _wallpapers[activeIndex - 1].Title;
+                }
+
+                // Notify session changed
+                bool isVisible = isPlaying && (activeIndex > 0);
+                string thumbnail = "";
+                if (activeIndex > 0 && activeIndex <= _wallpapers.Count)
+                {
+                    thumbnail = _wallpapers[activeIndex - 1].Thumbnail;
+                }
+                
+                var newSession = new WallpaperSessionEventArgs(title, thumbnail, isPlaying, isVisible);
+                if (ActiveSession == null || 
+                    ActiveSession.WallpaperTitle != newSession.WallpaperTitle || 
+                    ActiveSession.IsPlaying != newSession.IsPlaying || 
+                    ActiveSession.IsActive != newSession.IsActive)
+                {
+                    ActiveSession = newSession;
+                    SessionStateChanged?.Invoke(this, newSession);
                 }
             }
         }
@@ -538,6 +594,18 @@ public class WallpaperService
             _activeWallpaperIndex = index;
             UpdateActiveStates(index);
             _mockEngineRunning = true;
+
+            string title = "";
+            string thumbnail = "";
+            if (index > 0 && index <= _wallpapers.Count)
+            {
+                title = _wallpapers[index - 1].Title;
+                thumbnail = _wallpapers[index - 1].Thumbnail;
+            }
+            var newSession = new WallpaperSessionEventArgs(title, thumbnail, true, true);
+            ActiveSession = newSession;
+            SessionStateChanged?.Invoke(this, newSession);
+
             DiagnosticsService.SetAction("Wallpaper Service Idle / Launch complete (SafeDebugMode)");
             return await Task.FromResult(true);
         }
@@ -634,6 +702,11 @@ public class WallpaperService
             _activeWallpaperIndex = -1;
             UpdateActiveStates(-1);
             _mockEngineRunning = false;
+
+            var debugSession = new WallpaperSessionEventArgs("", "", false, false);
+            ActiveSession = debugSession;
+            SessionStateChanged?.Invoke(this, debugSession);
+
             DiagnosticsService.SetAction("Wallpaper Service Idle / Stop complete (SafeDebugMode)");
             return await Task.FromResult(true);
         }
@@ -676,6 +749,14 @@ public class WallpaperService
         });
 
         DiagnosticsService.SetAction("Wallpaper Service Idle / Stop complete");
+
+        var newSession = new WallpaperSessionEventArgs("", "", false, false);
+        if (ActiveSession == null || ActiveSession.IsActive)
+        {
+            ActiveSession = newSession;
+            SessionStateChanged?.Invoke(this, newSession);
+        }
+
         return result;
     }
 
