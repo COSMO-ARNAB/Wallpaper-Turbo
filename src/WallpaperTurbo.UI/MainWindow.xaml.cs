@@ -17,13 +17,16 @@ public partial class MainWindow : Window
 
     private readonly IWallpaperPreviewService _previewService;
     private readonly DiagnosticsService _diagnostics;
+    private readonly PresentationManager _presentation;
 
-    public MainWindow(MainViewModel viewModel, IWallpaperPreviewService previewService, DiagnosticsService diagnostics)
+    public MainWindow(MainViewModel viewModel, IWallpaperPreviewService previewService, DiagnosticsService diagnostics, PresentationManager presentation)
     {
         Services.StartupDiagnostics.Log("MainWindow constructor ENTRY");
         Console.WriteLine("DEBUG: MainWindow constructor ENTRY");
         _previewService = previewService;
         _diagnostics = diagnostics;
+        _presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
+        _presentation.PropertyChanged += OnPresentationPropertyChanged;
 
         // Inject and set resolved Viewmodel context
         DataContext = viewModel;
@@ -133,6 +136,30 @@ public partial class MainWindow : Window
         Services.StartupDiagnostics.LogWithMemory("MainWindow.ContentRendered event");
     }
 
+    private void OnPresentationPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PresentationManager.BackdropMode))
+        {
+            UpdateSystemBackdrop();
+        }
+    }
+
+    private void UpdateSystemBackdrop()
+    {
+        try
+        {
+            IntPtr hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero) return;
+            
+            int backdropType = (int)_presentation.BackdropMode;
+            DwmSetWindowAttribute(hwnd, 38, ref backdropType, sizeof(int));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to update backdrop type: {ex.Message}");
+        }
+    }
+
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
         Services.StartupDiagnostics.LogWithMemory("MainWindow.Loaded event");
@@ -141,17 +168,16 @@ public partial class MainWindow : Window
         {
             IntPtr hwnd = new WindowInteropHelper(this).Handle;
             
-            // Apply Mica backdrop (DWMWA_SYSTEMBACKDROP_TYPE = 38, Value = 2 for Mica)
-            int backdropType = 2;
-            DwmSetWindowAttribute(hwnd, 38, ref backdropType, sizeof(int));
-            
             // Enable Immersive Dark Mode for Win11 titlebar (DWMWA_USE_IMMERSIVE_DARK_MODE = 20, Value = 1)
             int darkMode = 1;
             DwmSetWindowAttribute(hwnd, 20, ref darkMode, sizeof(int));
+            
+            // Set initial backdrop
+            UpdateSystemBackdrop();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to apply Mica backdrop: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Failed to apply initial backdrop: {ex.Message}");
         }
     }
 

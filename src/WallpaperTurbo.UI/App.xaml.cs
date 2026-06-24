@@ -80,6 +80,9 @@ public partial class App : Application
         services.AddSingleton<ViewModels.SettingsViewModel>();
         services.AddSingleton<ViewModels.UpdaterViewModel>();
 
+        // Presentation Management
+        services.AddSingleton<Services.PresentationManager>();
+
         // Windows & Views
         services.AddSingleton<MainWindow>();
 
@@ -212,6 +215,16 @@ public partial class App : Application
             if (_serviceProvider.GetService<ViewModels.MainViewModel>() is IDisposable disposableMainViewModel)
             {
                 disposableMainViewModel.Dispose();
+            }
+        }
+        catch { /* best-effort cleanup */ }
+
+        try
+        {
+            // Dispose PresentationManager to clean up session event handler
+            if (_serviceProvider.GetService<Services.PresentationManager>() is IDisposable disposablePresentation)
+            {
+                disposablePresentation.Dispose();
             }
         }
         catch { /* best-effort cleanup */ }

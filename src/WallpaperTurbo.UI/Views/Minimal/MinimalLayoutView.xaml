@@ -12,18 +12,47 @@
              d:DesignHeight="780" d:DesignWidth="1240">
 
     <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
-        <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
-            <views:DashboardView />
-        </DataTemplate>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../../Theme/GlassStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+            <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+                <views:DashboardView />
+            </DataTemplate>
+        </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid Background="{StaticResource WindowRadialGradient}">
+    <Grid>
         <Grid.Style>
             <Style TargetType="Grid">
+                <!-- FIX: Background MUST live in a Style Setter, never as a local value.
+                     A local <Grid.Background> property value is auto-frozen by WPF at
+                     visual-tree load time — any DataTrigger Setter that tries to modify
+                     a frozen brush silently fails, keeping the background permanently opaque. -->
+                <Setter Property="Background">
+                    <Setter.Value>
+                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                            <GradientStop Color="#11141B" Offset="0" />
+                            <GradientStop Color="#0A0B0E" Offset="1" />
+                        </LinearGradientBrush>
+                    </Setter.Value>
+                </Setter>
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
                         <Setter Property="Margin" Value="8" />
+                    </DataTrigger>
+
+                    <!-- Glass mode: semi-opaque dark tint over DWM Acrylic backdrop.
+                         Alpha #66 = ~40% opaque — reduces perceived blur intensity while
+                         keeping the frosted-glass look. Tune the alpha to taste:
+                           #33 (20%) = very glassy, strong blur  ← more blur
+                           #66 (40%) = balanced ← current
+                           #99 (60%) = darker, subtle blur
+                           #CC (80%) = near-solid, minimal blur  ← less blur
+                         The color 0D0F15 matches the dark theme base to stay neutral. -->
+                    <DataTrigger Binding="{Binding DataContext.Presentation.IsWallpaperVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                        <Setter Property="Background" Value="#660D0F15" />
                     </DataTrigger>
                 </Style.Triggers>
             </Style>

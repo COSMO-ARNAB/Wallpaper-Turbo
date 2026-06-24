@@ -114,6 +114,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public LayoutHostViewModel LayoutHost => _layoutHostViewModel;
 
+    public PresentationManager Presentation { get; }
+
     public MainViewModel(
         WallpaperService wallpaperService,
         TelemetryService telemetryService,
@@ -123,7 +125,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         DashboardViewModel dashboardViewModel,
         LibraryViewModel libraryViewModel,
         SettingsViewModel settingsViewModel,
-        LayoutHostViewModel layoutHostViewModel)
+        LayoutHostViewModel layoutHostViewModel,
+        PresentationManager presentation)
     {
         StartupDiagnostics.Log("MainViewModel constructor ENTRY");
         _wallpaperService = wallpaperService;
@@ -135,6 +138,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _libraryViewModel = libraryViewModel;
         _settingsViewModel = settingsViewModel;
         _layoutHostViewModel = layoutHostViewModel;
+        Presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
 
         _libraryService.MetadataChanged += OnWallpaperMetadataChanged;
 
