@@ -343,7 +343,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var openFileDialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Import Cinematic Wallpapers",
-            Filter = "Supported Formats (*.mp4;*.webm;*.mkv;*.gif;*.jpg;*.jpeg;*.png)|*.mp4;*.webm;*.mkv;*.gif;*.jpg;*.jpeg;*.png",
+            Filter = "Video Wallpapers (*.mp4;*.webm;*.mkv;*.gif)|*.mp4;*.webm;*.mkv;*.gif|" +
+                     "Static Images (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png|" +
+                     "All Supported Formats (*.mp4;*.webm;*.mkv;*.gif;*.jpg;*.jpeg;*.png)|*.mp4;*.webm;*.mkv;*.gif;*.jpg;*.jpeg;*.png",
+            FilterIndex = 1,
             Multiselect = true
         };
 
