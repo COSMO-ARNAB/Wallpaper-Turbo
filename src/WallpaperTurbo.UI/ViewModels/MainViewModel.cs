@@ -576,6 +576,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
         IsDialogVisible = true;
     }
 
+    private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
+    {
+        "Dynamic glass backdrop options (Acrylic, Mica, None) and smooth opacity adjustment slider inside Settings.",
+        "Added option to immediately apply/play a single imported wallpaper directly from the import complete dialog.",
+        "Optimized wallpaper engine startup and hardware acceleration decoding stability.",
+        "Improved titlebar click hit-testing, resolving unclickable min/max/close buttons.",
+        "Added navigation Back button on Library view to easily return to your dashboard."
+    };
+
     private void CheckForVersionUpdate()
     {
         try
@@ -590,23 +599,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 {
                     // Show the premium glassmorphic Minimal layout What's New modal
                     WhatsNewVersion = currentVersion;
-                    WhatsNewHighlights = new System.Collections.Generic.List<string>
-                    {
-                        "Dynamic glassbackdrop options (Acrylic, Mica, None) and smooth opacity adjustment slider inside Settings.",
-                        "Optimized wallpaper engine startup and hardware acceleration decoding stability.",
-                        "Improved titlebar click hit-testing, resolving unclickable min/max/close buttons.",
-                        "Added navigation Back button on Library view to easily return to your dashboard."
-                    };
+                    WhatsNewHighlights = CurrentVersionHighlights;
                     IsWhatsNewVisible = true;
                 }
                 else
                 {
                     // Show the "What's New" dialog inside the standard reddish dialog for Techie layout
                     DialogTitle = $"What's New in v{currentVersion}";
-                    DialogMessage = "• Integrated dynamic glass backdrop custom controls and settings.\n" +
-                                    "• Added smooth animations for Play and Delete library actions.\n" +
-                                    "• Implemented 'Start with Windows' auto-start configurations.\n" +
-                                    "• Enhanced wallpaper metadata management and performance.";
+                    DialogMessage = string.Join("\n", CurrentVersionHighlights.ConvertAll(h => $"• {h}"));
                     IsDialogCancelVisible = false;
                     DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
                     IsDialogVisible = true;
