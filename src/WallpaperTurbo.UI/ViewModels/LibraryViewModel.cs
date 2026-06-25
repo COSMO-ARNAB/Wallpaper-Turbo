@@ -190,9 +190,16 @@ public partial class LibraryViewModel : ObservableObject
 
                 // If deleted wallpaper was active, reset active wallpaper details in MainViewModel
                 mainVm.UpdateEngineStatus();
-                if (mainVm.ActiveWallpaperTitle == wp.Title)
+                if (wp != null && mainVm.ActiveWallpaperTitle == wp.Title)
                 {
                     mainVm.SetActiveWallpaperInfo("No Active Wallpaper", "None");
+                }
+
+                // Refresh DashboardViewModel's library cache and UI elements
+                var dashboardVm = App.GetService<DashboardViewModel>();
+                if (dashboardVm != null)
+                {
+                    _ = dashboardVm.LoadLibraryAsync();
                 }
             }
             else

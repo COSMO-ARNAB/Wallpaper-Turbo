@@ -56,21 +56,33 @@ public sealed class WindowsProcessManager : IProcessManager
         }
         catch (OperationCanceledException)
         {
-            Debug.WriteLine("[WindowsProcessManager] Timeout elapsed before all processes exited gracefully.");
+            Debug.WriteLine("[WindowsProcessManager] Timeout elapsed before all processes exited gracefully. Force killing...");
+            bool allDead = true;
             foreach (var proc in processesToShutdown)
             {
                 ForceKillProcess(proc);
+                proc.Refresh();
+                if (!proc.HasExited)
+                {
+                    allDead = false;
+                }
             }
-            return false;
+            return allDead;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[WindowsProcessManager] Error during graceful shutdown: {ex.Message}");
+            Debug.WriteLine($"[WindowsProcessManager] Error during graceful shutdown: {ex.Message}. Force killing...");
+            bool allDead = true;
             foreach (var proc in processesToShutdown)
             {
                 ForceKillProcess(proc);
+                proc.Refresh();
+                if (!proc.HasExited)
+                {
+                    allDead = false;
+                }
             }
-            return false;
+            return allDead;
         }
         finally
         {
@@ -107,9 +119,12 @@ public sealed class WindowsProcessManager : IProcessManager
     {
         try
         {
+            process.Refresh();
             if (!process.HasExited)
             {
                 process.Kill();
+                process.WaitForExit(2000); // Wait to ensure OS releases locks
+                process.Refresh();
                 Debug.WriteLine($"[WindowsProcessManager] Force killed process PID {process.Id}");
             }
         }

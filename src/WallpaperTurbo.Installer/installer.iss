@@ -2,8 +2,8 @@
 ; Packages the self-contained WPF UI & background AppRunner.
 
 #define MyAppName "Wallpaper Turbo"
-#define MyAppVersion "1.2.7"
-#define MyAppPublisher "Arnab"
+#define MyAppVersion "1.3.0"
+#define MyAppPublisher "COSMO-ARNAB"
 #define MyAppExeName "WallpaperTurbo.UI.exe"
 
 [Setup]

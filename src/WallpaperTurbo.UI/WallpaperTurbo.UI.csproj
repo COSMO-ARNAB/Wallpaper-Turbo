@@ -33,4 +33,21 @@
              Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$(PublishDir)" />
   </Target>
 
+  <Target Name="ExcludeLibVlcFromSingleFile" BeforeTargets="GenerateSingleFileBundle">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" Condition="$([System.String]::Copy('%(ResolvedFileToPublish.FullPath)').Contains('libvlc'))">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CopyLibVlcToPublish" AfterTargets="PublishAppRunner">
+    <ItemGroup>
+      <LibVlcFiles Include="..\WallpaperTurbo.AppRunner\bin\x64\$(Configuration)\net8.0-windows\win-x64\libvlc\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LibVlcFiles)"
+          DestinationFolder="$(PublishDir)libvlc\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

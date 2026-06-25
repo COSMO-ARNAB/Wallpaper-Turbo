@@ -22,7 +22,7 @@ public partial class App : Application
     // Update source coordinates. Override these for fork or self-hosted release feeds.
     private const string UpdateRepoOwner = "COSMO-ARNAB";
     private const string UpdateRepoName = "Wallpaper-Turbo";
-    private const string UpdatePublisherName = "Wallpaper Turbo";
+    private const string UpdatePublisherName = "COSMO-ARNAB";
 
     private static IServiceProvider ConfigureServices()
     {

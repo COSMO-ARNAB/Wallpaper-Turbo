@@ -392,6 +392,13 @@ public partial class DashboardViewModel : ObservableObject
             SubHero2 = _allWallpapers[0];
             SubHero3 = _allWallpapers[0];
         }
+        else
+        {
+            HeroWallpaper = null;
+            SubHero1 = null;
+            SubHero2 = null;
+            SubHero3 = null;
+        }
         await Task.CompletedTask;
     }
 
@@ -625,6 +632,12 @@ public partial class DashboardViewModel : ObservableObject
                 }
             }
 
+            bool historyChanged = false;
+            if (hasHistory && list.Count != ids.Count)
+            {
+                historyChanged = true;
+            }
+
             // Fallback to first 5 wallpapers if history is clean/new
             if (list.Count == 0 && _allWallpapers.Count > 0)
             {
@@ -639,11 +652,20 @@ public partial class DashboardViewModel : ObservableObject
                     RecentlyUsedWallpapers.Add(wp);
                 }
 
-                if (hasHistory && list.Count > 0)
+                if (list.Count > 0)
                 {
                     LastDisplayedWallpaper = list[0];
                 }
+                else
+                {
+                    LastDisplayedWallpaper = null;
+                }
             });
+
+            if (historyChanged)
+            {
+                await SaveRecentlyUsedHistoryAsync();
+            }
         }
         catch (Exception ex)
         {
