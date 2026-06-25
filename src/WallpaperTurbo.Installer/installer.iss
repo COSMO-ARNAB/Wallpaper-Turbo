@@ -24,6 +24,11 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 ArchitecturesInstallIn64BitMode=x64
 CloseApplications=yes
 RestartApplications=yes
+VersionInfoDescription=Wallpaper Turbo Setup/Uninstaller
+VersionInfoProductName=Wallpaper Turbo
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoProductVersion={#MyAppVersion}
+VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}
 
 ; Prevent installation if the app is already running
 AppMutex=WallpaperTurbo_UI_Mutex,WallpaperTurbo_AppRunner_Mutex
