@@ -234,14 +234,17 @@
 
         <!-- DIALOG MODAL OVERLAY -->
         <Grid Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="1000" Visibility="{Binding IsDialogVisible, Converter={StaticResource BoolToVisConverter}}">
-            <Border Background="#60080A10" />
+            <Border Background="#90020617" />
             <Border Width="400"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    CornerRadius="{StaticResource RadiusLarge}"
-                    Background="{StaticResource Surface1Brush}"
-                    BorderBrush="{StaticResource StatusErrBrush}"
-                    BorderThickness="1">
+                    CornerRadius="12"
+                    Background="#F20F121D"
+                    BorderBrush="{StaticResource AccentBrush}"
+                    BorderThickness="1.5">
+                <Border.Effect>
+                    <DropShadowEffect Color="#66FCF1" BlurRadius="25" ShadowDepth="0" Opacity="0.2" />
+                </Border.Effect>
                 <Grid Margin="24">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -250,8 +253,8 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
-                        <ui:SymbolIcon Symbol="AlertUrgent24"
-                                       Foreground="{StaticResource StatusErrBrush}"
+                        <ui:SymbolIcon Symbol="Info24"
+                                       Foreground="{StaticResource AccentBrush}"
                                        Margin="0,0,10,0"
                                        VerticalAlignment="Center"
                                        Filled="True" />
@@ -264,32 +267,40 @@
 
                     <TextBlock Grid.Row="1"
                                Text="{Binding DialogMessage}"
+                               Style="{StaticResource FontBase}"
                                FontSize="13"
-                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Foreground="#CBD5E1"
                                TextWrapping="Wrap"
                                Margin="0,0,0,24"
                                LineHeight="20" />
 
                     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-                        <ui:Button Content="Cancel"
-                                   Command="{Binding DialogCancelCommand}"
-                                   Width="90"
-                                   Height="34"
-                                   Margin="0,0,12,0"
-                                   Appearance="Secondary"
-                                   Background="{StaticResource Surface2Brush}"
-                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                   BorderThickness="0"
-                                   CornerRadius="{StaticResource RadiusSmall}"
-                                   Visibility="{Binding IsDialogCancelVisible, Converter={StaticResource BoolToVisConverter}}" />
-                        <ui:Button Content="Confirm"
-                                   Command="{Binding DialogConfirmCommand}"
-                                   Width="100"
-                                   Height="34"
-                                   Background="{StaticResource StatusErrBrush}"
-                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                   BorderThickness="0"
-                                   CornerRadius="{StaticResource RadiusSmall}" />
+                        <Button Content="Cancel"
+                                Command="{Binding DialogCancelCommand}"
+                                Style="{StaticResource ButtonSecondary}"
+                                Width="90"
+                                Height="34"
+                                Margin="0,0,12,0"
+                                Visibility="{Binding IsDialogCancelVisible, Converter={StaticResource BoolToVisConverter}}" />
+                        <Button Content="Confirm"
+                                Command="{Binding DialogConfirmCommand}"
+                                Style="{StaticResource ButtonSecondary}"
+                                Width="100"
+                                Height="34"
+                                Margin="0,0,12,0"
+                                Visibility="{Binding IsDialogApplyVisible, Converter={StaticResource BoolToVisConverter}}" />
+                        <Button Content="Confirm"
+                                Command="{Binding DialogConfirmCommand}"
+                                Style="{StaticResource ButtonPrimary}"
+                                Width="100"
+                                Height="34"
+                                Visibility="{Binding IsDialogApplyNotVisible, Converter={StaticResource BoolToVisConverter}}" />
+                        <Button Content="Apply"
+                                Command="{Binding DialogApplyCommand}"
+                                Style="{StaticResource ButtonPrimary}"
+                                Width="100"
+                                Height="34"
+                                Visibility="{Binding IsDialogApplyVisible, Converter={StaticResource BoolToVisConverter}}" />
                     </StackPanel>
                 </Grid>
             </Border>

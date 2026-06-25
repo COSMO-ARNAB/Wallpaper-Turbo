@@ -97,6 +97,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private ICommand? _dialogCancelCommand;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDialogApplyNotVisible))]
+    private bool _isDialogApplyVisible;
+
+    public bool IsDialogApplyNotVisible => !IsDialogApplyVisible;
+
+    [ObservableProperty]
+    private ICommand? _dialogApplyCommand;
+
+    [ObservableProperty]
     private bool _isWhatsNewVisible;
 
     [ObservableProperty]
@@ -356,6 +365,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var files = openFileDialog.FileNames;
         int successCount = 0;
         bool wasCanceled = false;
+        WallpaperEntry? importedWallpaper = null;
 
         // Cancel any previous in-flight import and create a fresh CTS
         _importCts?.Cancel();
@@ -408,6 +418,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     // Register the newly imported wallpaper in the Recently Used list
                     _dashboardViewModel.RegisterPlayedWallpaper(imported);
 
+                    importedWallpaper = imported;
                     successCount++;
                 }
                 catch (OperationCanceledException)
@@ -428,7 +439,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
             // Always show a completion dialog that stays until the user dismisses it
             DialogTitle = "Import Complete";
             IsDialogCancelVisible = false;
-            DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
+
+            if (files.Length == 1 && successCount == 1 && importedWallpaper != null)
+            {
+                IsDialogApplyVisible = true;
+                DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
+                DialogApplyCommand = new AsyncRelayCommand(async () =>
+                {
+                    IsDialogVisible = false;
+                    await PlayWallpaperAsync(importedWallpaper);
+                });
+            }
+            else
+            {
+                IsDialogApplyVisible = false;
+                DialogConfirmCommand = new RelayCommand(() => IsDialogVisible = false);
+            }
 
             if (wasCanceled)
             {
@@ -594,6 +620,40 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             StartupDiagnostics.Log($"Failed to check version update: {ex.Message}");
+        }
+    }
+
+    private async Task PlayWallpaperAsync(WallpaperEntry wp)
+    {
+        try
+        {
+            var list = await _wallpaperService.GetWallpapersAsync();
+            int index = list.FindIndex(x => x.Id == wp.Id) + 1;
+            if (index > 0)
+            {
+                var settings = _settingsStore.Load();
+                bool pause = settings.PauseOnMaximized;
+
+                // Stop any current playback first for clean transition
+                if (IsEngineRunning)
+                {
+                    await _wallpaperService.StopPlaybackAsync();
+                    await Task.Delay(500);
+                }
+
+                await _wallpaperService.LaunchWallpaperAsync(index, pause ? "Maximized" : "None", forceFreshLaunch: true);
+
+                // Refresh library selections in view models
+                await _dashboardViewModel.LoadLibraryAsync();
+                await _libraryViewModel.LoadLibraryAsync();
+
+                UpdateEngineStatus();
+                SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
+            }
+        }
+        catch (Exception ex)
+        {
+            StartupDiagnostics.Log($"Failed to apply imported wallpaper: {ex.Message}");
         }
     }
 }

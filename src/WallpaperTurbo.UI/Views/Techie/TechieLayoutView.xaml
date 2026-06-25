@@ -590,7 +590,7 @@
                     <!-- Dialog Message -->
                     <TextBlock Grid.Row="1" Text="{Binding DialogMessage}" FontSize="12" Foreground="#C8D2E6" TextWrapping="Wrap" Margin="0,0,0,24" LineHeight="18" FontFamily="Segoe UI Variable Text, Inter"/>
                     
-                    <!-- Dynamic Cancel/Confirm Action buttons styled with scifi transitions -->
+                    <!-- Dynamic Cancel/Confirm/Apply Action buttons styled with scifi transitions -->
                     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
                         <ui:Button Content="Cancel" 
                                    Command="{Binding DialogCancelCommand}" 
@@ -607,10 +607,31 @@
                                    Command="{Binding DialogConfirmCommand}" 
                                    Width="100" 
                                    Height="34" 
+                                   Margin="0,0,12,0" 
+                                   Appearance="Secondary" 
+                                   Background="#15FFFFFF" 
+                                   Foreground="{StaticResource WhiteTextBrush}" 
+                                   BorderThickness="0" 
+                                   CornerRadius="8"
+                                   Visibility="{Binding IsDialogApplyVisible, Converter={StaticResource BoolToVisConverter}}" />
+                        <ui:Button Content="Confirm" 
+                                   Command="{Binding DialogConfirmCommand}" 
+                                   Width="100" 
+                                   Height="34" 
                                    Background="{StaticResource WarningRedBrush}" 
                                    Foreground="{StaticResource WhiteTextBrush}" 
                                    BorderThickness="0"
-                                   CornerRadius="8" />
+                                   CornerRadius="8"
+                                   Visibility="{Binding IsDialogApplyNotVisible, Converter={StaticResource BoolToVisConverter}}" />
+                        <ui:Button Content="Apply" 
+                                   Command="{Binding DialogApplyCommand}" 
+                                   Width="100" 
+                                   Height="34" 
+                                   Background="{StaticResource WarningRedBrush}" 
+                                   Foreground="{StaticResource WhiteTextBrush}" 
+                                   BorderThickness="0"
+                                   CornerRadius="8"
+                                   Visibility="{Binding IsDialogApplyVisible, Converter={StaticResource BoolToVisConverter}}" />
                     </StackPanel>
                 </Grid>
             </Border>
