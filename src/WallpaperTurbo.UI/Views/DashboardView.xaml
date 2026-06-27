@@ -54,22 +54,34 @@
                                x:Name="HeroBgImage"
                                RenderOptions.BitmapScalingMode="HighQuality" />
 
-                        <Border Style="{StaticResource CardTitleStrip}">
+                        <!-- Floating Glassmorphic Details Card -->
+                        <Border HorizontalAlignment="Left"
+                                VerticalAlignment="Bottom"
+                                Margin="16"
+                                Padding="16,12"
+                                CornerRadius="12"
+                                BorderThickness="1">
+                            <Border.BorderBrush>
+                                <SolidColorBrush Color="#FFFFFF" Opacity="0.12" />
+                            </Border.BorderBrush>
+                            <Border.Background>
+                                <SolidColorBrush Color="#0E1118" Opacity="0.75" />
+                            </Border.Background>
                             <Border.Effect>
-                                <BlurEffect Radius="20" />
+                                <DropShadowEffect Color="#000000" BlurRadius="12" ShadowDepth="4" Opacity="0.4" />
                             </Border.Effect>
+                            <StackPanel>
+                                <TextBlock Text="{Binding CurrentWallpaper.Title, FallbackValue='Evening Drive'}"
+                                           FontSize="16"
+                                           FontWeight="600"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           MaxWidth="400"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding CurrentWallpaper.Resolution, StringFormat={}{0} · 60 FPS · Pre-rendered, FallbackValue='3440 × 1440 · 60 FPS · Pre-rendered'}"
+                                           Style="{StaticResource CaptionStyle}"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
                         </Border>
-
-                        <StackPanel VerticalAlignment="Bottom" Margin="24,16">
-                            <TextBlock Text="{Binding CurrentWallpaper.Title, FallbackValue='Evening Drive'}"
-                                       FontSize="22"
-                                       FontWeight="600"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{Binding CurrentWallpaper.Resolution, StringFormat={}{0} · 60 FPS · Pre-rendered, FallbackValue='3440 × 1440 · 60 FPS · Pre-rendered'}"
-                                       Style="{StaticResource CaptionStyle}"
-                                       Margin="0,4,0,0" />
-                        </StackPanel>
                     </Grid>
                 </Border>
 
