@@ -188,9 +188,9 @@ public partial class LibraryViewModel : ObservableObject
                 _allWallpapers.Remove(wp);
                 ApplyFilter();
 
-                // If deleted wallpaper was active, reset active wallpaper details in MainViewModel
+                // If deleted wallpaper was active or library is empty, reset active wallpaper details in MainViewModel
                 mainVm.UpdateEngineStatus();
-                if (wp != null && mainVm.ActiveWallpaperTitle == wp.Title)
+                if (_allWallpapers.Count == 0 || (wp != null && mainVm.ActiveWallpaperTitle == wp.Title))
                 {
                     mainVm.SetActiveWallpaperInfo("No Active Wallpaper", "None");
                 }
@@ -199,7 +199,7 @@ public partial class LibraryViewModel : ObservableObject
                 var dashboardVm = App.GetService<DashboardViewModel>();
                 if (dashboardVm != null)
                 {
-                    _ = dashboardVm.LoadLibraryAsync();
+                    await dashboardVm.LoadLibraryAsync();
                 }
             }
             else

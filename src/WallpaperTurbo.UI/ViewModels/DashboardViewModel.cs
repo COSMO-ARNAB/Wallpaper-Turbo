@@ -336,6 +336,41 @@ public partial class DashboardViewModel : ObservableObject
             await LoadFeaturedWallpapersAsync();
             await LoadRecentlyUsedHistoryAsync();
             ApplyFilter();
+
+            if (_allWallpapers.Count == 0)
+            {
+                ActiveWallpaper = null;
+                GpuValue = 0;
+                VideoDecodeValue = 0;
+                CpuValue = 0;
+
+                TelemetryService? telemetry = null;
+                try
+                {
+                    telemetry = App.GetService<TelemetryService>();
+                }
+                catch { }
+
+                if (telemetry != null)
+                {
+                    RamValueText = $"0.0 / {telemetry.CurrentMetrics.RamTotalGb:0} GB";
+                    VramValueText = $"0.0 / {telemetry.CurrentMetrics.VramTotalGb:0} GB";
+                }
+                else
+                {
+                    RamValueText = "0.0 / 16 GB";
+                    VramValueText = "0.0 / 8 GB";
+                }
+
+                RamGbText = "0.0 GB";
+                VramGbText = "0.0 GB";
+                RamPercentage = 0;
+                VramPercentage = 0;
+                RendererText = "None";
+                HardwareDecodeText = "Inactive";
+                WorkerWText = "No";
+                DwmCompositionText = "Disabled";
+            }
         }
         catch (Exception ex)
         {
@@ -644,7 +679,7 @@ public partial class DashboardViewModel : ObservableObject
                 list = _allWallpapers.Take(5).ToList();
             }
 
-            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+            RunOnUi(() =>
             {
                 RecentlyUsedWallpapers.Clear();
                 foreach (var wp in list)
@@ -671,7 +706,7 @@ public partial class DashboardViewModel : ObservableObject
         {
             System.Diagnostics.Debug.WriteLine($"[DashboardViewModel] Load history error: {ex.Message}");
             // Reliable fallback
-            System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+            RunOnUi(() =>
             {
                 RecentlyUsedWallpapers.Clear();
                 foreach (var wp in _allWallpapers.Take(5))
@@ -723,7 +758,7 @@ public partial class DashboardViewModel : ObservableObject
     {
         if (wp == null) return;
         
-        System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+        RunOnUi(() =>
         {
             var existing = RecentlyUsedWallpapers.FirstOrDefault(w => w.Id == wp.Id);
             if (existing != null)
@@ -741,6 +776,38 @@ public partial class DashboardViewModel : ObservableObject
         });
 
         _ = SaveRecentlyUsedHistoryAsync();
+    }
+
+    private void RunOnUi(Action action)
+    {
+        var app = System.Windows.Application.Current;
+        if (app?.Dispatcher != null)
+        {
+            if (app.Dispatcher.CheckAccess())
+                action();
+            else
+                app.Dispatcher.Invoke(action);
+        }
+        else
+        {
+            action();
+        }
+    }
+
+    private void RunOnUiAsync(Action action)
+    {
+        var app = System.Windows.Application.Current;
+        if (app?.Dispatcher != null)
+        {
+            if (app.Dispatcher.CheckAccess())
+                action();
+            else
+                app.Dispatcher.BeginInvoke(action);
+        }
+        else
+        {
+            action();
+        }
     }
 }
 

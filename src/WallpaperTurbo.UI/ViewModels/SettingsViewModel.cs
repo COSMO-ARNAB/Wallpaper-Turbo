@@ -296,9 +296,17 @@ public partial class SettingsViewModel : ObservableObject
 
             if (File.Exists(localLog))
             {
-                // Read last 15 lines of log file
-                var lines = File.ReadLines(localLog).TakeLast(15);
-                return string.Join(Environment.NewLine, lines);
+                var lines = new System.Collections.Generic.List<string>();
+                using (var fs = new FileStream(localLog, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var sr = new StreamReader(fs))
+                {
+                    string? line;
+                    while ((line = sr.ReadLine()) != null)
+                    {
+                        lines.Add(line);
+                    }
+                }
+                return string.Join(Environment.NewLine, lines.TakeLast(15));
             }
 
             return "AppRunner engine log file (wallpaper.log) not generated yet. Start wallpaper to dump logs.";

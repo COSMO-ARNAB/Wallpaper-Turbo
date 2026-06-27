@@ -101,7 +101,10 @@ internal static class Program
             }
 
             string decodeArgument = _useSoftwareDecode ? " --software-decode" : string.Empty;
-            string arguments = $"--wallpaper {_finalWallpaperIndex} --silent --pause-mode {_pauseMode}{decodeArgument}{(_uiPid > 0 ? $" --ui-pid {_uiPid}" : string.Empty)}";
+            string muteArgument = $" --mute-audio {_muteAudio.ToString().ToLowerInvariant()}";
+            string voutArgument = !string.IsNullOrEmpty(_videoOutputModule) ? $" --vout {_videoOutputModule}" : string.Empty;
+            string memArgument = _memoryDiagnostics ? " --mem-diagnostics" : string.Empty;
+            string arguments = $"--wallpaper {_finalWallpaperIndex} --silent --pause-mode {_pauseMode}{decodeArgument}{muteArgument}{voutArgument}{memArgument}{(_uiPid > 0 ? $" --ui-pid {_uiPid}" : string.Empty)}";
 
             if (string.IsNullOrEmpty(processPath) || 
                 processPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase) || 
@@ -458,10 +461,14 @@ internal static class Program
                 processPath = Path.Combine(AppContext.BaseDirectory, "WallpaperTurbo.AppRunner.exe");
             }
 
+            string decodeArg = useSoftwareDecode ? " --software-decode" : string.Empty;
+            string muteArg = $" --mute-audio {muteAudio.ToString().ToLowerInvariant()}";
+            string voutArg = !string.IsNullOrEmpty(videoOutputModule) ? $" --vout {videoOutputModule}" : string.Empty;
+            string memArg = memoryDiagnostics ? " --mem-diagnostics" : string.Empty;
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = processPath,
-                Arguments = $"--wallpaper {finalWallpaperIndex} --silent --pause-mode {pauseMode}{(useSoftwareDecode ? " --software-decode" : string.Empty)}{(uiPid > 0 ? $" --ui-pid {uiPid}" : string.Empty)}",
+                Arguments = $"--wallpaper {finalWallpaperIndex} --silent --pause-mode {pauseMode}{decodeArg}{muteArg}{voutArg}{memArg}{(uiPid > 0 ? $" --ui-pid {uiPid}" : string.Empty)}",
                 UseShellExecute = true,
                 CreateNoWindow = true,
                 WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
@@ -1264,7 +1271,18 @@ internal static class Program
                         string? cmd = await reader.ReadLineAsync(cts.Token);
                         if (!string.IsNullOrEmpty(cmd))
                         {
-                            await ProcessCommandAsync(cmd.Trim(), _mergedWallpapers, _sessionManager, _hwnd, cts.Token);
+                            string trimmedCmd = cmd.Trim();
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    await ProcessCommandAsync(trimmedCmd, _mergedWallpapers, _sessionManager, _hwnd, cts.Token);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.Error.WriteLine($"[IPC] Error processing command '{trimmedCmd}': {ex.Message}");
+                                }
+                            });
                         }
                     }
                     catch (OperationCanceledException)

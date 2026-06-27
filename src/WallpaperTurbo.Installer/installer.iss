@@ -62,31 +62,6 @@ Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: ShouldRestart
 
 [Code]
 function ShouldRestart: Boolean;
-var
-  I: Integer;
-  Param: string;
 begin
-  Result := False;
-
-  for I := 1 to ParamCount do
-  begin
-    Param := LowerCase(ParamStr(I));
-
-    // Future-proof custom switch
-    if Param = '/wt_restart' then
-    begin
-      Result := True;
-      Exit;
-    end;
-
-    // Backward-compatible switch for existing v1.2 clients
-    if Pos('/mergetasks=', Param) = 1 then
-    begin
-      if Pos('restart', Param) > 0 then
-      begin
-        Result := True;
-        Exit;
-      end;
-    end;
-  end;
+  Result := WizardSilent;
 end;

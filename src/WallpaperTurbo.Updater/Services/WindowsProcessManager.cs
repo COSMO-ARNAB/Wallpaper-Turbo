@@ -54,29 +54,26 @@ public sealed class WindowsProcessManager : IProcessManager
         {
             await Task.WhenAll(tasks);
         }
-        catch (OperationCanceledException)
-        {
-            Debug.WriteLine("[WindowsProcessManager] Timeout elapsed before all processes exited gracefully. Force killing...");
-            bool allDead = true;
-            foreach (var proc in processesToShutdown)
-            {
-                ForceKillProcess(proc);
-                proc.Refresh();
-                if (!proc.HasExited)
-                {
-                    allDead = false;
-                }
-            }
-            return allDead;
-        }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[WindowsProcessManager] Error during graceful shutdown: {ex.Message}. Force killing...");
+            Debug.WriteLine($"[WindowsProcessManager] Graceful shutdown completed with exceptions/timeout: {ex.Message}. Force killing remaining processes...");
             bool allDead = true;
             foreach (var proc in processesToShutdown)
             {
-                ForceKillProcess(proc);
-                proc.Refresh();
+                try
+                {
+                    proc.Refresh();
+                    if (!proc.HasExited)
+                    {
+                        ForceKillProcess(proc);
+                        proc.Refresh();
+                    }
+                }
+                catch (Exception killEx)
+                {
+                    Debug.WriteLine($"[WindowsProcessManager] Error checking or killing process {proc.Id}: {killEx.Message}");
+                }
+
                 if (!proc.HasExited)
                 {
                     allDead = false;

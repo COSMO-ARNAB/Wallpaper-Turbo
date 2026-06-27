@@ -366,23 +366,21 @@ public class WallpaperService
             // "src/WallpaperTurbo.UI/bin/Debug/net8.0-windows" -> 4 directories up to src/
             string srcPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
             
-            string dir1 = Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows");
-            string dir2 = Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "x64", "Debug", "net8.0-windows");
-            string dir3 = Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows", "win-x64");
-            
-            if (File.Exists(Path.Combine(dir1, "WallpaperTurbo.AppRunner.exe")))
+            // Search all common build output directories (both Debug and Release configurations across various architectures)
+            var candidates = new[]
             {
-                _appRunnerDir = dir1;
-            }
-            else if (File.Exists(Path.Combine(dir2, "WallpaperTurbo.AppRunner.exe")))
-            {
-                _appRunnerDir = dir2;
-            }
-            else
-            {
-                _appRunnerDir = dir3; // Fallback
-            }
-            
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "x64", "Debug", "net8.0-windows"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows", "win-x64"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "x64", "Debug", "net8.0-windows", "win-x64"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Release", "net8.0-windows"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "x64", "Release", "net8.0-windows"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Release", "net8.0-windows", "win-x64"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "x64", "Release", "net8.0-windows", "win-x64")
+            };
+
+            string fallbackDir = Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows", "win-x64");
+            _appRunnerDir = candidates.FirstOrDefault(dir => File.Exists(Path.Combine(dir, "WallpaperTurbo.AppRunner.exe"))) ?? fallbackDir;
             _appRunnerExePath = Path.Combine(_appRunnerDir, "WallpaperTurbo.AppRunner.exe");
         }
 
@@ -657,19 +655,23 @@ public class WallpaperService
                 // This ensures the registry matches the persisted setting at the exact
                 // moment the OS evaluates the exe's GPU routing, even if the registry
                 // was purged (clean install, CCleaner, driver update) or modified externally.
-                try
+                // Run in a background thread to prevent registry lookups from blocking the WPF main dispatcher.
+                _ = Task.Run(() =>
                 {
-                    var settings = _settingsStore.Load();
-                    var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
-                    if (registryPref != settings.GpuPreference)
+                    try
                     {
-                        _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, settings.GpuPreference);
+                        var settings = _settingsStore.Load();
+                        var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
+                        if (registryPref != settings.GpuPreference)
+                        {
+                            _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, settings.GpuPreference);
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[WallpaperService] GPU preference registry sync failed: {ex.Message}");
-                }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WallpaperService] GPU preference registry sync failed: {ex.Message}");
+                    }
+                });
 
                 string decodeArg = softDecode ? " --software-decode" : string.Empty;
                 string muteArg = $" --mute-audio {isMuted.ToString().ToLowerInvariant()}";

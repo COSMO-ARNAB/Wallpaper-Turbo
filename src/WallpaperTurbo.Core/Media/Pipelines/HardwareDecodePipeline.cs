@@ -263,9 +263,12 @@ public sealed class HardwareDecodePipeline
             System.Threading.Tasks.Task.Run(async () =>
             {
                 await System.Threading.Tasks.Task.Delay(500);
-                if (_mediaPlayer != null && _mediaPlayer.Hwnd != IntPtr.Zero)
+                lock (_sync)
                 {
-                    WallpaperTurbo.Core.Interop.WindowUtil.MakeChildrenTransparent(_mediaPlayer.Hwnd);
+                    if (_mediaPlayer != null && _mediaPlayer.Hwnd != IntPtr.Zero)
+                    {
+                        WallpaperTurbo.Core.Interop.WindowUtil.MakeChildrenTransparent(_mediaPlayer.Hwnd);
+                    }
                 }
             });
         }

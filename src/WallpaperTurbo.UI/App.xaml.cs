@@ -16,8 +16,13 @@ namespace WallpaperTurbo.UI;
 /// </summary>
 public partial class App : Application
 {
-    private static readonly IServiceProvider _serviceProvider = ConfigureServices();
+    private static IServiceProvider _serviceProvider = ConfigureServices();
     private static Mutex? _appMutex;
+
+    internal static void SetTestServiceProvider(IServiceProvider provider)
+    {
+        _serviceProvider = provider;
+    }
 
     // Update source coordinates. Override these for fork or self-hosted release feeds.
     private const string UpdateRepoOwner = "COSMO-ARNAB";
