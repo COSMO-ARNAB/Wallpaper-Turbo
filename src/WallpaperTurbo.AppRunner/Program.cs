@@ -598,13 +598,16 @@ internal static class Program
             //
             int relativeX = monitor.X;
             int relativeY = monitor.Y;
-            IntPtr parent = NativeMethods.GetParent(_hwnd);
-            if (parent != IntPtr.Zero)
+            if (_hwnd != IntPtr.Zero && NativeMethods.IsWindow(_hwnd))
             {
-                NativeMethods.RECT prct = new NativeMethods.RECT { Left = monitor.X, Top = monitor.Y, Right = monitor.X + monitor.Width, Bottom = monitor.Y + monitor.Height };
-                NativeMethods.MapWindowPoints(IntPtr.Zero, parent, ref prct, 2);
-                relativeX = prct.Left;
-                relativeY = prct.Top;
+                IntPtr parent = NativeMethods.GetParent(_hwnd);
+                if (parent != IntPtr.Zero && NativeMethods.IsWindow(parent))
+                {
+                    NativeMethods.RECT prct = new NativeMethods.RECT { Left = monitor.X, Top = monitor.Y, Right = monitor.X + monitor.Width, Bottom = monitor.Y + monitor.Height };
+                    NativeMethods.MapWindowPoints(IntPtr.Zero, parent, ref prct, 2);
+                    relativeX = prct.Left;
+                    relativeY = prct.Top;
+                }
             }
 
             NativeMethods.SetWindowPos(
@@ -707,31 +710,40 @@ internal static class Program
                         var oldSessionManager = _sessionManager;
                         var oldHwnd = _hwnd;
 
-                        // Stop all active sessions and destroy the old render window asynchronously in the background to prevent LibVLC/D3D11 deadlocks
-                        _ = Task.Run(() =>
+                        // Clean up old sessions and dispose them to avoid memory leaks
+                        try
                         {
-                            try
-                            {
-                                Console.WriteLine("[Stability] Cleaning up old wallpaper session in the background...");
-                                oldSessionManager?.ShutdownAll();
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.Error.WriteLine($"[Stability] Background session shutdown error: {ex.Message}");
-                            }
+                            Console.WriteLine("[Stability] Cleaning up old wallpaper session...");
+                            oldSessionManager?.ShutdownAll();
+                            oldSessionManager?.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.Error.WriteLine($"[Stability] Session shutdown error: {ex.Message}");
+                        }
 
-                            try
+                        // Wait for the old window to actually destroy before spawning a new one
+                        try
+                        {
+                            if (oldHwnd != IntPtr.Zero)
                             {
-                                if (oldHwnd != IntPtr.Zero)
+                                NativeRenderWindow.Shutdown(oldHwnd);
+                                
+                                int waitAttempts = 40; // 40 * 50ms = 2s max wait
+                                while (NativeMethods.IsWindow(oldHwnd) && waitAttempts > 0)
                                 {
-                                    NativeRenderWindow.Shutdown(oldHwnd);
+                                    await Task.Delay(50);
+                                    waitAttempts--;
                                 }
+                                Console.WriteLine(NativeMethods.IsWindow(oldHwnd)
+                                    ? "[Stability] Warning: Old render window did not shut down within 2 seconds."
+                                    : "[Stability] Old render window successfully destroyed.");
                             }
-                            catch (Exception ex)
-                            {
-                                Console.Error.WriteLine($"[Stability] Background window shutdown error: {ex.Message}");
-                            }
-                        });
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.Error.WriteLine($"[Stability] Window shutdown error: {ex.Message}");
+                        }
 
                         // Instantly create a new session manager for the fresh session
                         _sessionManager = new WallpaperSessionManager();
@@ -811,19 +823,22 @@ internal static class Program
                         // Map positions and apply SetWindowPos relative to new parent
                         int relX = freshMonitor.X;
                         int relY = freshMonitor.Y;
-                        IntPtr prnt = NativeMethods.GetParent(_hwnd);
-                        if (prnt != IntPtr.Zero)
+                        if (_hwnd != IntPtr.Zero && NativeMethods.IsWindow(_hwnd))
                         {
-                            NativeMethods.RECT prct = new NativeMethods.RECT 
-                            { 
-                                Left = freshMonitor.X, 
-                                Top = freshMonitor.Y, 
-                                Right = freshMonitor.X + freshMonitor.Width, 
-                                Bottom = freshMonitor.Y + freshMonitor.Height 
-                            };
-                            NativeMethods.MapWindowPoints(IntPtr.Zero, prnt, ref prct, 2);
-                            relX = prct.Left;
-                            relY = prct.Top;
+                            IntPtr prnt = NativeMethods.GetParent(_hwnd);
+                            if (prnt != IntPtr.Zero && NativeMethods.IsWindow(prnt))
+                            {
+                                NativeMethods.RECT prct = new NativeMethods.RECT 
+                                { 
+                                    Left = freshMonitor.X, 
+                                    Top = freshMonitor.Y, 
+                                    Right = freshMonitor.X + freshMonitor.Width, 
+                                    Bottom = freshMonitor.Y + freshMonitor.Height 
+                                };
+                                NativeMethods.MapWindowPoints(IntPtr.Zero, prnt, ref prct, 2);
+                                relX = prct.Left;
+                                relY = prct.Top;
+                            }
                         }
 
                         NativeMethods.SetWindowPos(
@@ -1007,19 +1022,22 @@ internal static class Program
                                 // Re-parent mapping coordinates
                                 int relX = freshMonitor.X;
                                 int relY = freshMonitor.Y;
-                                IntPtr prnt = NativeMethods.GetParent(session.WindowHandle);
-                                if (prnt != IntPtr.Zero)
+                                if (session.WindowHandle != IntPtr.Zero && NativeMethods.IsWindow(session.WindowHandle))
                                 {
-                                    NativeMethods.RECT prct = new NativeMethods.RECT 
-                                    { 
-                                        Left = freshMonitor.X, 
-                                        Top = freshMonitor.Y, 
-                                        Right = freshMonitor.X + freshMonitor.Width, 
-                                        Bottom = freshMonitor.Y + freshMonitor.Height 
-                                    };
-                                    NativeMethods.MapWindowPoints(IntPtr.Zero, prnt, ref prct, 2);
-                                    relX = prct.Left;
-                                    relY = prct.Top;
+                                    IntPtr prnt = NativeMethods.GetParent(session.WindowHandle);
+                                    if (prnt != IntPtr.Zero && NativeMethods.IsWindow(prnt))
+                                    {
+                                        NativeMethods.RECT prct = new NativeMethods.RECT 
+                                        { 
+                                            Left = freshMonitor.X, 
+                                            Top = freshMonitor.Y, 
+                                            Right = freshMonitor.X + freshMonitor.Width, 
+                                            Bottom = freshMonitor.Y + freshMonitor.Height 
+                                        };
+                                        NativeMethods.MapWindowPoints(IntPtr.Zero, prnt, ref prct, 2);
+                                        relX = prct.Left;
+                                        relY = prct.Top;
+                                    }
                                 }
 
                                 // Resize the render window. Critical: Use SWP_NOZORDER | SWP_NOACTIVATE to preserve desktop icon layering!
@@ -1137,13 +1155,16 @@ internal static class Program
 
                 int finalX = monitor.X;
                 int finalY = monitor.Y;
-                IntPtr finalParent = NativeMethods.GetParent(_hwnd);
-                if (finalParent != IntPtr.Zero)
+                if (_hwnd != IntPtr.Zero && NativeMethods.IsWindow(_hwnd))
                 {
-                    NativeMethods.RECT prct = new NativeMethods.RECT { Left = monitor.X, Top = monitor.Y, Right = monitor.X + monitor.Width, Bottom = monitor.Y + monitor.Height };
-                    NativeMethods.MapWindowPoints(IntPtr.Zero, finalParent, ref prct, 2);
-                    finalX = prct.Left;
-                    finalY = prct.Top;
+                    IntPtr finalParent = NativeMethods.GetParent(_hwnd);
+                    if (finalParent != IntPtr.Zero && NativeMethods.IsWindow(finalParent))
+                    {
+                        NativeMethods.RECT prct = new NativeMethods.RECT { Left = monitor.X, Top = monitor.Y, Right = monitor.X + monitor.Width, Bottom = monitor.Y + monitor.Height };
+                        NativeMethods.MapWindowPoints(IntPtr.Zero, finalParent, ref prct, 2);
+                        finalX = prct.Left;
+                        finalY = prct.Top;
+                    }
                 }
 
                 if (shellView != IntPtr.Zero)
@@ -1201,13 +1222,16 @@ internal static class Program
 
                 int finalX = monitor.X;
                 int finalY = monitor.Y;
-                IntPtr finalParent = NativeMethods.GetParent(_hwnd);
-                if (finalParent != IntPtr.Zero)
+                if (_hwnd != IntPtr.Zero && NativeMethods.IsWindow(_hwnd))
                 {
-                    NativeMethods.RECT prct = new NativeMethods.RECT { Left = monitor.X, Top = monitor.Y, Right = monitor.X + monitor.Width, Bottom = monitor.Y + monitor.Height };
-                    NativeMethods.MapWindowPoints(IntPtr.Zero, finalParent, ref prct, 2);
-                    finalX = prct.Left;
-                    finalY = prct.Top;
+                    IntPtr finalParent = NativeMethods.GetParent(_hwnd);
+                    if (finalParent != IntPtr.Zero && NativeMethods.IsWindow(finalParent))
+                    {
+                        NativeMethods.RECT prct = new NativeMethods.RECT { Left = monitor.X, Top = monitor.Y, Right = monitor.X + monitor.Width, Bottom = monitor.Y + monitor.Height };
+                        NativeMethods.MapWindowPoints(IntPtr.Zero, finalParent, ref prct, 2);
+                        finalX = prct.Left;
+                        finalY = prct.Top;
+                    }
                 }
 
                 NativeMethods.SetWindowPos(
@@ -1233,17 +1257,17 @@ internal static class Program
                 LogMemory("startup.trimmed");
             });
 
-            // Start a periodic background memory trimmer (every 10 seconds) to keep physical Working Set continuously low during active playback
+            // Start a periodic background memory trimmer (every 60 seconds) to keep physical Working Set low during active playback
             _ = Task.Run(async () =>
             {
                 while (!cts.Token.IsCancellationRequested)
                 {
                     try
                     {
-                        await Task.Delay(10000, cts.Token);
+                        await Task.Delay(60000, cts.Token);
                         if (_sessionManager != null && _hwnd != IntPtr.Zero)
                         {
-                            TrimProcessMemory();
+                            TrimProcessMemory(runEmptyWorkingSet: false);
                             LogMemory("periodic.trimmed");
                             WallpaperTurbo.Core.Services.Performance.MemoryLogger.LogMemoryStats("AppRunner");
                         }
@@ -1262,6 +1286,7 @@ internal static class Program
             // Start Named Pipe IPC Server for real-time UI control
             _ = Task.Run(async () =>
             {
+                int errorDelayMs = 50;
                 while (!cts.Token.IsCancellationRequested)
                 {
                     try
@@ -1270,6 +1295,7 @@ internal static class Program
                         await server.WaitForConnectionAsync(cts.Token);
                         using var reader = new System.IO.StreamReader(server);
                         string? cmd = await reader.ReadLineAsync(cts.Token);
+                        errorDelayMs = 50; // Reset on success
                         if (!string.IsNullOrEmpty(cmd))
                         {
                             string trimmedCmd = cmd.Trim();
@@ -1277,7 +1303,9 @@ internal static class Program
                             {
                                 try
                                 {
-                                    await ProcessCommandAsync(trimmedCmd, _mergedWallpapers, _sessionManager, _hwnd, cts.Token);
+                                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                                    timeoutCts.CancelAfter(5000); // 5-second command timeout
+                                    await ProcessCommandAsync(trimmedCmd, _mergedWallpapers, _sessionManager, _hwnd, timeoutCts.Token);
                                 }
                                 catch (Exception ex)
                                 {
@@ -1290,9 +1318,15 @@ internal static class Program
                     {
                         break;
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        await Task.Delay(1000, cts.Token);
+                        try
+                        {
+                            Console.Error.WriteLine($"[IPC] Server error: {ex.Message}. Retrying in {errorDelayMs}ms...");
+                        }
+                        catch { }
+                        await Task.Delay(errorDelayMs, cts.Token);
+                        errorDelayMs = Math.Min(1000, errorDelayMs * 2);
                     }
                 }
             });
@@ -1443,6 +1477,15 @@ internal static class Program
                 appRunnerMutex?.Dispose();
             }
             catch { }
+
+            if (_consoleCtrlHandler != null)
+            {
+                try
+                {
+                    SetConsoleCtrlHandler(_consoleCtrlHandler, false);
+                }
+                catch { }
+            }
         }
     }
 
@@ -1883,7 +1926,7 @@ internal static class Program
             units[unit]);
     }
 
-    public static void TrimProcessMemory()
+    public static void TrimProcessMemory(bool runEmptyWorkingSet = true)
     {
         try
         {
@@ -1891,8 +1934,11 @@ internal static class Program
             GC.WaitForPendingFinalizers();
             GC.Collect();
 
-            using var process = System.Diagnostics.Process.GetCurrentProcess();
-            WallpaperTurbo.Core.Interop.NativeMethods.EmptyWorkingSet(process.Handle);
+            if (runEmptyWorkingSet)
+            {
+                using var process = System.Diagnostics.Process.GetCurrentProcess();
+                WallpaperTurbo.Core.Interop.NativeMethods.EmptyWorkingSet(process.Handle);
+            }
         }
         catch (Exception ex)
         {

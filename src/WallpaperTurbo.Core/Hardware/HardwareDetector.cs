@@ -36,8 +36,13 @@ namespace WallpaperTurbo.Core.Hardware
                     "SELECT Name, AdapterRAM, VideoProcessor FROM Win32_VideoController"
                 );
 
-                foreach (ManagementObject mo in searcher.Get())
+                // Bug 10 fix: dispose the collection itself and each ManagementObject
+                // to prevent WMI COM handle leaks.
+                using var collection = searcher.Get();
+                foreach (ManagementObject mo in collection)
                 {
+                    using (mo)
+                    {
                     cancellationToken.ThrowIfCancellationRequested();
 
                     var name = (mo["Name"]?.ToString() ?? string.Empty).Trim();
@@ -63,6 +68,7 @@ namespace WallpaperTurbo.Core.Hardware
                     var isDedicated = vendor != GpuVendor.Intel;
 
                     results.Add(new GpuInfo(name == string.Empty ? "Unknown" : name, vram, isDedicated, vendor));
+                    } // end using (mo)
                 }
 
                 return (IEnumerable<GpuInfo>)results;

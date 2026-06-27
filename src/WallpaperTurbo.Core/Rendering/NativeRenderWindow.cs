@@ -39,9 +39,6 @@ public static class NativeRenderWindow
         public uint flags;
     }
 
-    private static readonly string ClassName =
-        "WallpaperTurbo_RenderWindow_Class";
-
     public static Task<IntPtr> CreateAsync(
         MonitorInfo monitor)
     {
@@ -58,11 +55,12 @@ public static class NativeRenderWindow
             {
                 try
                 {
+                    string uniqueClassName = $"WallpaperTurbo_RenderWindow_Class_{Environment.ProcessId}_{Thread.CurrentThread.ManagedThreadId}_{Guid.NewGuid():N}";
                     //
                     // Register native render class.
                     //
                     WindowClassRegistrar.Register(
-                        ClassName,
+                        uniqueClassName,
                         WndProc);
 
                     //
@@ -70,7 +68,7 @@ public static class NativeRenderWindow
                     //
                     IntPtr hwnd =
                         RenderSurface.Create(
-                            ClassName,
+                            uniqueClassName,
                             monitor.X,
                             monitor.Y,
                             monitor.Width,
@@ -79,7 +77,7 @@ public static class NativeRenderWindow
                     if (hwnd == IntPtr.Zero)
                     {
                         WindowClassRegistrar.Unregister(
-                            ClassName);
+                            uniqueClassName);
 
                         tcs.SetException(
                             new InvalidOperationException(
@@ -99,7 +97,7 @@ public static class NativeRenderWindow
                     // Cleanup.
                     //
                     WindowClassRegistrar.Unregister(
-                        ClassName);
+                        uniqueClassName);
                 }
                 catch (Exception ex)
                 {

@@ -232,23 +232,252 @@
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Width="200" Height="130" Margin="0,0,12,0" Padding="0" CornerRadius="{StaticResource RadiusMedium}" Style="{StaticResource Card}" ClipToBounds="True" Cursor="Hand" MouseLeftButtonDown="OnCardMouseLeftButtonDown">
+                            <Border x:Name="RecentCard"
+                                    Width="200"
+                                    Margin="0,0,12,0"
+                                    Padding="0"
+                                    CornerRadius="{StaticResource RadiusMedium}"
+                                    Style="{StaticResource Card}"
+                                    ClipToBounds="True"
+                                    Cursor="Hand">
                                 <Grid>
-                                    <Image Source="{Binding LoadedThumbnail}" Stretch="UniformToFill" />
-                                    <Border Height="60" VerticalAlignment="Bottom">
-                                        <Border.Background>
-                                            <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                                                <GradientStop Color="#00000000" Offset="0" />
-                                                <GradientStop Color="#AA0A0B0E" Offset="1" />
-                                            </LinearGradientBrush>
-                                        </Border.Background>
-                                    </Border>
-                                    <StackPanel VerticalAlignment="Bottom" Margin="12,8">
-                                        <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="500" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Resolution, StringFormat={}{0} · 60 FPS}" Style="{StaticResource CaptionStyle}" Margin="0,2,0,0" />
-                                    </StackPanel>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="130" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- ROW 0: Thumbnail + overlay -->
+                                    <Grid Grid.Row="0">
+                                        <Image x:Name="RecentThumb"
+                                               Source="{Binding LoadedThumbnail}"
+                                               Stretch="UniformToFill"
+                                               RenderTransformOrigin="0.5,0.5">
+                                            <Image.RenderTransform>
+                                                <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                            </Image.RenderTransform>
+                                        </Image>
+
+                                        <!-- Gradient scrim -->
+                                        <Border Height="70" VerticalAlignment="Bottom">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                                    <GradientStop Color="#00000000" Offset="0" />
+                                                    <GradientStop Color="#C80A0B0E" Offset="1" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                        </Border>
+
+                                        <!-- Title + resolution overlay -->
+                                        <StackPanel VerticalAlignment="Bottom" Margin="10,0,10,8">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="12"
+                                                       FontWeight="600"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Resolution}"
+                                                       Style="{StaticResource CaptionStyle}"
+                                                       Margin="0,1,0,0" />
+                                        </StackPanel>
+
+                                        <!-- Active "LIVE" indicator dot — top left -->
+                                        <Border x:Name="ActiveDot"
+                                                Width="8" Height="8"
+                                                CornerRadius="4"
+                                                Background="#22C55E"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Top"
+                                                Margin="8"
+                                                Opacity="0"
+                                                RenderTransformOrigin="0.5,0.5">
+                                            <Border.RenderTransform>
+                                                <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                            </Border.RenderTransform>
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="#22C55E" BlurRadius="6" ShadowDepth="0" Opacity="0.9" />
+                                            </Border.Effect>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- ROW 1: Live Swap pill button -->
+                                    <Button x:Name="LiveSwapBtn"
+                                            Grid.Row="1"
+                                            Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Margin="8,6,8,8"
+                                            Height="28"
+                                            Cursor="Hand"
+                                            HorizontalAlignment="Stretch">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="PillBorder"
+                                                        CornerRadius="14"
+                                                        BorderThickness="1"
+                                                        RenderTransformOrigin="0.5,0.5">
+                                                    <Border.Background>
+                                                        <SolidColorBrush Color="#0D1A1F" />
+                                                    </Border.Background>
+                                                    <Border.BorderBrush>
+                                                        <SolidColorBrush x:Name="PillStroke" Color="#00F5D4" Opacity="0.35" />
+                                                    </Border.BorderBrush>
+                                                    <Border.RenderTransform>
+                                                        <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                                    </Border.RenderTransform>
+                                                    <Border.Effect>
+                                                        <DropShadowEffect x:Name="PillGlow"
+                                                                          Color="#00F5D4"
+                                                                          BlurRadius="0"
+                                                                          ShadowDepth="0"
+                                                                          Opacity="0" />
+                                                    </Border.Effect>
+
+                                                    <StackPanel Orientation="Horizontal"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center">
+                                                        <ui:SymbolIcon x:Name="SwapIcon"
+                                                                       Symbol="ArrowSync20"
+                                                                       FontSize="12"
+                                                                       Foreground="#00F5D4"
+                                                                       Margin="0,0,5,0"
+                                                                       VerticalAlignment="Center"
+                                                                       RenderTransformOrigin="0.5,0.5">
+                                                            <ui:SymbolIcon.RenderTransform>
+                                                                <RotateTransform Angle="0" />
+                                                            </ui:SymbolIcon.RenderTransform>
+                                                        </ui:SymbolIcon>
+                                                        <TextBlock x:Name="PillLabel"
+                                                                   Text="Live Swap"
+                                                                   FontSize="11"
+                                                                   FontWeight="600"
+                                                                   Foreground="#00F5D4"
+                                                                   VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <ControlTemplate.Triggers>
+                                                    <!-- Hover: glow + icon spin + pill scale -->
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="PillBorder" Property="Background">
+                                                            <Setter.Value>
+                                                                <SolidColorBrush Color="#12292F" />
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                        <Trigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetName="PillBorder"
+                                                                                     Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                                     To="1.03" Duration="0:0:0.18">
+                                                                        <DoubleAnimation.EasingFunction>
+                                                                            <QuadraticEase EasingMode="EaseOut" />
+                                                                        </DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                    <DoubleAnimation Storyboard.TargetName="PillBorder"
+                                                                                     Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                                     To="1.03" Duration="0:0:0.18">
+                                                                        <DoubleAnimation.EasingFunction>
+                                                                            <QuadraticEase EasingMode="EaseOut" />
+                                                                        </DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                    <DoubleAnimation Storyboard.TargetName="PillGlow"
+                                                                                     Storyboard.TargetProperty="Opacity"
+                                                                                     To="0.7" Duration="0:0:0.2" />
+                                                                    <DoubleAnimation Storyboard.TargetName="PillGlow"
+                                                                                     Storyboard.TargetProperty="BlurRadius"
+                                                                                     To="10" Duration="0:0:0.2" />
+                                                                    <DoubleAnimation Storyboard.TargetName="SwapIcon"
+                                                                                     Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(RotateTransform.Angle)"
+                                                                                     To="360" Duration="0:0:0.45">
+                                                                        <DoubleAnimation.EasingFunction>
+                                                                            <QuadraticEase EasingMode="EaseInOut" />
+                                                                        </DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.EnterActions>
+                                                        <Trigger.ExitActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetName="PillBorder"
+                                                                                     Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                                     To="1.0" Duration="0:0:0.2" />
+                                                                    <DoubleAnimation Storyboard.TargetName="PillBorder"
+                                                                                     Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                                     To="1.0" Duration="0:0:0.2" />
+                                                                    <DoubleAnimation Storyboard.TargetName="PillGlow"
+                                                                                     Storyboard.TargetProperty="Opacity"
+                                                                                     To="0" Duration="0:0:0.2" />
+                                                                    <DoubleAnimation Storyboard.TargetName="PillGlow"
+                                                                                     Storyboard.TargetProperty="BlurRadius"
+                                                                                     To="0" Duration="0:0:0.2" />
+                                                                    <DoubleAnimation Storyboard.TargetName="SwapIcon"
+                                                                                     Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(RotateTransform.Angle)"
+                                                                                     To="0" Duration="0:0:0.0" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.ExitActions>
+                                                    </Trigger>
+
+                                                    <!-- Pressed: flash opacity -->
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Setter TargetName="PillBorder" Property="Opacity" Value="0.6" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
                                 </Grid>
+
+                                <!-- DataTemplate triggers: card hover zoom + active state dot -->
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="Border.MouseEnter">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RecentThumb"
+                                                                 Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.07" Duration="0:0:0.3">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="RecentThumb"
+                                                                 Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.07" Duration="0:0:0.3">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                    <EventTrigger RoutedEvent="Border.MouseLeave">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RecentThumb"
+                                                                 Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.25">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="RecentThumb"
+                                                                 Storyboard.TargetProperty="(Image.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.25">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <QuadraticEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
                             </Border>
+
+                            <!-- DataTrigger for IsActive green dot (outside Border so it can use DataTemplate scope) -->
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                    <Setter TargetName="ActiveDot" Property="Opacity" Value="1" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
