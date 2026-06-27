@@ -167,7 +167,15 @@ public sealed class WindowsProcessManager : IProcessManager
             if (process.HasExited)
                 return;
 
-            process.CloseMainWindow();
+            try
+            {
+                process.CloseMainWindow();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WindowsProcessManager] CloseMainWindow failed for PID {process.Id}: {ex.Message}");
+            }
+
             await process.WaitForExitAsync(token);
         }
         catch (OperationCanceledException)
@@ -176,7 +184,7 @@ public sealed class WindowsProcessManager : IProcessManager
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[WindowsProcessManager] Error requesting shutdown for PID {process.Id}: {ex.Message}");
+            Debug.WriteLine($"[WindowsProcessManager] Error waiting for PID {process.Id} exit: {ex.Message}");
             // #region agent log
             DbgLog("A", "WindowsProcessManager.cs:WaitForProcessExitAsync", "WaitForProcessExitAsync swallowed exception; task completes without exit guarantee", new
             {
@@ -187,6 +195,11 @@ public sealed class WindowsProcessManager : IProcessManager
                 hasExited = SafeHasExited(process)
             });
             // #endregion
+
+            if (!SafeHasExited(process))
+            {
+                throw new InvalidOperationException($"Process {process.Id} did not exit and encountered error: {ex.Message}", ex);
+            }
         }
     }
 

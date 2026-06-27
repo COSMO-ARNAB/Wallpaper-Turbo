@@ -141,9 +141,16 @@ public partial class App : Application
             _appMutex = null;
 
             // Activate existing instance. If a hung background instance is found, it will be cleaned up.
-            if (ActivateExistingInstanceOrCleanUp())
+            var status = ActivateExistingInstanceOrCleanUp();
+            if (status == InstanceStatus.HealthyInstanceActivated)
             {
-                Console.WriteLine("DEBUG: Cleaned up existing instance, retrying mutex immediately");
+                Console.WriteLine("DEBUG: Healthy instance activated, shutting down immediately");
+                Application.Current?.Shutdown();
+                return;
+            }
+            else if (status == InstanceStatus.StuckInstanceKilled)
+            {
+                Console.WriteLine("DEBUG: Cleaned up stuck instance, retrying mutex immediately");
                 _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out createdNew);
                 if (createdNew)
                 {
@@ -255,9 +262,15 @@ public partial class App : Application
         base.OnExit(e);
     }
 
-    private static bool ActivateExistingInstanceOrCleanUp()
+    private enum InstanceStatus
     {
-        bool killedStuckProcess = false;
+        NoOtherInstance,
+        StuckInstanceKilled,
+        HealthyInstanceActivated
+    }
+
+    private static InstanceStatus ActivateExistingInstanceOrCleanUp()
+    {
         try
         {
             using var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
@@ -265,13 +278,14 @@ public partial class App : Application
             // Safety guard: never touch processes if named "dotnet"
             if (string.Equals(currentProcess.ProcessName, "dotnet", StringComparison.OrdinalIgnoreCase))
             {
-                return false;
+                return InstanceStatus.NoOtherInstance;
             }
 
             var runningInstances = System.Diagnostics.Process.GetProcessesByName(currentProcess.ProcessName)
                 .Where(p => p.Id != currentProcess.Id)
                 .ToList();
 
+            bool killedStuckProcess = false;
             try
             {
                 foreach (var process in runningInstances)
@@ -281,7 +295,7 @@ public partial class App : Application
                     {
                         ShowWindow(handle, SW_RESTORE);
                         SetForegroundWindow(handle);
-                        return false;
+                        return InstanceStatus.HealthyInstanceActivated;
                     }
                     
                     // If it has no main window handle and has been running for more than 10 seconds,
@@ -305,12 +319,13 @@ public partial class App : Application
                     try { process.Dispose(); } catch { }
                 }
             }
+
+            return killedStuckProcess ? InstanceStatus.StuckInstanceKilled : InstanceStatus.NoOtherInstance;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to handle existing instance activation: {ex.Message}");
+            return InstanceStatus.NoOtherInstance;
         }
-        
-        return killedStuckProcess;
     }
 }
