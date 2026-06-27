@@ -578,11 +578,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
-        "Dynamic glass backdrop options (Acrylic, Mica, None) and smooth opacity adjustment slider inside Settings.",
-        "Added option to immediately apply/play a single imported wallpaper directly from the import complete dialog.",
-        "Optimized wallpaper engine startup and hardware acceleration decoding stability.",
-        "Improved titlebar click hit-testing, resolving unclickable min/max/close buttons.",
-        "Added navigation Back button on Library view to easily return to your dashboard."
+        "Fixed wallpaper engine IPC concurrency to prevent connection timeouts when commands are sent rapidly from the UI.",
+        "Resolved CLI argument forwarding bug during background engine detachment to preserve settings like audio muting and custom video outputs.",
+        "Improved thread safety and stability in the media decoding pipeline during engine startup and dispose operations.",
+        "Optimized process termination routines to ensure clean shutdowns of helper executables without lock errors during updates."
     };
 
     private void CheckForVersionUpdate()
