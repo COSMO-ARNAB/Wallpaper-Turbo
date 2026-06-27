@@ -522,13 +522,14 @@ internal static class Program
                 PrintBanner();
             }
 
-            IHardwareDetector detector =
-                new WindowsHardwareDetector();
-
-            IEnumerable<GpuInfo> gpus =
-                await detector
+            IEnumerable<GpuInfo> gpus = Array.Empty<GpuInfo>();
+            if (!isSilent)
+            {
+                IHardwareDetector detector = new WindowsHardwareDetector();
+                gpus = await detector
                     .GetGpusAsync(cts.Token)
                     .ConfigureAwait(false);
+            }
 
             MonitorInfo monitor =
                 MonitorManager.GetPrimaryMonitor();

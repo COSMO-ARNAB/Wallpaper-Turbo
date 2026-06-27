@@ -578,10 +578,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
-        "Fixed wallpaper engine IPC concurrency to prevent connection timeouts when commands are sent rapidly from the UI.",
-        "Resolved CLI argument forwarding bug during background engine detachment to preserve settings like audio muting and custom video outputs.",
-        "Improved thread safety and stability in the media decoding pipeline during engine startup and dispose operations.",
-        "Optimized process termination routines to ensure clean shutdowns of helper executables without lock errors during updates."
+        "Fixed UAC prompt showing random GUIDs by cleaning up the download update filename.",
+        "Switched installer flags to /SILENT to display a progress bar for clear visual feedback during updates.",
+        "Resolved the startup mutex race condition preventing the application from auto-relaunching after updates.",
+        "Optimized AppRunner background startup by skipping slow WMI GPU queries, reducing launch delay from minutes to milliseconds."
     };
 
     private void CheckForVersionUpdate()

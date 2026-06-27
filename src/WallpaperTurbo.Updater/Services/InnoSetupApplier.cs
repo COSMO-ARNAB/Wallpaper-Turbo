@@ -9,9 +9,9 @@ public sealed class InnoSetupApplier : IUpdateApplier
     private readonly string _installArgs;
     private bool _disposed;
 
-    public InnoSetupApplier(string installArgs = "/VERYSILENT /SUPPRESSMSGBOXES /MERGETASKS=\"restart\"")
+    public InnoSetupApplier(string installArgs = "/SILENT /SUPPRESSMSGBOXES /LOG=\"%TEMP%\\WallpaperTurbo_Install.log\"")
     {
-        _installArgs = installArgs ?? "/VERYSILENT";
+        _installArgs = installArgs ?? "/SILENT";
     }
 
     public void ApplyUpdate(string installerFilePath)

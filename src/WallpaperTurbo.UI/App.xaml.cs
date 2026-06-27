@@ -127,26 +127,44 @@ public partial class App : Application
         Console.WriteLine("DEBUG: UpdaterDiagnostic.Init completed");
         WallpaperTurbo.Updater.UpdaterDiagnostic.Log("App.OnStartup", $"WPF app starting. Repo={UpdateRepoOwner}/{UpdateRepoName} Publisher={UpdatePublisherName}");
         Console.WriteLine("DEBUG: Mutex creation starting");
-        _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out bool createdNew);
-        Console.WriteLine($"DEBUG: Mutex created. createdNew={createdNew}");
-        if (!createdNew)
+        bool createdNew = false;
+        for (int retry = 1; retry <= 5; retry++)
         {
-            Console.WriteLine("DEBUG: Mutex not created, activating existing instance");
+            _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out createdNew);
+            Console.WriteLine($"DEBUG: Mutex attempt {retry}. createdNew={createdNew}");
+            if (createdNew)
+            {
+                break;
+            }
+
+            _appMutex.Close();
+            _appMutex = null;
+
             // Activate existing instance. If a hung background instance is found, it will be cleaned up.
             if (ActivateExistingInstanceOrCleanUp())
             {
-                Console.WriteLine("DEBUG: Cleaned up existing instance, retrying mutex");
-                // Try to acquire the Mutex again since the hung instance was killed
-                _appMutex?.Close();
+                Console.WriteLine("DEBUG: Cleaned up existing instance, retrying mutex immediately");
                 _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out createdNew);
+                if (createdNew)
+                {
+                    break;
+                }
+                _appMutex?.Close();
+                _appMutex = null;
             }
-            
-            if (!createdNew)
+
+            if (retry < 5)
             {
-                Console.WriteLine("DEBUG: Mutex still busy, shutting down");
-                Application.Current?.Shutdown();
-                return;
+                Console.WriteLine("DEBUG: Mutex still busy, sleeping 300ms before retry...");
+                System.Threading.Thread.Sleep(300);
             }
+        }
+
+        if (!createdNew)
+        {
+            Console.WriteLine("DEBUG: Mutex still busy, shutting down");
+            Application.Current?.Shutdown();
+            return;
         }
 
         Console.WriteLine("DEBUG: Applying Theme");
