@@ -273,8 +273,9 @@ public class SettingsViewModelGpuPreferenceTests
         // Arrange: persisted = Dedicated, registry = empty
         var initialSettings = new AppSettings { GpuPreference = GpuPreference.Dedicated };
 
-        // Create a fake WallpaperTurbo.AppRunner.exe in a temp directory
-        // so the constructor can resolve _appRunnerExePath to a valid file.
+        // Create a fake WallpaperTurbo.AppRunner.exe in a temp directory.
+        // We pass this path directly to the testable constructor overload so
+        // WallpaperService doesn't probe the filesystem for a real AppRunner.
         var tempDir = Path.Combine(Path.GetTempPath(), "WallpaperTurbo.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
         var fakeExePath = Path.Combine(tempDir, "WallpaperTurbo.AppRunner.exe");
@@ -284,13 +285,14 @@ public class SettingsViewModelGpuPreferenceTests
         {
             using var fixture = new SettingsFixtureWithCustomAppRunner(initialSettings, fakeExePath);
 
-            // Verify precondition: registry is empty
+            // Verify precondition: registry is empty (fake GPU service has no entry)
             Assert.Equal(GpuPreference.Auto, fixture.GpuService.GetGpuPreference(fakeExePath));
 
-            // Act: launch wallpaper (sync runs before process start; process
-            // will fail to start because the fake exe isn't a real PE, but
-            // that's fine — the sync has already run by then)
-            await fixture.WallpaperService.LaunchWallpaperAsync(1);
+            // Act: launch wallpaper with forceFreshLaunch:true to bypass the IPC swap
+            // path, making this test hermetic regardless of whether a real engine is running.
+            // The GPU sync now always runs before the IPC check, so this also validates
+            // the non-fresh-launch path if an engine is connected.
+            await fixture.WallpaperService.LaunchWallpaperAsync(1, forceFreshLaunch: true);
 
             // Assert: registry now matches persisted setting
             Assert.Equal(GpuPreference.Dedicated, fixture.GpuService.GetGpuPreference(fakeExePath));
@@ -322,7 +324,7 @@ public class SettingsViewModelGpuPreferenceTests
 
             var setCallsBeforeLaunch = fixture.GpuService.SetCalls.Count;
 
-            await fixture.WallpaperService.LaunchWallpaperAsync(1);
+            await fixture.WallpaperService.LaunchWallpaperAsync(1, forceFreshLaunch: true);
 
             // No new SetGpuPreference calls should have been made
             Assert.Equal(setCallsBeforeLaunch, fixture.GpuService.SetCalls.Count);
@@ -335,6 +337,9 @@ public class SettingsViewModelGpuPreferenceTests
     }
 
     // ── Test Fixture with custom AppRunner path ──────────────────────────
+    // Uses the testable WallpaperService constructor that accepts an explicit
+    // exe path, avoiding the filesystem probe entirely and eliminating the
+    // need for brittle reflection-based readonly field overrides.
 
     private sealed class SettingsFixtureWithCustomAppRunner : IDisposable
     {
@@ -369,17 +374,9 @@ public class SettingsViewModelGpuPreferenceTests
             UpdaterViewModel = new UpdaterViewModel(Coordinator, UpdaterSettingsStore);
             LayoutHostViewModel = new LayoutHostViewModel(LayoutStore);
 
-            // Create the WallpaperService and then redirect _appRunnerExePath
-            // to our fake exe via reflection. This lets the sync logic find
-            // the fake exe and use it as the registry key name.
-            WallpaperService = new WallpaperService(LibraryService, SettingsStore, GpuService);
-
-            // _appRunnerExePath is private readonly — use reflection to set it
-            // for testing. The sync logic uses it as the registry key name.
-            var field = typeof(WallpaperService).GetField(
-                "_appRunnerExePath",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            field?.SetValue(WallpaperService, fakeExePath);
+            // Use the testable constructor that accepts an explicit AppRunner path,
+            // bypassing the filesystem probe and making tests fully deterministic.
+            WallpaperService = new WallpaperService(LibraryService, SettingsStore, GpuService, fakeExePath);
         }
 
         public void Dispose()

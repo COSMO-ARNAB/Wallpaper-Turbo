@@ -314,9 +314,9 @@ public class WallpaperService
     private readonly IWallpaperLibraryService _libraryService;
     private readonly ISettingsStore _settingsStore;
     private readonly IGpuPreferenceService _gpuPreferenceService;
-    private readonly string _manifestPath;
-    private readonly string _appRunnerDir;
-    private readonly string _appRunnerExePath;
+    private string _manifestPath = string.Empty;
+    private string _appRunnerDir = string.Empty;
+    private string _appRunnerExePath = string.Empty; // Non-readonly so test fixtures can override via reflection
     private List<WallpaperEntry> _wallpapers = new();
     private int _activeWallpaperIndex = -1;
     private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
@@ -390,6 +390,19 @@ public class WallpaperService
         // thread, immediately before Process.Start) rather than here in the constructor.
         // This avoids blocking the DI startup thread and prevents race conditions with
         // the UI's own apply path.
+    }
+
+    /// <summary>
+    /// Testable constructor that accepts an explicit AppRunner exe path,
+    /// bypassing the filesystem probe. For use in unit/integration tests only.
+    /// </summary>
+    internal WallpaperService(IWallpaperLibraryService libraryService, ISettingsStore settingsStore, IGpuPreferenceService gpuPreferenceService, string appRunnerExePath)
+        : this(libraryService, settingsStore, gpuPreferenceService)
+    {
+        // Override the probed path with the caller-supplied test path.
+        _appRunnerExePath = appRunnerExePath;
+        _appRunnerDir = Path.GetDirectoryName(appRunnerExePath) ?? string.Empty;
+        _manifestPath = Path.Combine(_appRunnerDir, "Assets", "WallpaperManifest.json");
     }
 
     public async Task<List<WallpaperEntry>> GetWallpapersAsync()
@@ -618,6 +631,23 @@ public class WallpaperService
             return await Task.FromResult(true);
         }
 
+        // Sync GPU preference to Windows registry before any launch path.
+        // This must run before both IPC swap and fresh process launch to ensure
+        // the registry matches the persisted setting at the moment the engine reads it.
+        try
+        {
+            var syncSettings = _settingsStore.Load();
+            var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
+            if (registryPref != syncSettings.GpuPreference)
+            {
+                _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, syncSettings.GpuPreference);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[WallpaperService] GPU preference registry sync failed: {ex.Message}");
+        }
+
         // Try to swap in real-time over IPC Named Pipe first (skip if fresh launch is forced)
         if (!forceFreshLaunch && await SendIpcCommandAsync($"swap {index}"))
         {
@@ -651,28 +681,6 @@ public class WallpaperService
         {
             try
             {
-                // Sync GPU preference to Windows registry immediately before launch.
-                // This ensures the registry matches the persisted setting at the exact
-                // moment the OS evaluates the exe's GPU routing, even if the registry
-                // was purged (clean install, CCleaner, driver update) or modified externally.
-                // Run in a background thread to prevent registry lookups from blocking the WPF main dispatcher.
-                _ = Task.Run(() =>
-                {
-                    try
-                    {
-                        var settings = _settingsStore.Load();
-                        var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
-                        if (registryPref != settings.GpuPreference)
-                        {
-                            _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, settings.GpuPreference);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[WallpaperService] GPU preference registry sync failed: {ex.Message}");
-                    }
-                });
-
                 string decodeArg = softDecode ? " --software-decode" : string.Empty;
                 string muteArg = $" --mute-audio {isMuted.ToString().ToLowerInvariant()}";
                 int currentPid = Environment.ProcessId;
@@ -817,22 +825,18 @@ public class WallpaperService
     /// </summary>
     public async Task WaitForEngineExitAsync(int timeoutMs = 2500)
     {
-        await Task.Run(() =>
+        // Poll in 100 ms increments using Task.Delay (non-blocking) instead of Thread.Sleep,
+        // so we don't occupy a thread-pool thread for the full timeout duration.
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
         {
-            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-            while (DateTime.UtcNow < deadline)
-            {
-                var procs = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
-                bool anyRunning = procs.Length > 0;
-                foreach (var p in procs)
-                {
-                    p.Dispose();
-                }
+            var procs = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
+            bool anyRunning = procs.Length > 0;
+            foreach (var p in procs) p.Dispose();
 
-                if (!anyRunning) return;
-                Thread.Sleep(100);
-            }
-        });
+            if (!anyRunning) return;
+            await Task.Delay(100);
+        }
     }
 
     public async Task<bool> DeleteWallpaperAsync(WallpaperEntry wp)
