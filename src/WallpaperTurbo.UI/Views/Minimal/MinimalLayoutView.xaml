@@ -8,6 +8,7 @@
              xmlns:views="clr-namespace:WallpaperTurbo.UI.Views"
              xmlns:vm="clr-namespace:WallpaperTurbo.UI.ViewModels"
              xmlns:models="clr-namespace:WallpaperTurbo.UI.Models"
+             xmlns:minimal="clr-namespace:WallpaperTurbo.UI.Views.Minimal"
              mc:Ignorable="d"
              d:DesignHeight="780" d:DesignWidth="1240">
 
@@ -19,6 +20,9 @@
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
             <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
                 <views:DashboardView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:LibraryViewModel}">
+                <minimal:MinimalLibraryView />
             </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>

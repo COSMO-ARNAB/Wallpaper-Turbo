@@ -39,10 +39,32 @@ public partial class LibraryViewModel : ObservableObject
         }, TaskScheduler.Default);
     }
 
+    public WallpaperEntry? ActiveWallpaper => _allWallpapers.FirstOrDefault(w => w.IsActive);
+
+    private void OnWallpaperEntryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(WallpaperEntry.IsActive))
+        {
+            OnPropertyChanged(nameof(ActiveWallpaper));
+        }
+    }
+
     public async Task LoadLibraryAsync()
     {
+        foreach (var wp in _allWallpapers)
+        {
+            wp.PropertyChanged -= OnWallpaperEntryPropertyChanged;
+        }
+
         _allWallpapers = await _wallpaperService.GetWallpapersAsync();
+
+        foreach (var wp in _allWallpapers)
+        {
+            wp.PropertyChanged += OnWallpaperEntryPropertyChanged;
+        }
+
         ApplyFilter();
+        OnPropertyChanged(nameof(ActiveWallpaper));
     }
 
     partial void OnSearchTextChanged(string value)
@@ -185,8 +207,10 @@ public partial class LibraryViewModel : ObservableObject
             if (success)
             {
                 // Refresh list cache
+                wp.PropertyChanged -= OnWallpaperEntryPropertyChanged;
                 _allWallpapers.Remove(wp);
                 ApplyFilter();
+                OnPropertyChanged(nameof(ActiveWallpaper));
 
                 // If deleted wallpaper was active or library is empty, reset active wallpaper details in MainViewModel
                 mainVm.UpdateEngineStatus();

@@ -10,7 +10,12 @@
              d:DesignHeight="700" d:DesignWidth="1100">
 
     <UserControl.Resources>
-        <conv:ThumbnailImageConverter x:Key="ThumbnailConverter" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Theme/GlassStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <conv:ThumbnailImageConverter x:Key="ThumbnailConverter" />
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid>
@@ -303,6 +308,7 @@
                                             Grid.Row="1"
                                             Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}"
+                                            Tag="{Binding IsActive}"
                                             Margin="8,6,8,8"
                                             Height="28"
                                             Cursor="Hand"
@@ -421,6 +427,10 @@
                                                     <Trigger Property="IsPressed" Value="True">
                                                         <Setter TargetName="PillBorder" Property="Opacity" Value="0.6" />
                                                     </Trigger>
+                                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="False">
+                                                        <Setter TargetName="SwapIcon" Property="Symbol" Value="Play20" />
+                                                        <Setter TargetName="PillLabel" Property="Text" Value="Apply" />
+                                                    </DataTrigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </Button.Template>
