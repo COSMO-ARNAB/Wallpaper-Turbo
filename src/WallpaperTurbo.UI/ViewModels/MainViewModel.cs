@@ -546,6 +546,23 @@ public partial class MainViewModel : ObservableObject, IDisposable
         IsDialogVisible = true;
     }
 
+    [RelayCommand]
+    private void OpenFolder(WallpaperEntry? entry)
+    {
+        if (entry == null || string.IsNullOrEmpty(entry.Video) || !System.IO.File.Exists(entry.Video))
+            return;
+
+        try
+        {
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{entry.Video}\"");
+        }
+        catch (Exception ex)
+        {
+            StartupDiagnostics.Log($"Failed to open folder: {ex.Message}");
+        }
+    }
+
+
     /// <summary>
     /// Shows a confirmation dialog before proceeding to install the downloaded update.
     /// Install will close Wallpaper Turbo and run the Inno Setup installer; user must confirm.

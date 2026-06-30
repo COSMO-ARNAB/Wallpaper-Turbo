@@ -271,7 +271,20 @@ public class WallpaperEntry : ObservableObject
     public string Fps
     {
         get => string.IsNullOrEmpty(_fps) ? "30 FPS" : _fps;
-        set => SetProperty(ref _fps, value);
+        set
+        {
+            if (value != null)
+            {
+                value = value.Replace(" FPS", "", StringComparison.OrdinalIgnoreCase)
+                             .Replace(" fps", "", StringComparison.OrdinalIgnoreCase)
+                             .Trim();
+                if (!string.IsNullOrEmpty(value))
+                {
+                    value = value + " FPS";
+                }
+            }
+            SetProperty(ref _fps, value ?? string.Empty);
+        }
     }
 
     private bool _isUserImported;

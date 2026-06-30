@@ -160,26 +160,20 @@
                                    Command="{Binding DataContext.ToggleEngineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                    Width="44" Height="44" CornerRadius="22" Margin="0,0,12,0"
                                    Appearance="Transparent">
-                            <ui:Button.Style>
-                                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
-                                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-                                    <Setter Property="Content">
-                                        <Setter.Value>
-                                            <ui:SymbolIcon Symbol="Play24" FontSize="20" />
-                                        </Setter.Value>
-                                    </Setter>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding DataContext.IsPlaying, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                            <Setter Property="Content">
-                                                <Setter.Value>
-                                                    <ui:SymbolIcon Symbol="Pause24" FontSize="20" />
-                                                </Setter.Value>
-                                            </Setter>
-                                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ui:Button.Style>
+                            <ui:SymbolIcon FontSize="20">
+                                <ui:SymbolIcon.Style>
+                                    <Style TargetType="ui:SymbolIcon">
+                                        <Setter Property="Symbol" Value="Play24" />
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DataContext.IsPlaying, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                <Setter Property="Symbol" Value="Pause24" />
+                                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:SymbolIcon.Style>
+                            </ui:SymbolIcon>
                         </ui:Button>
                         <ui:Button ToolTip="Open file location"
                                    Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"

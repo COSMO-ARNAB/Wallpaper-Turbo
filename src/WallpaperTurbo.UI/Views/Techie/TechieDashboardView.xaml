@@ -428,8 +428,9 @@
                             <StackPanel VerticalAlignment="Bottom" Margin="24">
                                 <TextBlock Text="{Binding CurrentWallpaper.Title, FallbackValue='EVENING-DRIVE'}"
                                            FontSize="28" FontWeight="ExtraBold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding CurrentWallpaper.Resolution, StringFormat={}{0} • 60 FPS • PRE-RENDERED, FallbackValue='3440 x 1440 • 60 FPS • PRE-RENDERED'}"
-                                           FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0" />
+                                <TextBlock FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0">
+                                    <Run Text="{Binding CurrentWallpaper.Resolution, FallbackValue='3440 x 1440'}" /><Run Text=" • " /><Run Text="{Binding CurrentWallpaper.Fps, FallbackValue='60 FPS'}" /><Run Text=" • PRE-RENDERED" />
+                                </TextBlock>
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -532,7 +533,9 @@
 
                                                 <StackPanel VerticalAlignment="Bottom" Margin="8">
                                                     <TextBlock Text="{Binding Title}" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Text="{Binding Resolution, StringFormat={}{0} • 60 FPS}" FontSize="8" Foreground="{StaticResource MutedTextBrush}" />
+                                                    <TextBlock FontSize="8" Foreground="{StaticResource MutedTextBrush}">
+                                                        <Run Text="{Binding Resolution}" /><Run Text=" • " /><Run Text="{Binding Fps}" />
+                                                    </TextBlock>
                                                 </StackPanel>
 
                                                 <Button Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 

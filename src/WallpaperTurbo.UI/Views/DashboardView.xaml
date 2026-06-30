@@ -82,9 +82,10 @@
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            MaxWidth="400"
                                            TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding CurrentWallpaper.Resolution, StringFormat={}{0} · 60 FPS · Pre-rendered, FallbackValue='3440 × 1440 · 60 FPS · Pre-rendered'}"
-                                           Style="{StaticResource CaptionStyle}"
-                                           Margin="0,4,0,0" />
+                                <TextBlock Style="{StaticResource CaptionStyle}"
+                                           Margin="0,4,0,0">
+                                    <Run Text="{Binding CurrentWallpaper.Resolution, FallbackValue='3440 × 1440'}" /><Run Text=" · " /><Run Text="{Binding CurrentWallpaper.Fps, FallbackValue='60 FPS'}" /><Run Text=" · Pre-rendered" />
+                                </TextBlock>
                             </StackPanel>
                         </Border>
                     </Grid>
