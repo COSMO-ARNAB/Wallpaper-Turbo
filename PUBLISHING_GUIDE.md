@@ -1,10 +1,10 @@
-# Wallpaper Turbo - Release & Publishing Guide
+# Wallpaper Turbo - Release, Publishing & Auto-Update Guide
 
-This guide describes the release protocol, code signing procedures, and update manifest publishing rules for Wallpaper Turbo. Following this process is critical to ensure that client applications can receive, verify, and apply updates successfully without encountering security validation or integrity errors.
+This guide describes the release protocol, code signing procedures, update manifest publishing rules, and auto-update system architecture for Wallpaper Turbo. Following this process is critical to ensure that client applications can receive, verify, and apply updates successfully without encountering security validation or integrity errors.
 
 ---
 
-## The Core Problem: Updater Security Verification
+## 1. The Core Problem: Updater Security Verification
 
 To protect client systems from tampered or corrupted executables, the Wallpaper Turbo updater uses a dual-verification mechanism:
 1. **SHA256 Hash Matching**: The updater fetches the `update.json` manifest, reads the authoritative SHA256 file hash and file size, downloads the installer, and computes its actual hash. The hashes must match exactly.
@@ -18,7 +18,7 @@ To protect client systems from tampered or corrupted executables, the Wallpaper 
 
 ---
 
-## Mandatory Release Checklist
+## 2. Mandatory Release Checklist
 
 Every time a release or tag (e.g., `v1.3.2`) is published, the following workflow **must** be followed:
 
@@ -76,7 +76,53 @@ gh release upload v1.3.2 setup/Wallpaper_Turbo_Setup.exe setup/update.json --clo
 
 ---
 
-## Troubleshooting Update Errors
+## 3. Auto-Update System Architecture
+
+### 3.1. Core State Machine & Transitions
+The updater is state-driven and coordinated. The client transitions through these states during updates:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Checking : CheckForUpdatesAsync
+    Checking --> UpToDate : No New Version
+    Checking --> UpdateAvailable : New Version Found
+    Checking --> Failed : Error
+    
+    UpdateAvailable --> Downloading : DownloadUpdateAsync / Auto-Download
+    Downloading --> Downloaded : Bytes Complete
+    Downloading --> Failed : Error / Cancel
+    
+    Downloaded --> Verifying : VerifyUpdateAsync
+    Verifying --> ReadyToInstall : Hash & Signature Match
+    Verifying --> Failed : Verification Fail
+    
+    ReadyToInstall --> ShuttingDown : InstallUpdateAsync
+    ShuttingDown --> Installing : Process Closed
+    ShuttingDown --> Failed : Lock Error
+    Installing --> [*] : Launch Installer & Exit
+```
+
+### 3.2. Background Auto-Downloading & Periodic Checks
+1. **Startup Check**: On startup, if both `CheckOnStartup` and `AutoUpdateEnabled` are true, `UpdaterViewModel.RunStartupCheckAsync()` checks for updates.
+2. **Auto-Downloading**: If an update is detected and `AutoUpdateEnabled` is `true`, the UI event handler automatically triggers a background download without requiring user interaction:
+   ```csharp
+   if (_settings.AutoUpdateEnabled)
+   {
+       _ = Task.Run(async () => await _coordinator.DownloadUpdateAsync());
+   }
+   ```
+3. **Periodic Checks**: While the application remains running in the tray, a background timer ticks every **12 hours**. If `AutoUpdateEnabled` is true, it silenty queries GitHub for updates.
+
+### 3.3. Local Configuration Settings
+Updater configuration is stored in `%APPDATA%\Local\WallpaperTurbo\updater_settings.json`:
+* **`ReleaseChannel`**: Supports `Stable` (major), `Preview` (Beta), and `Nightly` (Dev).
+* **`AutoUpdateEnabled`**: Enables background checks and downloading.
+* **`CheckOnStartup`**: Controls whether to run check on startup.
+
+---
+
+## 4. Troubleshooting Update Errors
 
 | Error Symptom | Potential Cause | Solution |
 | :--- | :--- | :--- |
@@ -84,6 +130,8 @@ gh release upload v1.3.2 setup/Wallpaper_Turbo_Setup.exe setup/update.json --clo
 | `Security Validation Failed. The selected update channel requires stronger signature...` | The client's channel requires `Authenticode` signature verification, but the manifest `min_signature_required` was set to `sha256-only` or not signed. | Ensure the installer is signed before running `build-update-manifest.ps1` and make sure the release channel requirements are aligned. |
 | `Cannot verify: Downloaded file is missing.` | The installer did not download correctly or was deleted. | Check network connectivity, examine `updater_diagnostic.log`, and clear the updates cache directory: `%TEMP%\WallpaperTurboUpdates`. |
 
-## Logs & Diagnostics
+---
+
+## 5. Logs & Diagnostics
 To inspect updater behavior, refer to the following log file:
 * **Diagnostic Log Path**: `%LOCALAPPDATA%\WallpaperTurbo\updater_diagnostic.log`
