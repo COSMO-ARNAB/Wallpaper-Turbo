@@ -595,10 +595,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
-        "Fixed UAC prompt showing random GUIDs by cleaning up the download update filename.",
-        "Switched installer flags to /SILENT to display a progress bar for clear visual feedback during updates.",
-        "Resolved the startup mutex race condition preventing the application from auto-relaunching after updates.",
-        "Optimized AppRunner background startup by skipping slow WMI GPU queries, reducing launch delay from minutes to milliseconds."
+        "Dramatically improved Live Swap performance by adding IPC caching and media prefetching.",
+        "Stabilized the auto-updater to cleanly shutdown running wallpaper engines before installation.",
+        "Fixed race conditions during rapid wallpaper swapping."
     };
 
     private void CheckForVersionUpdate()

@@ -14,7 +14,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo [3/6] Signing published executables...
-powershell -ExecutionPolicy Bypass -NoProfile -File "%~dp0scripts\sign-binaries.ps1" -TargetDir "%~dp0publish" %*
+powershell -ExecutionPolicy Bypass -NoProfile -File "%~dp0scripts\sign-binaries.ps1" -TargetDir "%~dp0publish" -SkipRootTrust %*
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Code signing of published binaries failed!
     pause
@@ -40,7 +40,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo [5/6] Signing Setup Installer...
-powershell -ExecutionPolicy Bypass -NoProfile -File "%~dp0scripts\sign-binaries.ps1" -FilePath "%~dp0setup\Wallpaper_Turbo_Setup.exe" %*
+powershell -ExecutionPolicy Bypass -NoProfile -File "%~dp0scripts\sign-binaries.ps1" -FilePath "%~dp0setup\Wallpaper_Turbo_Setup.exe" -SkipRootTrust %*
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Code signing of the installer package failed!
     pause
@@ -60,4 +60,3 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo [SUCCESS] Setup package compiled and signed successfully at: setup\Wallpaper_Turbo_Setup.exe
 echo [SUCCESS] Update manifest written to: setup\update.json
-pause

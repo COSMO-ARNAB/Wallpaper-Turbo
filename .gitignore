@@ -46,6 +46,7 @@ virtualization_diagnostic.log
 vlc-help.txt
 LLD_FIX_PLAN.md
 BUGS_REPORT.md
+PUBLISHING_GUIDE.md
 test_py.txt
 test_write.txt
 *.log
