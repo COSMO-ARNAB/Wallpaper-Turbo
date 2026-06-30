@@ -9,6 +9,13 @@ public interface IMediaPipeline
 
     void Initialize(IntPtr parentWindowHandle);
 
+    /// <summary>
+    /// Pre-opens the media file in the background so the next <see cref="LoadMedia"/> call
+    /// can assign an already-parsed Media object instead of re-opening from disk.
+    /// Safe to call while another media is playing. No-op if not supported.
+    /// </summary>
+    void PreloadMedia(string filePath);
+
     void LoadMedia(string filePath);
 
     void Play();

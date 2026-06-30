@@ -27,6 +27,11 @@ public sealed class HardwareDecodePipeline
 
     private LibVLCSharp.Shared.Media? _media;
 
+    // Idea 1: Prefetched Media object — set by PreloadMedia(), consumed by the next LoadMedia().
+    // Volatile so the background preload thread's write is immediately visible to the swap thread.
+    private volatile LibVLCSharp.Shared.Media? _preloadedMedia;
+    private volatile string? _preloadedPath;
+
     private IntPtr _parentWindowHandle = IntPtr.Zero;
 
     private long _suspendedTime = -1;
@@ -182,6 +187,36 @@ public sealed class HardwareDecodePipeline
         }
     }
 
+    /// <summary>
+    /// Idea 1: Pre-opens the next media file in background so <see cref="LoadMedia"/> is instant.
+    /// Safe to call while another media is playing.
+    /// </summary>
+    public void PreloadMedia(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return;
+
+        // Skip if already preloaded for this exact path
+        if (_preloadedPath == filePath) return;
+
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            LibVLC? libVlc;
+            lock (_sync) { libVlc = _libVLC; }
+            if (libVlc == null) return;
+
+            try
+            {
+                var preloaded = BuildMedia(libVlc, filePath);
+
+                // Evict any previous preload before storing the new one
+                var old = System.Threading.Interlocked.Exchange(ref _preloadedMedia, preloaded);
+                _preloadedPath = filePath;
+                old?.Dispose();
+            }
+            catch { /* Preload is best-effort; LoadMedia will build it synchronously */ }
+        });
+    }
+
     public void LoadMedia(
         string filePath)
     {
@@ -201,50 +236,55 @@ public sealed class HardwareDecodePipeline
                     "Pipeline not initialized.");
             }
 
-            try
+            // Idea 3: Gapless swap — fire Stop() on a background thread so we never
+            // block the swap path on VLC's decoder flush (100-300ms).
+            // We capture the old MediaPlayer reference; the new media is assigned
+            // immediately below, and VLC handles internal teardown asynchronously.
+            var playerToStop = _mediaPlayer;
+            System.Threading.Tasks.Task.Run(() =>
             {
-                _mediaPlayer.Stop();
-            }
-            catch
+                try { playerToStop.Stop(); } catch { }
+            });
+
+            // Idea 1: Use pre-built Media if available for this path, otherwise build sync.
+            LibVLCSharp.Shared.Media? preloaded = null;
+            if (_preloadedPath == filePath)
             {
+                preloaded = System.Threading.Interlocked.Exchange(ref _preloadedMedia, null);
+                _preloadedPath = null;
             }
 
             _media?.Dispose();
+            _media = preloaded ?? BuildMedia(_libVLC, filePath);
 
-            _media =
-                new LibVLCSharp.Shared.Media(
-                    _libVLC,
-                    filePath,
-                    FromType.FromPath);
-
-            if (_useSoftwareDecode)
-            {
-                _media.AddOption(":avcodec-hw=none");
-            }
-
-            //
-            // Embedded playback only.
-            //
-            _media.AddOption(":embedded-video");
-
-            //
-            // Never allow fullscreen.
-            //
-            _media.AddOption(":no-fullscreen");
-
-            //
-            // Loop forever.
-            //
-            _media.AddOption(":input-repeat=65535");
-
-            //
-            // Reduce compositor disruptions.
-            //
-            _media.AddOption(":no-video-title-show");
-
-            _mediaPlayer.Media =
-                _media;
+            _mediaPlayer.Media = _media;
         }
+    }
+
+    /// <summary>Builds and configures a <see cref="LibVLCSharp.Shared.Media"/> for wallpaper playback.</summary>
+    private LibVLCSharp.Shared.Media BuildMedia(LibVLC libVlc, string filePath)
+    {
+        var media = new LibVLCSharp.Shared.Media(
+            libVlc,
+            filePath,
+            FromType.FromPath);
+
+        if (_useSoftwareDecode)
+            media.AddOption(":avcodec-hw=none");
+
+        // Embedded playback only.
+        media.AddOption(":embedded-video");
+
+        // Never allow fullscreen.
+        media.AddOption(":no-fullscreen");
+
+        // Loop forever.
+        media.AddOption(":input-repeat=65535");
+
+        // Reduce compositor disruptions.
+        media.AddOption(":no-video-title-show");
+
+        return media;
     }
 
     public void Play()
@@ -410,6 +450,11 @@ public sealed class HardwareDecodePipeline
             catch
             {
             }
+
+            // Clean up any pending preload
+            var preloaded = System.Threading.Interlocked.Exchange(ref _preloadedMedia, null);
+            preloaded?.Dispose();
+            _preloadedPath = null;
 
             _mediaPlayer?.Dispose();
             _media?.Dispose();

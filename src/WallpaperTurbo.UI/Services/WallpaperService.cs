@@ -644,21 +644,24 @@ public class WallpaperService
             return await Task.FromResult(true);
         }
 
-        // Sync GPU preference to Windows registry before any launch path.
-        // This must run before both IPC swap and fresh process launch to ensure
-        // the registry matches the persisted setting at the moment the engine reads it.
-        try
+        // Idea 4: GPU preference sync only matters when launching a *fresh* process.
+        // A running engine cannot change its GPU mid-session, so skip the disk read
+        // and registry query entirely on the IPC live-swap path.
+        if (forceFreshLaunch || !IsEngineRunning())
         {
-            var syncSettings = _settingsStore.Load();
-            var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
-            if (registryPref != syncSettings.GpuPreference)
+            try
             {
-                _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, syncSettings.GpuPreference);
+                var syncSettings = _settingsStore.Load();
+                var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
+                if (registryPref != syncSettings.GpuPreference)
+                {
+                    _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, syncSettings.GpuPreference);
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[WallpaperService] GPU preference registry sync failed: {ex.Message}");
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WallpaperService] GPU preference registry sync failed: {ex.Message}");
+            }
         }
 
         // Try to swap in real-time over IPC Named Pipe first (skip if fresh launch is forced)
@@ -669,6 +672,7 @@ public class WallpaperService
             DiagnosticsService.SetAction("Wallpaper Service Idle / Swap via IPC complete");
             return true;
         }
+
 
         if (!File.Exists(_appRunnerExePath))
         {

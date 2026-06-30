@@ -40,6 +40,13 @@ internal static class Program
     // when rapid Live Swap / pause / play / mute commands arrive concurrently)
     private static readonly SemaphoreSlim _ipcLock = new(1, 1);
 
+    // ── Idea 2: Manifest cache + FileSystemWatcher invalidation ──────────────────
+    // The manifests are only re-read from disk when the watcher fires, not on every swap.
+    private static volatile bool _manifestCacheValid = false;
+    private static FileSystemWatcher? _defaultManifestWatcher;
+    private static FileSystemWatcher? _userManifestWatcher;
+    // ─────────────────────────────────────────────────────────────────────────────
+
     /// <summary>
     /// Resolves a wallpaper video path to an absolute path.
     /// If the path is already rooted (e.g. user-imported wallpapers stored in LocalAppData),
@@ -509,6 +516,12 @@ internal static class Program
         _uiPid = uiPid;
         _muteAudio = muteAudio;
         LogMemory("startup.after-args");
+
+        // ── Idea 2: Start FileSystemWatchers to invalidate manifest cache on disk change ──
+        SetupManifestWatchers(manifestPath, userManifestPath);
+        // Mark initial load as valid (we already loaded the manifests above)
+        _manifestCacheValid = true;
+        // ──────────────────────────────────────────────────────────────────────────────────
 
         _consoleCtrlHandler = OnConsoleCtrl;
         SetConsoleCtrlHandler(_consoleCtrlHandler, true);
@@ -1666,6 +1679,10 @@ internal static class Program
         var oldSession = sessions[0];
         var activePipeline = oldSession.MediaPipeline;
 
+        // Idea 1: Kick off preload for the NEW wallpaper before we even pause the old one.
+        // By the time we call LoadMedia() below, the Media object may already be built.
+        try { activePipeline.PreloadMedia(videoPath); } catch { }
+
         try
         {
             // 1. Gracefully pause old session first
@@ -1723,6 +1740,12 @@ internal static class Program
 
     private static bool ReloadMergedWallpapers(List<WallpaperEntry> wallpapers)
     {
+        // Idea 2: Cache hit — manifests haven't changed on disk; skip disk I/O entirely.
+        if (_manifestCacheValid && wallpapers.Count > 0)
+        {
+            return true;
+        }
+
         try
         {
             var fresh = new List<WallpaperEntry>();
@@ -1769,6 +1792,7 @@ internal static class Program
 
             wallpapers.Clear();
             wallpapers.AddRange(fresh);
+            _manifestCacheValid = true;
             Console.WriteLine($"[Manifest] Reloaded {fresh.Count} wallpapers from disk.");
             return true;
         }
@@ -1777,6 +1801,51 @@ internal static class Program
             Console.Error.WriteLine($"[Manifest] Reload failed, keeping stale list: {ex.Message}");
             return false;
         }
+    }
+
+    /// <summary>
+    /// Idea 2: Starts FileSystemWatchers on both manifest paths.
+    /// On any change (Created/Changed/Deleted/Renamed), the cache is invalidated so the next swap
+    /// re-reads from disk. Between changes, zero disk I/O happens during swaps.
+    /// </summary>
+    private static void SetupManifestWatchers(string defaultManifestPath, string userManifestPath)
+    {
+        void StartWatcher(string path, ref FileSystemWatcher? watcher)
+        {
+            try
+            {
+                string? dir = Path.GetDirectoryName(path);
+                string? file = Path.GetFileName(path);
+                if (string.IsNullOrEmpty(dir) || string.IsNullOrEmpty(file)) return;
+
+                // Don't crash if the directory doesn't exist yet
+                if (!Directory.Exists(dir)) return;
+
+                watcher = new FileSystemWatcher(dir, file)
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
+                    EnableRaisingEvents = true
+                };
+
+                void Invalidate(object? s, FileSystemEventArgs e)
+                {
+                    _manifestCacheValid = false;
+                    Console.WriteLine($"[Manifest] Cache invalidated: '{e.Name}' changed on disk.");
+                }
+
+                watcher.Changed += Invalidate;
+                watcher.Created += Invalidate;
+                watcher.Deleted += Invalidate;
+                watcher.Renamed += (s, e) => { _manifestCacheValid = false; Console.WriteLine($"[Manifest] Cache invalidated: '{e.OldName}' renamed."); };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Manifest] Warning: FileSystemWatcher setup failed for '{path}': {ex.Message}");
+            }
+        }
+
+        StartWatcher(defaultManifestPath, ref _defaultManifestWatcher);
+        StartWatcher(userManifestPath, ref _userManifestWatcher);
     }
 
     private static void ShowMissingWallpaperWarning(
