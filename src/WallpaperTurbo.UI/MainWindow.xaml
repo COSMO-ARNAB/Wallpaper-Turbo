@@ -10,7 +10,7 @@
         Title="Wallpaper Turbo"
         Icon="Assets/Branding/wallpaper-turbo.png"
         Height="780" Width="1240"
-        Background="Transparent"
+        Background="{x:Null}"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None">
 

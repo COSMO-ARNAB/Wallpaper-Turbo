@@ -397,8 +397,8 @@
                                                  Command="{Binding DataContext.PlayWallpaperCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                  CommandParameter="{Binding}"
                                                  Tag="{Binding IsActive}"
-                                                 Width="130" Height="30"
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 Height="30"
+                                                 HorizontalAlignment="Stretch" VerticalAlignment="Center"
                                                  Opacity="0" IsHitTestVisible="False"
                                                  RenderTransformOrigin="0.5,0.5">
                                              <Button.RenderTransform>

@@ -7,10 +7,13 @@ namespace WallpaperTurbo.UI.Services;
 
 public enum WindowBackdropMode
 {
-    None = 1,
-    Mica = 2,
-    Acrylic = 3,
-    Tabbed = 4
+    // Values match DWMWA_SYSTEMBACKDROP_TYPE (attribute 38) constants:
+    // DWMSBT_NONE = 0, DWMSBT_MAINWINDOW = 1 (Mica), 
+    // DWMSBT_TRANSIENTWINDOW = 2, DWMSBT_TABBEDWINDOW = 3, DWMSBT_ACRYLIC = 4
+    None = 0,
+    Mica = 1,
+    Tabbed = 3,
+    Acrylic = 4
 }
 
 public enum UIMaterialMode
