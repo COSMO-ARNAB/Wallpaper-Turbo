@@ -36,6 +36,10 @@ internal static class Program
     private static ForegroundWindowWatcher? _foregroundWatcher;
     private static bool _muteAudio = true;
 
+    // Semaphore to serialize IPC command processing (prevents race conditions
+    // when rapid Live Swap / pause / play / mute commands arrive concurrently)
+    private static readonly SemaphoreSlim _ipcLock = new(1, 1);
+
     /// <summary>
     /// Resolves a wallpaper video path to an absolute path.
     /// If the path is already rooted (e.g. user-imported wallpapers stored in LocalAppData),
@@ -1291,27 +1295,34 @@ internal static class Program
                 {
                     try
                     {
-                        using var server = new System.IO.Pipes.NamedPipeServerStream("WallpaperTurbo_IPC", System.IO.Pipes.PipeDirection.In, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
+                        using var server = new System.IO.Pipes.NamedPipeServerStream("WallpaperTurbo_IPC", System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
                         await server.WaitForConnectionAsync(cts.Token);
                         using var reader = new System.IO.StreamReader(server);
+                        using var writer = new System.IO.StreamWriter(server) { AutoFlush = true };
+
                         string? cmd = await reader.ReadLineAsync(cts.Token);
                         errorDelayMs = 50; // Reset on success
                         if (!string.IsNullOrEmpty(cmd))
                         {
                             string trimmedCmd = cmd.Trim();
-                            _ = Task.Run(async () =>
+                            // Process sequentially (command serialization) using the _ipcLock
+                            await _ipcLock.WaitAsync(cts.Token);
+                            try
                             {
-                                try
-                                {
-                                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
-                                    timeoutCts.CancelAfter(5000); // 5-second command timeout
-                                    await ProcessCommandAsync(trimmedCmd, _mergedWallpapers, _sessionManager, _hwnd, timeoutCts.Token);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.Error.WriteLine($"[IPC] Error processing command '{trimmedCmd}': {ex.Message}");
-                                }
-                            });
+                                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                                timeoutCts.CancelAfter(5000); // 5-second command timeout
+                                string response = await ProcessCommandAsync(trimmedCmd, _mergedWallpapers, _sessionManager, _hwnd, timeoutCts.Token);
+                                await writer.WriteLineAsync(response);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.Error.WriteLine($"[IPC] Error processing command '{trimmedCmd}': {ex.Message}");
+                                try { await writer.WriteLineAsync($"error: {ex.Message}"); } catch { }
+                            }
+                            finally
+                            {
+                                _ipcLock.Release();
+                            }
                         }
                     }
                     catch (OperationCanceledException)
@@ -1489,7 +1500,7 @@ internal static class Program
         }
     }
 
-    private static async Task ProcessCommandAsync(
+    private static async Task<string> ProcessCommandAsync(
         string commandLine,
         List<WallpaperEntry> wallpapers,
         WallpaperSessionManager? sessionManager,
@@ -1497,7 +1508,7 @@ internal static class Program
         CancellationToken cancellationToken)
     {
         var parts = commandLine.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0) return;
+        if (parts.Length == 0) return "error: empty command";
 
         string command = parts[0].ToLowerInvariant();
         string args = parts.Length > 1 ? parts[1].Trim() : string.Empty;
@@ -1507,15 +1518,12 @@ internal static class Program
             case "swap":
                 if (int.TryParse(args, out int newIndex))
                 {
-                    await HandleSwapCommandAsync(newIndex, wallpapers, sessionManager, hwnd);
+                    return await HandleSwapCommandAsync(newIndex, wallpapers, sessionManager, hwnd);
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("Error: Please specify a valid wallpaper index. Example: swap 2");
-                    Console.ResetColor();
+                    return "error: invalid index format";
                 }
-                break;
 
             case "pause":
                 if (sessionManager != null)
@@ -1531,8 +1539,9 @@ internal static class Program
                         activeTitle = wallpapers[_finalWallpaperIndex - 1].Title;
                     }
                     UpdateActiveStateFile(_finalWallpaperIndex, activeTitle, false);
+                    return "success";
                 }
-                break;
+                return "error: session manager not initialized";
 
             case "play":
                 if (sessionManager != null)
@@ -1548,13 +1557,14 @@ internal static class Program
                         activeTitle = wallpapers[_finalWallpaperIndex - 1].Title;
                     }
                     UpdateActiveStateFile(_finalWallpaperIndex, activeTitle, true);
+                    return "success";
                 }
-                break;
+                return "error: session manager not initialized";
 
             case "mem":
                 TrimProcessMemory();
                 LogMemory("console.mem", force: true);
-                break;
+                return "success";
 
             case "layout":
                 if (Enum.TryParse<WallpaperLayoutMode>(args, true, out var mode))
@@ -1566,15 +1576,14 @@ internal static class Program
                             s.MediaPipeline.ApplyLayoutMode(mode);
                         }
                         Console.WriteLine($"Layout mode updated to: {mode}");
+                        return "success";
                     }
+                    return "error: session manager not initialized";
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("Error: Invalid layout mode. Use: stretch, fit, or fill");
-                    Console.ResetColor();
+                    return "error: invalid layout mode. Use: stretch, fit, or fill";
                 }
-                break;
 
              case "pause-mode":
                 if (Enum.TryParse<PauseMode>(args, true, out var newMode))
@@ -1585,14 +1594,12 @@ internal static class Program
                         _foregroundWatcher.PauseMode = newMode;
                         Console.WriteLine($"[IPC] Performance pause mode updated in real-time to: {newMode}");
                     }
+                    return "success";
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"Error: Invalid pause mode: {args}");
-                    Console.ResetColor();
+                    return $"error: invalid pause mode: {args}";
                 }
-                break;
 
              case "mute":
                 if (bool.TryParse(args, out bool mute))
@@ -1606,24 +1613,19 @@ internal static class Program
                         }
                         Console.WriteLine($"[IPC] Audio mute status updated in real-time to: {mute}");
                     }
+                    return "success";
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"Error: Invalid mute argument: {args}");
-                    Console.ResetColor();
+                    return $"error: invalid mute argument: {args}";
                 }
-                break;
 
             default:
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Unknown command: {command}");
-                Console.ResetColor();
-                break;
+                return $"error: unknown command: {command}";
         }
     }
 
-    private static async Task HandleSwapCommandAsync(
+    private static async Task<string> HandleSwapCommandAsync(
         int newIndex,
         List<WallpaperEntry> wallpapers,
         WallpaperSessionManager? sessionManager,
@@ -1631,27 +1633,18 @@ internal static class Program
     {
         if (sessionManager == null || hwnd == IntPtr.Zero)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Error: Session manager or window handle not initialized.");
-            Console.ResetColor();
-            return;
+            return "error: session manager or window handle not initialized";
         }
 
         // Reload manifests so newly imported wallpapers are visible without restarting AppRunner
         if (!ReloadMergedWallpapers(wallpapers))
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("[Swap] Manifest reload failed; aborting swap to avoid stale state.");
-            Console.ResetColor();
-            return;
+            return "error: manifest reload failed";
         }
 
         if (newIndex < 1 || newIndex > wallpapers.Count)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"Error: Invalid wallpaper index. Must be between 1 and {wallpapers.Count}.");
-            Console.ResetColor();
-            return;
+            return $"error: invalid wallpaper index. Must be between 1 and {wallpapers.Count}";
         }
 
         WallpaperEntry newWallpaper = wallpapers[newIndex - 1];
@@ -1659,10 +1652,7 @@ internal static class Program
 
         if (!File.Exists(videoPath))
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"Error: Video file not found: {videoPath}");
-            Console.ResetColor();
-            return;
+            return $"error: video file not found: {videoPath}";
         }
 
         Console.WriteLine($"\n[HotSwap] Initiating swap to wallpaper #{newIndex}: '{newWallpaper.Title}'...");
@@ -1670,61 +1660,65 @@ internal static class Program
         var sessions = sessionManager.Sessions;
         if (sessions.Count == 0)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Error: No active wallpaper sessions found.");
-            Console.ResetColor();
-            return;
+            return "error: no active wallpaper sessions found";
         }
 
         var oldSession = sessions[0];
         var activePipeline = oldSession.MediaPipeline;
 
-        await Task.Run(async () =>
+        try
         {
+            // 1. Gracefully pause old session first
             try
             {
-                // 1. Gracefully pause old session first
-                try
-                {
-                    oldSession.Pause();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[HotSwap] Warning during pause: {ex.Message}");
-                }
-
-                activePipeline.LoadMedia(videoPath);
-
-                var newSession = new WallpaperSession(
-                    hwnd,
-                    newWallpaper,
-                    activePipeline,
-                    oldSession.Monitor);
-
-                sessionManager.ReplaceSession(oldSession, newSession);
-
-                _activePipeline = activePipeline;
-                _finalWallpaperIndex = newIndex;
-
-                newSession.Play();
-                UpdateActiveStateFile(newIndex, newWallpaper.Title, true);
-
-                await Task.Delay(1500);
-                WindowUtil.MakeChildrenTransparent(hwnd);
-                TrimProcessMemory();
-                LogMemory("hotswap.trimmed");
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"[HotSwap] Successfully hot-swapped to '{newWallpaper.Title}'!");
-                Console.ResetColor();
+                oldSession.Pause();
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[HotSwap] Error: Failed to complete hot-swap: {ex.Message}");
-                Console.ResetColor();
+                Console.WriteLine($"[HotSwap] Warning during pause: {ex.Message}");
             }
-        });
+
+            activePipeline.LoadMedia(videoPath);
+
+            var newSession = new WallpaperSession(
+                hwnd,
+                newWallpaper,
+                activePipeline,
+                oldSession.Monitor);
+
+            sessionManager.ReplaceSession(oldSession, newSession);
+
+            _activePipeline = activePipeline;
+            _finalWallpaperIndex = newIndex;
+
+            newSession.Play();
+            UpdateActiveStateFile(newIndex, newWallpaper.Title, true);
+
+            // Run post-swap transparency and trimming in background without blocking IPC acknowledgement response
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(1500);
+                    WindowUtil.MakeChildrenTransparent(hwnd);
+                    TrimProcessMemory();
+                    LogMemory("hotswap.trimmed");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[HotSwap] Warning during post-swap tasks: {ex.Message}");
+                }
+            });
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"[HotSwap] Successfully hot-swapped to '{newWallpaper.Title}'!");
+            Console.ResetColor();
+            return "success";
+        }
+        catch (Exception ex)
+        {
+            return $"error: failed to complete hot-swap: {ex.Message}";
+        }
     }
 
     private static bool ReloadMergedWallpapers(List<WallpaperEntry> wallpapers)

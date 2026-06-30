@@ -187,22 +187,7 @@ public sealed class UpdateCoordinator : IDisposable
         Directory.CreateDirectory(tempDir);
         string destinationPath = Path.Combine(tempDir, $"WallpaperTurbo_Update_{_currentManifest.Version}.exe");
 
-        // #region agent log
-        try
-        {
-            var preDownloadLog = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                sessionId = "e9f6e8",
-                hypothesisId = "D",
-                location = "UpdateCoordinator.cs:DownloadUpdateAsync",
-                message = "Pre-download destination state",
-                data = new { destinationPath, fileExists = File.Exists(destinationPath) },
-                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            });
-            File.AppendAllText(@"C:\Users\arnab\PROJECTS\Wallpaper_Turbo\debug-e9f6e8.log", preDownloadLog + Environment.NewLine);
-        }
-        catch { }
-        // #endregion
+
 
         try
         {
@@ -315,22 +300,7 @@ public sealed class UpdateCoordinator : IDisposable
         {
             bool shutdownSuccess = await _processManager.ShutdownOtherProcessesGracefullyAsync(5000);
 
-            // #region agent log
-            try
-            {
-                var installLog = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    sessionId = "e9f6e8",
-                    hypothesisId = "C",
-                    location = "UpdateCoordinator.cs:InstallUpdateAsync",
-                    message = "ShutdownOtherProcessesGracefullyAsync result",
-                    data = new { shutdownSuccess },
-                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                });
-                File.AppendAllText(@"C:\Users\arnab\PROJECTS\Wallpaper_Turbo\debug-e9f6e8.log", installLog + Environment.NewLine);
-            }
-            catch { }
-            // #endregion
+
             
             if (!shutdownSuccess)
             {

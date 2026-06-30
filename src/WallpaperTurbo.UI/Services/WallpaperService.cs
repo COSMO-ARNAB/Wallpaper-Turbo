@@ -649,7 +649,7 @@ public class WallpaperService
         }
 
         // Try to swap in real-time over IPC Named Pipe first (skip if fresh launch is forced)
-        if (!forceFreshLaunch && await SendIpcCommandAsync($"swap {index}"))
+        if (!forceFreshLaunch && (await SendIpcCommandAsync($"swap {index}")) == "success")
         {
             _activeWallpaperIndex = index;
             UpdateActiveStates(index);
@@ -863,40 +863,44 @@ public class WallpaperService
         DiagnosticsService.SetAction($"Wallpaper Service updating pause profile to {profile} via IPC");
         // Map "Disabled" to "None" for AppRunner compatibility
         string mode = string.Equals(profile, "Disabled", StringComparison.OrdinalIgnoreCase) ? "None" : profile;
-        return await SendIpcCommandAsync($"pause-mode {mode}");
+        return (await SendIpcCommandAsync($"pause-mode {mode}")) == "success";
     }
 
     public async Task<bool> PausePlaybackAsync()
     {
         DiagnosticsService.SetAction("Wallpaper Service Pausing Playback via IPC");
-        return await SendIpcCommandAsync("pause");
+        return (await SendIpcCommandAsync("pause")) == "success";
     }
 
     public async Task<bool> ResumePlaybackAsync()
     {
         DiagnosticsService.SetAction("Wallpaper Service Resuming Playback via IPC");
-        return await SendIpcCommandAsync("play");
+        return (await SendIpcCommandAsync("play")) == "success";
     }
 
     public async Task<bool> SetMuteAsync(bool isMuted)
     {
         DiagnosticsService.SetAction($"Wallpaper Service updating mute state to {isMuted} via IPC");
-        return await SendIpcCommandAsync($"mute {isMuted.ToString().ToLowerInvariant()}");
+        return (await SendIpcCommandAsync($"mute {isMuted.ToString().ToLowerInvariant()}")) == "success";
     }
 
-    private async Task<bool> SendIpcCommandAsync(string command)
+    private async Task<string> SendIpcCommandAsync(string command)
     {
         try
         {
-            using var client = new System.IO.Pipes.NamedPipeClientStream(".", "WallpaperTurbo_IPC", System.IO.Pipes.PipeDirection.Out);
+            using var client = new System.IO.Pipes.NamedPipeClientStream(".", "WallpaperTurbo_IPC", System.IO.Pipes.PipeDirection.InOut, System.IO.Pipes.PipeOptions.Asynchronous);
             await client.ConnectAsync(150); // 150ms timeout for instant responsiveness
-            using var writer = new StreamWriter(client) { AutoFlush = true };
+            var writer = new StreamWriter(client) { AutoFlush = true };
             await writer.WriteLineAsync(command);
-            return true;
+
+            var reader = new StreamReader(client);
+            using var cts = new CancellationTokenSource(1500); // 1.5s timeout for confirmed response
+            string? response = await reader.ReadLineAsync(cts.Token);
+            return response ?? "error: timeout";
         }
-        catch
+        catch (Exception ex)
         {
-            return false; // Engine not running or IPC not responsive
+            return $"error: {ex.Message}";
         }
     }
 }

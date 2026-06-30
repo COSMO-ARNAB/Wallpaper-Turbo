@@ -449,7 +449,7 @@
                                         Style="{StaticResource ButtonPrimary}"
                                         Margin="0,0,8,0" />
                                 <Button Content="Install update"
-                                        Command="{Binding Updater.InstallCommand}"
+                                        Command="{Binding DataContext.RequestInstallUpdateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         Visibility="{Binding Updater.IsInstallButtonVisible, Converter={StaticResource BoolToVisConverter}}"
                                         Style="{StaticResource ButtonPrimary}"
                                         Margin="0,0,8,0" />

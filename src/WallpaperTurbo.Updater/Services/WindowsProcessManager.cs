@@ -10,31 +10,36 @@ namespace WallpaperTurbo.Updater.Services;
 
 public sealed class WindowsProcessManager : IProcessManager
 {
-    #region agent log
-    private static void DbgLog(string hypothesisId, string location, string message, object? data = null)
-    {
-        try
-        {
-            var line = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                sessionId = "e9f6e8",
-                hypothesisId,
-                location,
-                message,
-                data,
-                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            });
-            System.IO.File.AppendAllText(@"C:\Users\arnab\PROJECTS\Wallpaper_Turbo\debug-e9f6e8.log", line + Environment.NewLine);
-        }
-        catch { }
-    }
-    #endregion
+
 
     public async Task<bool> ShutdownOtherProcessesGracefullyAsync(int timeoutMilliseconds)
     {
         var processes = new List<Process>();
         processes.AddRange(Process.GetProcessesByName("WallpaperTurbo.AppRunner"));
         processes.AddRange(Process.GetProcessesByName("WallpaperTurbo.UI"));
+
+        // Fallback for local debugging: find running dotnet processes hosting our assemblies
+        foreach (var proc in Process.GetProcessesByName("dotnet"))
+        {
+            try
+            {
+                string cmdLine = GetProcessCommandLine(proc.Id);
+                if (cmdLine.Contains("WallpaperTurbo.UI", StringComparison.OrdinalIgnoreCase) ||
+                    cmdLine.Contains("WallpaperTurbo.AppRunner", StringComparison.OrdinalIgnoreCase))
+                {
+                    processes.Add(proc);
+                }
+                else
+                {
+                    proc.Dispose();
+                }
+            }
+            catch
+            {
+                proc.Dispose();
+            }
+        }
+
         using var currentProcess = Process.GetCurrentProcess();
         var processesToShutdown = new List<Process>();
 
@@ -57,18 +62,7 @@ public sealed class WindowsProcessManager : IProcessManager
             }
         }
 
-        // #region agent log
-        DbgLog("B", "WindowsProcessManager.cs:ShutdownEntry", "Processes targeted for shutdown", new
-        {
-            timeoutMilliseconds,
-            currentPid = currentProcess.Id,
-            targets = processesToShutdown.Select(p =>
-            {
-                try { return new { p.Id, p.ProcessName, hasExited = p.HasExited, mainWindow = p.MainWindowHandle != IntPtr.Zero }; }
-                catch { return new { Id = -1, ProcessName = "?", hasExited = false, mainWindow = false }; }
-            }).ToArray()
-        });
-        // #endregion
+
 
         if (processesToShutdown.Count == 0)
         {
@@ -112,14 +106,7 @@ public sealed class WindowsProcessManager : IProcessManager
                     Debug.WriteLine($"[WindowsProcessManager] Error checking or killing process {proc.Id}: {killEx.Message}");
                 }
 
-                // #region agent log
-                DbgLog("C", "WindowsProcessManager.cs:AfterForceKill", "Process state after force-kill attempt", new
-                {
-                    proc.Id,
-                    hadExitedBeforeKill,
-                    hasExitedAfter = SafeHasExited(proc)
-                });
-                // #endregion
+
 
                 if (!SafeHasExited(proc))
                 {
@@ -130,13 +117,7 @@ public sealed class WindowsProcessManager : IProcessManager
         }
         finally
         {
-            // #region agent log
-            DbgLog("A", "WindowsProcessManager.cs:BeforeReturn", "Final process exit states before dispose", new
-            {
-                shutdownResult,
-                processes = processesToShutdown.Select(p => new { p.Id, hasExited = SafeHasExited(p) }).ToArray()
-            });
-            // #endregion
+
 
             foreach (var proc in processesToShutdown)
             {
@@ -185,16 +166,7 @@ public sealed class WindowsProcessManager : IProcessManager
         catch (Exception ex)
         {
             Debug.WriteLine($"[WindowsProcessManager] Error waiting for PID {process.Id} exit: {ex.Message}");
-            // #region agent log
-            DbgLog("A", "WindowsProcessManager.cs:WaitForProcessExitAsync", "WaitForProcessExitAsync swallowed exception; task completes without exit guarantee", new
-            {
-                process.Id,
-                process.ProcessName,
-                exType = ex.GetType().Name,
-                ex.Message,
-                hasExited = SafeHasExited(process)
-            });
-            // #endregion
+
 
             if (!SafeHasExited(process))
             {
@@ -238,6 +210,30 @@ public sealed class WindowsProcessManager : IProcessManager
         catch
         {
             Environment.Exit(0);
+        }
+    }
+
+    private static string GetProcessCommandLine(int pid)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "wmic.exe",
+                Arguments = $"process where ProcessId={pid} get CommandLine",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var proc = Process.Start(psi);
+            if (proc == null) return string.Empty;
+            string output = proc.StandardOutput.ReadToEnd();
+            proc.WaitForExit(1000);
+            return output;
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 
