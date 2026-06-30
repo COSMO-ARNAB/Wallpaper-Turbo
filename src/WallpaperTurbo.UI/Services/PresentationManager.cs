@@ -12,6 +12,7 @@ public enum WindowBackdropMode
     // DWMSBT_TRANSIENTWINDOW = 2, DWMSBT_TABBEDWINDOW = 3, DWMSBT_ACRYLIC = 4
     None = 0,
     Mica = 1,
+    Transient = 2,
     Tabbed = 3,
     Acrylic = 4
 }
@@ -84,18 +85,30 @@ public partial class PresentationManager : ObservableObject, IDisposable
             var settings = _settingsStore.Load();
             if (Enum.TryParse<WindowBackdropMode>(settings.GlassBackdrop, out var customBackdrop))
             {
-                BackdropMode = customBackdrop;
+                // Map settings to match v1.3.2 visual styles:
+                if (customBackdrop == WindowBackdropMode.Acrylic)
+                {
+                    BackdropMode = WindowBackdropMode.Tabbed;
+                }
+                else if (customBackdrop == WindowBackdropMode.Mica)
+                {
+                    BackdropMode = WindowBackdropMode.Transient;
+                }
+                else
+                {
+                    BackdropMode = customBackdrop;
+                }
             }
             else
             {
-                BackdropMode = WindowBackdropMode.Acrylic;
+                BackdropMode = WindowBackdropMode.Tabbed;
             }
             OverlayOpacity = settings.GlassOpacity;
             MaterialMode = UIMaterialMode.Glass;
         }
         else
         {
-            BackdropMode = WindowBackdropMode.Mica;
+            BackdropMode = WindowBackdropMode.Transient;
             OverlayOpacity = 1.0;
             MaterialMode = UIMaterialMode.Solid;
         }

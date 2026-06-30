@@ -69,7 +69,7 @@ public class PresentationManagerTests
         using var presentationManager = new PresentationManager(wallpaperService, store);
 
         Assert.False(presentationManager.IsWallpaperVisible);
-        Assert.Equal(WindowBackdropMode.Mica, presentationManager.BackdropMode);
+        Assert.Equal(WindowBackdropMode.Transient, presentationManager.BackdropMode);
         Assert.Equal(UIMaterialMode.Solid, presentationManager.MaterialMode);
     }
 
@@ -100,7 +100,7 @@ public class PresentationManagerTests
         SimulateSessionStateChange(wallpaperService, activeSession);
 
         Assert.True(presentationManager.IsWallpaperVisible);
-        Assert.Equal(WindowBackdropMode.Acrylic, presentationManager.BackdropMode);
+        Assert.Equal(WindowBackdropMode.Tabbed, presentationManager.BackdropMode);
         Assert.Equal(UIMaterialMode.Glass, presentationManager.MaterialMode);
         Assert.True(propertyChangedCount > 0);
 
@@ -112,7 +112,7 @@ public class PresentationManagerTests
         SimulateSessionStateChange(wallpaperService, inactiveSession);
 
         Assert.False(presentationManager.IsWallpaperVisible);
-        Assert.Equal(WindowBackdropMode.Mica, presentationManager.BackdropMode);
+        Assert.Equal(WindowBackdropMode.Transient, presentationManager.BackdropMode);
         Assert.Equal(UIMaterialMode.Solid, presentationManager.MaterialMode);
         Assert.True(propertyChangedCount > 0);
     }
