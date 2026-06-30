@@ -22,6 +22,7 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
     private readonly Dispatcher _uiDispatcher;
     private UpdaterSettings _settings;
     private bool _disposed;
+    private DispatcherTimer? _periodicCheckTimer;
 
     [ObservableProperty] private string _currentVersion = "1.0.0";
     [ObservableProperty] private string _channelDisplay = "Stable";
@@ -80,6 +81,8 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
         _coordinator.ErrorOccurred += OnCoordinatorErrorOccurred;
 
         ApplyStateLocally(_coordinator.CurrentState);
+
+        InitializePeriodicCheckTimer();
     }
 
     public UpdaterSettings GetSettingsSnapshot() => _settings.Clone();
@@ -245,6 +248,22 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
             StatusText = $"Update available: v{e.Version}";
             StatusDetailText = FormatBytes(e.FileSizeBytes) + " download";
             IsNotificationVisible = true;
+
+            if (_settings.AutoUpdateEnabled)
+            {
+                UpdaterDiagnostic.Log("UpdaterViewModel.OnCoordinatorUpdateAvailable", "AutoUpdateEnabled is true; automatically triggering background download.");
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _coordinator.DownloadUpdateAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        UpdaterDiagnostic.Log("UpdaterViewModel.OnCoordinatorUpdateAvailable", $"Auto-download failed: {ex.Message}");
+                    }
+                });
+            }
         });
     }
 
@@ -469,6 +488,13 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
         _disposed = true;
         try
         {
+            if (_periodicCheckTimer != null)
+            {
+                _periodicCheckTimer.Stop();
+                _periodicCheckTimer.Tick -= OnPeriodicCheckTimerTick;
+                _periodicCheckTimer = null;
+            }
+
             _coordinator.StateChanged -= OnCoordinatorStateChanged;
             _coordinator.ProgressChanged -= OnCoordinatorProgressChanged;
             _coordinator.UpdateAvailable -= OnCoordinatorUpdateAvailable;
@@ -476,6 +502,34 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
         }
         catch
         {
+        }
+    }
+
+    private void InitializePeriodicCheckTimer()
+    {
+        _periodicCheckTimer = new DispatcherTimer(DispatcherPriority.Background, _uiDispatcher)
+        {
+            Interval = TimeSpan.FromHours(12)
+        };
+        _periodicCheckTimer.Tick += OnPeriodicCheckTimerTick;
+        _periodicCheckTimer.Start();
+    }
+
+    private async void OnPeriodicCheckTimerTick(object? sender, EventArgs e)
+    {
+        if (!_settings.AutoUpdateEnabled)
+        {
+            return;
+        }
+
+        UpdaterDiagnostic.Log("UpdaterViewModel.OnPeriodicCheckTimerTick", "Periodic check timer ticked.");
+        try
+        {
+            await _coordinator.CheckForUpdatesAsync(_settings.ReleaseChannel);
+        }
+        catch (Exception ex)
+        {
+            UpdaterDiagnostic.Log("UpdaterViewModel.OnPeriodicCheckTimerTick", $"Periodic check failed: {ex.Message}");
         }
     }
 }
