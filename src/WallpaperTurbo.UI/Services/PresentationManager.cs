@@ -8,13 +8,14 @@ namespace WallpaperTurbo.UI.Services;
 public enum WindowBackdropMode
 {
     // Values match DWMWA_SYSTEMBACKDROP_TYPE (attribute 38) constants:
-    // DWMSBT_NONE = 0, DWMSBT_MAINWINDOW = 1 (Mica), 
-    // DWMSBT_TRANSIENTWINDOW = 2, DWMSBT_TABBEDWINDOW = 3, DWMSBT_ACRYLIC = 4
-    None = 0,
-    Mica = 1,
-    Transient = 2,
-    Tabbed = 3,
-    Acrylic = 4
+    // DWMSBT_AUTO = 0, DWMSBT_NONE = 1, DWMSBT_MAINWINDOW = 2,
+    // DWMSBT_TRANSIENTWINDOW = 3 (Acrylic), DWMSBT_TABBEDWINDOW = 4.
+    Auto = 0,
+    None = 1,
+    Mica = 2,
+    Acrylic = 3,
+    Transient = 3,
+    Tabbed = 4
 }
 
 public enum UIMaterialMode
@@ -64,7 +65,7 @@ public partial class PresentationManager : ObservableObject, IDisposable
 
     private void SyncSessionState(WallpaperSessionEventArgs? session)
     {
-        bool visible = session != null && session.IsActive && session.IsPlaying;
+        bool visible = session != null && session.IsActive;
         var dispatcher = Application.Current?.Dispatcher;
         
         if (dispatcher == null || dispatcher.CheckAccess())
@@ -85,30 +86,18 @@ public partial class PresentationManager : ObservableObject, IDisposable
             var settings = _settingsStore.Load();
             if (Enum.TryParse<WindowBackdropMode>(settings.GlassBackdrop, out var customBackdrop))
             {
-                // Map settings to match v1.3.2 visual styles:
-                if (customBackdrop == WindowBackdropMode.Acrylic)
-                {
-                    BackdropMode = WindowBackdropMode.Tabbed;
-                }
-                else if (customBackdrop == WindowBackdropMode.Mica)
-                {
-                    BackdropMode = WindowBackdropMode.Transient;
-                }
-                else
-                {
-                    BackdropMode = customBackdrop;
-                }
+                BackdropMode = customBackdrop;
             }
             else
             {
-                BackdropMode = WindowBackdropMode.Tabbed;
+                BackdropMode = WindowBackdropMode.Acrylic;
             }
             OverlayOpacity = settings.GlassOpacity;
             MaterialMode = UIMaterialMode.Glass;
         }
         else
         {
-            BackdropMode = WindowBackdropMode.Transient;
+            BackdropMode = WindowBackdropMode.None;
             OverlayOpacity = 1.0;
             MaterialMode = UIMaterialMode.Solid;
         }

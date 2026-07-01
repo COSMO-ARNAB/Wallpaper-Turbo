@@ -15,9 +15,15 @@ public class PresentationManagerTests
 {
     private sealed class FakeSettingsStore : ISettingsStore
     {
+        private AppSettings _settings = new();
+
         public event EventHandler<AppSettings>? SettingsChanged;
-        public AppSettings Load() => new AppSettings();
-        public void Save(AppSettings settings) => SettingsChanged?.Invoke(this, settings);
+        public AppSettings Load() => _settings;
+        public void Save(AppSettings settings)
+        {
+            _settings = settings;
+            SettingsChanged?.Invoke(this, settings);
+        }
     }
 
     private sealed class FakeGpuPreferenceService : IGpuPreferenceService
@@ -69,7 +75,7 @@ public class PresentationManagerTests
         using var presentationManager = new PresentationManager(wallpaperService, store);
 
         Assert.False(presentationManager.IsWallpaperVisible);
-        Assert.Equal(WindowBackdropMode.Transient, presentationManager.BackdropMode);
+        Assert.Equal(WindowBackdropMode.None, presentationManager.BackdropMode);
         Assert.Equal(UIMaterialMode.Solid, presentationManager.MaterialMode);
     }
 
@@ -100,7 +106,7 @@ public class PresentationManagerTests
         SimulateSessionStateChange(wallpaperService, activeSession);
 
         Assert.True(presentationManager.IsWallpaperVisible);
-        Assert.Equal(WindowBackdropMode.Tabbed, presentationManager.BackdropMode);
+        Assert.Equal(WindowBackdropMode.Acrylic, presentationManager.BackdropMode);
         Assert.Equal(UIMaterialMode.Glass, presentationManager.MaterialMode);
         Assert.True(propertyChangedCount > 0);
 
@@ -112,9 +118,60 @@ public class PresentationManagerTests
         SimulateSessionStateChange(wallpaperService, inactiveSession);
 
         Assert.False(presentationManager.IsWallpaperVisible);
-        Assert.Equal(WindowBackdropMode.Transient, presentationManager.BackdropMode);
+        Assert.Equal(WindowBackdropMode.None, presentationManager.BackdropMode);
         Assert.Equal(UIMaterialMode.Solid, presentationManager.MaterialMode);
         Assert.True(propertyChangedCount > 0);
+    }
+
+    [Fact]
+    public void PresentationManager_Keeps_Glass_When_Wallpaper_Is_Active_But_Paused()
+    {
+        var lib = new FakeWallpaperLibraryService();
+        var store = new FakeSettingsStore();
+        var gpu = new FakeGpuPreferenceService();
+        var wallpaperService = new WallpaperService(lib, store, gpu);
+
+        using var presentationManager = new PresentationManager(wallpaperService, store);
+
+        var pausedVisibleSession = new WallpaperSessionEventArgs("Sunset Walk", "thumb.jpg", false, true);
+        SimulateSessionStateChange(wallpaperService, pausedVisibleSession);
+
+        Assert.True(presentationManager.IsWallpaperVisible);
+        Assert.Equal(WindowBackdropMode.Acrylic, presentationManager.BackdropMode);
+        Assert.Equal(UIMaterialMode.Glass, presentationManager.MaterialMode);
+    }
+
+    [Theory]
+    [InlineData("Acrylic", WindowBackdropMode.Acrylic)]
+    [InlineData("Mica", WindowBackdropMode.Mica)]
+    [InlineData("None", WindowBackdropMode.None)]
+    [InlineData("Tabbed", WindowBackdropMode.Tabbed)]
+    public void PresentationManager_Maps_Backdrop_Settings_To_Dwm_Constants(
+        string setting,
+        WindowBackdropMode expectedMode)
+    {
+        var lib = new FakeWallpaperLibraryService();
+        var store = new FakeSettingsStore();
+        store.Save(new AppSettings { GlassBackdrop = setting });
+        var gpu = new FakeGpuPreferenceService();
+        var wallpaperService = new WallpaperService(lib, store, gpu);
+
+        using var presentationManager = new PresentationManager(wallpaperService, store);
+
+        var activeSession = new WallpaperSessionEventArgs("Sunset Walk", "thumb.jpg", true, true);
+        SimulateSessionStateChange(wallpaperService, activeSession);
+
+        Assert.Equal(expectedMode, presentationManager.BackdropMode);
+    }
+
+    [Fact]
+    public void WindowBackdropMode_Uses_Windows_Dwm_SystemBackdrop_Values()
+    {
+        Assert.Equal(0, (int)WindowBackdropMode.Auto);
+        Assert.Equal(1, (int)WindowBackdropMode.None);
+        Assert.Equal(2, (int)WindowBackdropMode.Mica);
+        Assert.Equal(3, (int)WindowBackdropMode.Acrylic);
+        Assert.Equal(4, (int)WindowBackdropMode.Tabbed);
     }
 
     [Fact]
