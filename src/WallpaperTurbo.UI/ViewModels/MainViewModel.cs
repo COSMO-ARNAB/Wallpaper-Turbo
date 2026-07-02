@@ -595,9 +595,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
-        "Dramatically improved Live Swap performance by adding IPC caching and media prefetching.",
-        "Stabilized the auto-updater to cleanly shutdown running wallpaper engines before installation.",
-        "Fixed race conditions during rapid wallpaper swapping."
+        "Fixed the auto-updater silently aborting without installing in the background.",
+        "Fixed the duplicate startup entries causing the app to open twice on boot.",
+        "Fixed the vertical text clipping bug in the Glass Opacity settings.",
+        "Added subtle rotating border glows to the settings cards for a more premium look."
     };
 
     private void CheckForVersionUpdate()
