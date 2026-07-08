@@ -901,11 +901,53 @@ public class WallpaperService
         return (await SendIpcCommandAsync($"mute {isMuted.ToString().ToLowerInvariant()}")) == "success";
     }
 
+    private string? _cachedIpcPipeName;
+
+    /// <summary>
+    /// Determines the named pipe name used by the running AppRunner instance.
+    /// Reads it from the active state file (written by AppRunner on startup/state updates)
+    /// and caches it for subsequent IPC calls.
+    /// </summary>
+    private string GetIpcPipeName()
+    {
+        if (!string.IsNullOrEmpty(_cachedIpcPipeName))
+            return _cachedIpcPipeName;
+
+        try
+        {
+            string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo");
+            string stateFilePath = Path.Combine(appDataDir, "active_state.json");
+            if (File.Exists(stateFilePath))
+            {
+                using var fs = new FileStream(stateFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var doc = System.Text.Json.JsonDocument.Parse(fs);
+                if (doc.RootElement.TryGetProperty("IpcPipeName", out var nameProp))
+                {
+                    string? name = nameProp.GetString();
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        _cachedIpcPipeName = name;
+                        return _cachedIpcPipeName;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[WallpaperService] Failed to read IPC pipe name: {ex.Message}");
+        }
+
+        // Fallback to the legacy hardcoded name for backward compatibility
+        _cachedIpcPipeName = "WallpaperTurbo_IPC";
+        return _cachedIpcPipeName;
+    }
+
     private async Task<string> SendIpcCommandAsync(string command)
     {
         try
         {
-            using var client = new System.IO.Pipes.NamedPipeClientStream(".", "WallpaperTurbo_IPC", System.IO.Pipes.PipeDirection.InOut, System.IO.Pipes.PipeOptions.Asynchronous);
+            string pipeName = GetIpcPipeName();
+            using var client = new System.IO.Pipes.NamedPipeClientStream(".", pipeName, System.IO.Pipes.PipeDirection.InOut, System.IO.Pipes.PipeOptions.Asynchronous);
             await client.ConnectAsync(150); // 150ms timeout for instant responsiveness
             var writer = new StreamWriter(client) { AutoFlush = true };
             await writer.WriteLineAsync(command);

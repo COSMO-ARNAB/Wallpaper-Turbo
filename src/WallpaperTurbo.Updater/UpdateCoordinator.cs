@@ -337,8 +337,10 @@ public sealed class UpdateCoordinator : IDisposable
     {
         try { _activeCts?.Cancel(); } catch { }
         _activeCts?.Dispose();
-        // Do NOT dispose _stateLock (SemaphoreSlim) to prevent ObjectDisposedException 
-        // for threads currently awaiting it during shutdown.
+        // Dispose _stateLock in a try-catch because threads may be currently awaiting it
+        // during shutdown. An ObjectDisposedException is safe to ignore here — the
+        // semaphore will be reclaimed by the GC along with the coordinator.
+        try { _stateLock?.Dispose(); } catch (ObjectDisposedException) { }
     }
 
     private async Task HandleErrorAsync(string message, Exception? ex)

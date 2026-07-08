@@ -188,7 +188,11 @@ public partial class DashboardViewModel : ObservableObject
         _settingsStore.SettingsChanged += OnSettingsStoreChanged;
 
         // Load dynamic library
-        _ = LoadLibraryAsync();
+        _ = LoadLibraryAsync().ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+                System.Diagnostics.Debug.WriteLine($"[DashboardViewModel] LoadLibraryAsync failed: {t.Exception?.InnerException?.Message}");
+        }, TaskContinuationOptions.OnlyOnFaulted);
         StartupDiagnostics.LogWithMemory("DashboardViewModel constructor EXIT");
     }
 
@@ -214,7 +218,11 @@ public partial class DashboardViewModel : ObservableObject
     {
         if (_isSyncing) return;
 
-        _ = _wallpaperService.SetMuteAsync(value);
+        _ = _wallpaperService.SetMuteAsync(value).ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+                System.Diagnostics.Debug.WriteLine($"[DashboardViewModel] SetMuteAsync failed: {t.Exception?.InnerException?.Message}");
+        }, TaskContinuationOptions.OnlyOnFaulted);
 
         var settings = _settingsStore.Load();
         settings.MuteAudio = value;
@@ -775,7 +783,11 @@ public partial class DashboardViewModel : ObservableObject
             }
         });
 
-        _ = SaveRecentlyUsedHistoryAsync();
+        _ = SaveRecentlyUsedHistoryAsync().ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+                System.Diagnostics.Debug.WriteLine($"[DashboardViewModel] SaveRecentlyUsedHistoryAsync failed: {t.Exception?.InnerException?.Message}");
+        }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     private void RunOnUi(Action action)

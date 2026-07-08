@@ -14,6 +14,10 @@ using Xunit;
 
 namespace WallpaperTurbo.Tests;
 
+// Events declared in test fakes below implement interface contracts but are never raised
+// by the fake itself (the real implementation is tested separately).
+#pragma warning disable CS0067
+
 /// <summary>
 /// Integration tests for SettingsViewModel GPU preference behavior.
 /// Verifies that the fix for stale-apply (cancellation check after debounce) works correctly.

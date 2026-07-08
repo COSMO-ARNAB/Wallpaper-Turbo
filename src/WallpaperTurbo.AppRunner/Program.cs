@@ -36,6 +36,22 @@ internal static class Program
     private static ForegroundWindowWatcher? _foregroundWatcher;
     private static bool _muteAudio = true;
 
+    // Snapshot of a wallpaper session's state, captured before teardown so
+    // recovery can restore per-monitor wallpaper assignments after shell restart.
+    private readonly struct SessionSnapshot
+    {
+        public int WallpaperIndex { get; }
+        public MonitorInfo Monitor { get; }
+        public WallpaperLayoutMode LayoutMode { get; }
+
+        public SessionSnapshot(int wallpaperIndex, MonitorInfo monitor, WallpaperLayoutMode layoutMode)
+        {
+            WallpaperIndex = wallpaperIndex;
+            Monitor = monitor;
+            LayoutMode = layoutMode;
+        }
+    }
+
     // Semaphore to serialize IPC command processing (prevents race conditions
     // when rapid Live Swap / pause / play / mute commands arrive concurrently)
     private static readonly SemaphoreSlim _ipcLock = new(1, 1);
@@ -723,6 +739,34 @@ internal static class Program
                 {
                     try
                     {
+                        // ── SNAPSHOT: Capture per-session state before any teardown ──
+                        // This preserves per-monitor wallpaper assignments, layout modes,
+                        // and monitor topology so recovery can restore each session individually.
+                        var sessionSnapshots = new List<SessionSnapshot>();
+                        if (_sessionManager != null)
+                        {
+                            foreach (var session in _sessionManager.Sessions)
+                            {
+                                int wpIndex = _mergedWallpapers.IndexOf(session.Wallpaper) + 1;
+                                if (wpIndex > 0)
+                                {
+                                    sessionSnapshots.Add(new SessionSnapshot(
+                                        wpIndex,
+                                        session.Monitor,
+                                        session.Wallpaper.GetLayoutMode()));
+                                }
+                            }
+                        }
+                        // Fallback to the global finalWallpaperIndex if snapshot is empty
+                        // (e.g. session manager was null or no sessions matched the wallpaper list)
+                        if (sessionSnapshots.Count == 0 && finalWallpaperIndex > 0 && finalWallpaperIndex <= _mergedWallpapers.Count)
+                        {
+                            sessionSnapshots.Add(new SessionSnapshot(
+                                finalWallpaperIndex,
+                                MonitorManager.GetPrimaryMonitor(),
+                                _mergedWallpapers[finalWallpaperIndex - 1].GetLayoutMode()));
+                        }
+
                         // Capture references for non-blocking cleanup
                         var oldSessionManager = _sessionManager;
                         var oldHwnd = _hwnd;
@@ -870,96 +914,104 @@ internal static class Program
                                 NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
                                 NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
 
-                        // Initialize the media pipeline on the new handle
-                        var freshPipeline = new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule, _muteAudio);
-                        freshPipeline.Initialize(_hwnd);
-
-                        var freshWallpaper = _mergedWallpapers[finalWallpaperIndex - 1];
-                        string freshVideoPath = ResolveWallpaperVideoPath(freshWallpaper.Video);
-                        if (File.Exists(freshVideoPath))
+                        // ── RESTORE SESSIONS FROM SNAPSHOT ──
+                        // Use the captured sessionSnapshots to restore per-monitor wallpaper
+                        // assignments. For single-monitor, this is equivalent to the old
+                        // finalWallpaperIndex approach; for multi-monitor, each session is
+                        // recreated with its original wallpaper, layout mode, and monitor info.
+                        int restoredCount = 0;
+                        foreach (var snap in sessionSnapshots)
                         {
-                            freshPipeline.LoadMedia(freshVideoPath);
-                            
-                            var freshSession = new WallpaperSession(
-                                _hwnd, 
-                                freshWallpaper, 
-                                freshPipeline, 
-                                freshMonitor);
-                            
-                            _sessionManager?.AddSession(freshSession);
-                            freshSession.Play();
-                            
-                            // Reassign pipeline to outer static variable for safety/cleanup
-                            _activePipeline = freshPipeline;
-
-                            await Task.Delay(500);
-                            WindowUtil.MakeChildrenTransparent(_hwnd);
-
-                            // Re-enforce z-order persistence exactly as in Main
-                            if (DesktopUtil.IsRaisedDesktop())
+                            restoredCount++;
+                            if (snap.WallpaperIndex < 1 || snap.WallpaperIndex > _mergedWallpapers.Count)
                             {
-                                IntPtr shellView = DesktopUtil.GetDesktopShellView();
-                                IntPtr progman = DesktopUtil.GetProgman();
-                                IntPtr workerW = DesktopUtil.GetDesktopWorkerW();
+                                Console.WriteLine($"[Stability] Skipping snapshot with out-of-range wallpaper index {snap.WallpaperIndex}.");
+                                continue;
+                            }
 
-                                WallpaperTurbo.Core.Rendering.NativeRenderWindow.ShellViewHandle = shellView;
+                            Console.WriteLine($"[Stability] Restoring session {restoredCount}/{sessionSnapshots.Count}: monitor '{snap.Monitor.DeviceName}', wallpaper #{snap.WallpaperIndex}, layout {snap.LayoutMode}");
 
-                                if (shellView != IntPtr.Zero)
-                                {
-                                    NativeMethods.SetWindowPos(
-                                        _hwnd,
-                                        shellView,
-                                        relX,
-                                        relY,
-                                        freshMonitor.Width,
-                                        freshMonitor.Height,
-                                        (uint)(
-                                            NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
-                                            NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW));
-                                }
-                                else
-                                {
-                                    NativeMethods.SetWindowPos(
-                                        _hwnd,
-                                        IntPtr.Zero,
-                                        relX,
-                                        relY,
-                                        freshMonitor.Width,
-                                        freshMonitor.Height,
-                                        (uint)(
-                                            NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
-                                            NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
-                                            NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
-                                }
+                            var snapPipeline = new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule, _muteAudio);
+                            snapPipeline.Initialize(_hwnd);
 
-                                if (progman != IntPtr.Zero && workerW != IntPtr.Zero)
-                                {
-                                    IntPtr lastChild = WindowUtil.GetLastChildWindow(progman);
-                                    if (lastChild != workerW)
-                                    {
-                                        NativeMethods.SetWindowPos(
-                                            workerW,
-                                            NativeMethods.HWND_BOTTOM,
-                                            0,
-                                            0,
-                                            0,
-                                            0,
-                                            (uint)(
-                                                NativeMethods.SetWindowPosFlags.SWP_NOMOVE |
-                                                NativeMethods.SetWindowPosFlags.SWP_NOSIZE |
-                                                NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
-                                                NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
-                                                NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
-                                    }
-                                }
+                            var snapWallpaper = _mergedWallpapers[snap.WallpaperIndex - 1];
+                            string snapVideoPath = ResolveWallpaperVideoPath(snapWallpaper.Video);
+                            if (File.Exists(snapVideoPath))
+                            {
+                                snapPipeline.LoadMedia(snapVideoPath);
+
+                                var snapSession = new WallpaperSession(
+                                    _hwnd,
+                                    snapWallpaper,
+                                    snapPipeline,
+                                    snap.Monitor);
+
+                                _sessionManager?.AddSession(snapSession);
+                                snapSession.Play();
+
+                                // Reassign layout mode from snapshot
+                                snapSession.MediaPipeline.ApplyLayoutMode(snap.LayoutMode);
+
+                                // Keep the LAST pipeline as _activePipeline for safety/cleanup
+                                _activePipeline = snapPipeline;
                             }
                             else
                             {
-                                WindowUtil.SendToBottom(_hwnd);
+                                Console.WriteLine($"[Stability] Wallpaper video not found for snapshot: {snapVideoPath}");
+                                snapPipeline.Release();
+                            }
+                        }
 
+                        if (restoredCount == 0 && finalWallpaperIndex > 0 && finalWallpaperIndex <= _mergedWallpapers.Count)
+                        {
+                            // Fallback: use global finalWallpaperIndex if no snapshot was restored
+                            Console.WriteLine($"[Stability] No snapshot restored. Falling back to finalWallpaperIndex #{finalWallpaperIndex}.");
+                            var fallbackPipeline = new HardwareDecodePipeline(useSoftwareDecode, videoOutputModule, _muteAudio);
+                            fallbackPipeline.Initialize(_hwnd);
+                            var fallbackWallpaper = _mergedWallpapers[finalWallpaperIndex - 1];
+                            string fallbackVideoPath = ResolveWallpaperVideoPath(fallbackWallpaper.Video);
+                            if (File.Exists(fallbackVideoPath))
+                            {
+                                fallbackPipeline.LoadMedia(fallbackVideoPath);
+                                var fallbackSession = new WallpaperSession(_hwnd, fallbackWallpaper, fallbackPipeline, freshMonitor);
+                                _sessionManager?.AddSession(fallbackSession);
+                                fallbackSession.Play();
+                                _activePipeline = fallbackPipeline;
+                            }
+                        }
+
+                        await Task.Delay(500);
+                        // Make last created window's children transparent (single hwnd case)
+                        if (_hwnd != IntPtr.Zero)
+                            WindowUtil.MakeChildrenTransparent(_hwnd);
+
+                        // Re-enforce z-order persistence exactly as in Main
+                        if (DesktopUtil.IsRaisedDesktop())
+                        {
+                            IntPtr shellView = DesktopUtil.GetDesktopShellView();
+                            IntPtr progman = DesktopUtil.GetProgman();
+                            IntPtr workerW = DesktopUtil.GetDesktopWorkerW();
+
+                            WallpaperTurbo.Core.Rendering.NativeRenderWindow.ShellViewHandle = shellView;
+
+                            if (shellView != IntPtr.Zero)
+                            {
                                 NativeMethods.SetWindowPos(
                                     _hwnd,
-                                    NativeMethods.HWND_BOTTOM,
+                                    shellView,
+                                    relX,
+                                    relY,
+                                    freshMonitor.Width,
+                                    freshMonitor.Height,
+                                    (uint)(
+                                        NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                        NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW));
+                            }
+                            else
+                            {
+                                NativeMethods.SetWindowPos(
+                                    _hwnd,
+                                    IntPtr.Zero,
                                     relX,
                                     relY,
                                     freshMonitor.Width,
@@ -967,12 +1019,49 @@ internal static class Program
                                     (uint)(
                                         NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
                                         NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
-                                        NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
-                                        NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
+                                        NativeMethods.SetWindowPosFlags.SWP_NOZORDER));
                             }
 
-                            Console.WriteLine("[Stability] Re-attachment successful!");
+                            if (progman != IntPtr.Zero && workerW != IntPtr.Zero)
+                            {
+                                IntPtr lastChild = WindowUtil.GetLastChildWindow(progman);
+                                if (lastChild != workerW)
+                                {
+                                    NativeMethods.SetWindowPos(
+                                        workerW,
+                                        NativeMethods.HWND_BOTTOM,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        (uint)(
+                                            NativeMethods.SetWindowPosFlags.SWP_NOMOVE |
+                                            NativeMethods.SetWindowPosFlags.SWP_NOSIZE |
+                                            NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                            NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
+                                            NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
+                                }
+                            }
                         }
+                        else
+                        {
+                            WindowUtil.SendToBottom(_hwnd);
+
+                            NativeMethods.SetWindowPos(
+                                _hwnd,
+                                NativeMethods.HWND_BOTTOM,
+                                relX,
+                                relY,
+                                freshMonitor.Width,
+                                freshMonitor.Height,
+                                (uint)(
+                                    NativeMethods.SetWindowPosFlags.SWP_NOACTIVATE |
+                                    NativeMethods.SetWindowPosFlags.SWP_SHOWWINDOW |
+                                    NativeMethods.SetWindowPosFlags.SWP_NOOWNERZORDER |
+                                    NativeMethods.SetWindowPosFlags.SWP_NOSENDCHANGING));
+                        }
+
+                        Console.WriteLine("[Stability] Re-attachment successful!");
                     }
                     catch (Exception ex)
                     {
@@ -1117,7 +1206,7 @@ internal static class Program
                             }
                         }
                     }
-                    TrimProcessMemory();
+                    TrimProcessMemory(runEmptyWorkingSet: false);
                     LogMemory("performance.paused");
                 }
                 else
@@ -1141,7 +1230,7 @@ internal static class Program
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(1500);
-                        TrimProcessMemory();
+                        TrimProcessMemory(runEmptyWorkingSet: false);
                         LogMemory("performance.resumed.trimmed");
                     });
                 }
@@ -1308,7 +1397,8 @@ internal static class Program
                 {
                     try
                     {
-                        using var server = new System.IO.Pipes.NamedPipeServerStream("WallpaperTurbo_IPC", System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
+                        string pipeName = "WallpaperTurbo_IPC_" + Environment.ProcessId;
+                        using var server = new System.IO.Pipes.NamedPipeServerStream(pipeName, System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
                         await server.WaitForConnectionAsync(cts.Token);
                         using var reader = new System.IO.StreamReader(server);
                         using var writer = new System.IO.StreamWriter(server) { AutoFlush = true };
@@ -1409,7 +1499,17 @@ internal static class Program
                         break;
                     }
 
-                    await ProcessCommandAsync(line, _mergedWallpapers, _sessionManager, _hwnd, cts.Token);
+                    // Acquire the IPC lock so console input and IPC commands cannot
+                    // concurrently access _mergedWallpapers or other shared state.
+                    await _ipcLock.WaitAsync(cts.Token);
+                    try
+                    {
+                        await ProcessCommandAsync(line, _mergedWallpapers, _sessionManager, _hwnd, cts.Token);
+                    }
+                    finally
+                    {
+                        _ipcLock.Release();
+                    }
                 }
             }
 
@@ -1431,6 +1531,10 @@ internal static class Program
 
             Console.WriteLine(
                 "Wallpaper Turbo shutdown complete.");
+
+            // Ensure the native console control handler delegate is not collected
+            // before SetConsoleCtrlHandler(handler, false) runs in the finally block.
+            GC.KeepAlive(_consoleCtrlHandler);
 
             return 0;
         }
@@ -1638,26 +1742,28 @@ internal static class Program
         }
     }
 
-    private static async Task<string> HandleSwapCommandAsync(
+    private static Task<string> HandleSwapCommandAsync(
         int newIndex,
         List<WallpaperEntry> wallpapers,
         WallpaperSessionManager? sessionManager,
         IntPtr hwnd)
     {
+        // This method contains no true async work (the Task.Run below is fire-and-forget),
+        // so it is deliberately not async to avoid CS1998 and unnecessary state machine allocation.
         if (sessionManager == null || hwnd == IntPtr.Zero)
         {
-            return "error: session manager or window handle not initialized";
+            return Task.FromResult("error: session manager or window handle not initialized");
         }
 
         // Reload manifests so newly imported wallpapers are visible without restarting AppRunner
         if (!ReloadMergedWallpapers(wallpapers))
         {
-            return "error: manifest reload failed";
+            return Task.FromResult("error: manifest reload failed");
         }
 
         if (newIndex < 1 || newIndex > wallpapers.Count)
         {
-            return $"error: invalid wallpaper index. Must be between 1 and {wallpapers.Count}";
+            return Task.FromResult($"error: invalid wallpaper index. Must be between 1 and {wallpapers.Count}");
         }
 
         WallpaperEntry newWallpaper = wallpapers[newIndex - 1];
@@ -1665,7 +1771,7 @@ internal static class Program
 
         if (!File.Exists(videoPath))
         {
-            return $"error: video file not found: {videoPath}";
+            return Task.FromResult($"error: video file not found: {videoPath}");
         }
 
         Console.WriteLine($"\n[HotSwap] Initiating swap to wallpaper #{newIndex}: '{newWallpaper.Title}'...");
@@ -1673,7 +1779,7 @@ internal static class Program
         var sessions = sessionManager.Sessions;
         if (sessions.Count == 0)
         {
-            return "error: no active wallpaper sessions found";
+            return Task.FromResult("error: no active wallpaper sessions found");
         }
 
         var oldSession = sessions[0];
@@ -1718,7 +1824,7 @@ internal static class Program
                 {
                     await Task.Delay(1500);
                     WindowUtil.MakeChildrenTransparent(hwnd);
-                    TrimProcessMemory();
+                    TrimProcessMemory(runEmptyWorkingSet: false);
                     LogMemory("hotswap.trimmed");
                 }
                 catch (Exception ex)
@@ -1730,11 +1836,11 @@ internal static class Program
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"[HotSwap] Successfully hot-swapped to '{newWallpaper.Title}'!");
             Console.ResetColor();
-            return "success";
+            return Task.FromResult("success");
         }
         catch (Exception ex)
         {
-            return $"error: failed to complete hot-swap: {ex.Message}";
+            return Task.FromResult($"error: failed to complete hot-swap: {ex.Message}");
         }
     }
 
@@ -2069,7 +2175,7 @@ internal static class Program
                 if (NativeMethods.GetClassName(hwnd, sb, sb.Capacity) > 0)
                 {
                     string className = sb.ToString();
-                    if (className.Equals("WallpaperTurbo_RenderWindow_Class", StringComparison.OrdinalIgnoreCase))
+                    if (className.StartsWith("WallpaperTurbo_RenderWindow_Class", StringComparison.OrdinalIgnoreCase))
                     {
                         NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
                         if (pid != 0 && pid != currentId)
@@ -2086,7 +2192,7 @@ internal static class Program
                     if (NativeMethods.GetClassName(childHwnd, sbChild, sbChild.Capacity) > 0)
                     {
                         string className = sbChild.ToString();
-                        if (className.Equals("WallpaperTurbo_RenderWindow_Class", StringComparison.OrdinalIgnoreCase))
+                        if (className.StartsWith("WallpaperTurbo_RenderWindow_Class", StringComparison.OrdinalIgnoreCase))
                         {
                             NativeMethods.GetWindowThreadProcessId(childHwnd, out uint pid);
                             if (pid != 0 && pid != currentId)
@@ -2216,7 +2322,8 @@ internal static class Program
             {
                 { "ActiveWallpaperIndex", index },
                 { "ActiveWallpaperTitle", title },
-                { "IsPlaying", isPlaying }
+                { "IsPlaying", isPlaying },
+                { "IpcPipeName", "WallpaperTurbo_IPC_" + Environment.ProcessId }
             };
             
             string json = System.Text.Json.JsonSerializer.Serialize(state);

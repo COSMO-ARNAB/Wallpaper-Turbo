@@ -11,6 +11,10 @@ using Xunit;
 
 namespace WallpaperTurbo.Tests;
 
+// Events declared in test fakes below implement interface contracts but are never raised
+// by the fake itself (the real implementation is tested separately).
+#pragma warning disable CS0067
+
 public class PresentationManagerTests
 {
     private sealed class FakeSettingsStore : ISettingsStore
