@@ -34,7 +34,7 @@ public sealed class ExplorerRestartMonitor : IDisposable
     public ExplorerRestartMonitor()
     {
         _wndProcDelegate = WndProc;
-        var initSignal = new ManualResetEventSlim(false);
+        using var initSignal = new ManualResetEventSlim(false);
         IntPtr createdHwnd = IntPtr.Zero;
 
         _messageThread = new Thread(() =>

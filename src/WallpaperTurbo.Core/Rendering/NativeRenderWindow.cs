@@ -10,7 +10,13 @@ namespace WallpaperTurbo.Core.Rendering;
 
 public static class NativeRenderWindow
 {
-    public static IntPtr ShellViewHandle { get; set; } = IntPtr.Zero;
+    private static IntPtr _shellViewHandle = IntPtr.Zero;
+
+    public static IntPtr ShellViewHandle
+    {
+        get => System.Threading.Volatile.Read(ref _shellViewHandle);
+        set => System.Threading.Interlocked.Exchange(ref _shellViewHandle, value);
+    }
 
     private const uint WM_DESTROY =
         0x0002;

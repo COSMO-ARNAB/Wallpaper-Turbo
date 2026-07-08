@@ -29,13 +29,17 @@ public static class MonitorManager
 
     public static MonitorInfo GetPrimaryMonitor()
     {
+        MonitorInfo? firstMonitor = null;
+
         foreach (var monitor in GetMonitors())
         {
+            firstMonitor ??= monitor;
+
             if (monitor.IsPrimary)
                 return monitor;
         }
 
-        throw new InvalidOperationException(
-            "Primary monitor not found.");
+        return firstMonitor ?? throw new InvalidOperationException(
+            "No monitors found.");
     }
 }

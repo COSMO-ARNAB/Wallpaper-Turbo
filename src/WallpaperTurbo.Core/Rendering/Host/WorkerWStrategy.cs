@@ -97,8 +97,8 @@ public sealed class WorkerWStrategy
         NativeMethods.SendMessageTimeout(
             progman,
             WM_SPAWN_WORKER,
-            UIntPtr.Zero,
-            IntPtr.Zero,
+            new UIntPtr(0x0D),
+            new IntPtr(0x01),
             0,
             1000,
             out _);

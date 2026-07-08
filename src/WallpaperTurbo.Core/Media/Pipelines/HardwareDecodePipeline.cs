@@ -195,8 +195,11 @@ public sealed class HardwareDecodePipeline
     {
         if (string.IsNullOrWhiteSpace(filePath)) return;
 
-        // Skip if already preloaded for this exact path
-        if (_preloadedPath == filePath) return;
+        lock (_sync)
+        {
+            // Skip if already preloaded for this exact path
+            if (_preloadedPath == filePath) return;
+        }
 
         System.Threading.Tasks.Task.Run(() =>
         {
@@ -208,9 +211,16 @@ public sealed class HardwareDecodePipeline
             {
                 var preloaded = BuildMedia(libVlc, filePath);
 
-                // Evict any previous preload before storing the new one
-                var old = System.Threading.Interlocked.Exchange(ref _preloadedMedia, preloaded);
-                _preloadedPath = filePath;
+                // Evict any previous preload before storing the new one.
+                // Keep the path/media pair synchronized under the same lock to avoid races.
+                LibVLCSharp.Shared.Media? old;
+                lock (_sync)
+                {
+                    old = _preloadedMedia;
+                    _preloadedMedia = preloaded;
+                    _preloadedPath = filePath;
+                }
+
                 old?.Dispose();
             }
             catch { /* Preload is best-effort; LoadMedia will build it synchronously */ }
@@ -236,21 +246,15 @@ public sealed class HardwareDecodePipeline
                     "Pipeline not initialized.");
             }
 
-            // Idea 3: Gapless swap — fire Stop() on a background thread so we never
-            // block the swap path on VLC's decoder flush (100-300ms).
-            // We capture the old MediaPlayer reference; the new media is assigned
-            // immediately below, and VLC handles internal teardown asynchronously.
-            var playerToStop = _mediaPlayer;
-            System.Threading.Tasks.Task.Run(() =>
-            {
-                try { playerToStop.Stop(); } catch { }
-            });
+            // Stop the current player before swapping media to avoid racing disposal.
+            _mediaPlayer.Stop();
 
             // Idea 1: Use pre-built Media if available for this path, otherwise build sync.
             LibVLCSharp.Shared.Media? preloaded = null;
             if (_preloadedPath == filePath)
             {
-                preloaded = System.Threading.Interlocked.Exchange(ref _preloadedMedia, null);
+                preloaded = _preloadedMedia;
+                _preloadedMedia = null;
                 _preloadedPath = null;
             }
 
@@ -389,8 +393,9 @@ public sealed class HardwareDecodePipeline
             if (_mediaPlayer == null)
                 return;
 
-            int width = 1920;
-            int height = 1080;
+            int width = 0;
+            int height = 0;
+
             if (_parentWindowHandle != IntPtr.Zero && NativeMethods.GetClientRect(_parentWindowHandle, out var rect))
             {
                 int w = rect.Right - rect.Left;
@@ -400,6 +405,26 @@ public sealed class HardwareDecodePipeline
                     width = w;
                     height = h;
                 }
+            }
+
+            if (width <= 0 || height <= 0)
+            {
+                if (_parentWindowHandle != IntPtr.Zero && NativeMethods.GetWindowRect(_parentWindowHandle, out var windowRect))
+                {
+                    int w = windowRect.Right - windowRect.Left;
+                    int h = windowRect.Bottom - windowRect.Top;
+                    if (w > 0 && h > 0)
+                    {
+                        width = w;
+                        height = h;
+                    }
+                }
+            }
+
+            if (width <= 0 || height <= 0)
+            {
+                width = 1920;
+                height = 1080;
             }
 
             try
@@ -452,7 +477,8 @@ public sealed class HardwareDecodePipeline
             }
 
             // Clean up any pending preload
-            var preloaded = System.Threading.Interlocked.Exchange(ref _preloadedMedia, null);
+            var preloaded = _preloadedMedia;
+            _preloadedMedia = null;
             preloaded?.Dispose();
             _preloadedPath = null;
 

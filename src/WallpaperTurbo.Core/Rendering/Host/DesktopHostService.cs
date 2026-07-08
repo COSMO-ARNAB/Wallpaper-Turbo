@@ -13,20 +13,20 @@ public sealed class DesktopHostService
         _strategies;
 
     public DesktopHostService()
+        : this(
+            new IDesktopHostStrategy[]
+            {
+                new DesktopCompositionStrategy(),
+                new DesktopShellStrategy(),
+                new WorkerWStrategy()
+            })
     {
-        //
-        // Strategy priority matters.
-        //
-        // 1. Modern Win11 composition hosting
-        // 2. Legacy Progman hosting
-        // 3. Classic WorkerW fallback
-        //
-        _strategies =
-        [
-            new DesktopCompositionStrategy(),
-            new DesktopShellStrategy(),
-            new WorkerWStrategy()
-        ];
+    }
+
+    internal DesktopHostService(IEnumerable<IDesktopHostStrategy> strategies)
+    {
+        ArgumentNullException.ThrowIfNull(strategies);
+        _strategies = new List<IDesktopHostStrategy>(strategies);
     }
 
     public bool Attach(

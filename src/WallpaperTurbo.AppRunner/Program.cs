@@ -573,7 +573,7 @@ internal static class Program
             }
 
             WindowsWallpaperManager wallpaperManager =
-                new(Console.WriteLine);
+                new();
 
             //
             // CREATE RENDER WINDOW

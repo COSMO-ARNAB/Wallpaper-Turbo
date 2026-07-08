@@ -17,8 +17,7 @@ public sealed class WindowsWallpaperManager
 {
     private readonly DesktopHostService _desktopHostService;
 
-    public WindowsWallpaperManager(
-        Action<string>? logger = null)
+    public WindowsWallpaperManager()
     {
         _desktopHostService = new DesktopHostService();
     }
