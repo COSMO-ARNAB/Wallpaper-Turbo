@@ -405,12 +405,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                         file,
                         async (completedWp) =>
                         {
-                            // Background dispatcher STA thumbnail finished, refresh UI on Main thread
-                            await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
-                            {
-                                await _dashboardViewModel.LoadLibraryAsync();
-                                await _libraryViewModel.LoadLibraryAsync();
-                            });
+                            // Refresh the UI after thumbnail generation completes.
+                            await RefreshLibrariesOnUiThreadAsync();
                         },
                         cts.Token,
                         progress);
@@ -515,25 +511,51 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnWallpaperMetadataChanged(object? sender, WallpaperEntry e)
     {
-        System.Windows.Application.Current?.Dispatcher?.InvokeAsync(async () =>
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null)
         {
-            try
-            {
-                await _dashboardViewModel.LoadLibraryAsync();
-                await _libraryViewModel.LoadLibraryAsync();
+            _ = RefreshLibrariesAfterMetadataChangeAsync(e);
+            return;
+        }
 
-                // Update active title/specs if the edited wallpaper is currently playing
-                string title = e.Title ?? string.Empty;
-                if (ActiveWallpaperTitle == title || ActiveWallpaperTitle == e.Title)
-                {
-                    SetActiveWallpaperInfo(title, $"{e.Resolution} • {e.Fps}");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[MainViewModel] Failed to refresh after metadata change: {ex.Message}");
-            }
+        dispatcher.BeginInvoke(new Action(() => _ = RefreshLibrariesAfterMetadataChangeAsync(e)));
+    }
+
+    private async Task RefreshLibrariesOnUiThreadAsync()
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null || dispatcher.CheckAccess())
+        {
+            await _dashboardViewModel.LoadLibraryAsync();
+            await _libraryViewModel.LoadLibraryAsync();
+            return;
+        }
+
+        await dispatcher.InvokeAsync(() =>
+        {
+            _ = _dashboardViewModel.LoadLibraryAsync();
+            _ = _libraryViewModel.LoadLibraryAsync();
         });
+    }
+
+    private async Task RefreshLibrariesAfterMetadataChangeAsync(WallpaperEntry e)
+    {
+        try
+        {
+            await _dashboardViewModel.LoadLibraryAsync();
+            await _libraryViewModel.LoadLibraryAsync();
+
+            // Update active title/specs if the edited wallpaper is currently playing
+            string title = e.Title ?? string.Empty;
+            if (ActiveWallpaperTitle == title || ActiveWallpaperTitle == e.Title)
+            {
+                SetActiveWallpaperInfo(title, $"{e.Resolution} • {e.Fps}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[MainViewModel] Failed to refresh after metadata change: {ex.Message}");
+        }
     }
 
     [RelayCommand]

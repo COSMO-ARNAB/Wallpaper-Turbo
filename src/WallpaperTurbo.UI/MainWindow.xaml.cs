@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using WallpaperTurbo.UI.Services;
@@ -198,7 +199,7 @@ public partial class MainWindow : Window
 
     private bool _isShuttingDown = false;
 
-    protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         if (_isShuttingDown)
         {
@@ -209,18 +210,20 @@ public partial class MainWindow : Window
         _isShuttingDown = true;
         this.Hide();     // Instantly hide the window to maintain fluid responsive visual UX
 
-        try
+        if (DataContext is MainViewModel viewModel)
         {
-            if (DataContext is MainViewModel viewModel)
+            _ = viewModel.ShutdownAsync().ContinueWith(t =>
             {
-                await viewModel.ShutdownAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Error during safe shutdown: {ex.Message}");
+                if (t.Exception != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error during safe shutdown: {t.Exception.GetBaseException().Message}");
+                }
+
+                Dispatcher.Invoke(() => this.Close());
+            }, TaskScheduler.Default);
+            return;
         }
 
-        this.Close(); // Trigger OnClosing again, which will now fall through and close normally
+        Dispatcher.Invoke(() => this.Close());
     }
 }

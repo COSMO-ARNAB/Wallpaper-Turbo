@@ -229,9 +229,12 @@ public class WallpaperPreviewService : IWallpaperPreviewService
     {
         // Throttled to once per ResetThrottleMs to avoid event flooding
         var now = DateTime.UtcNow;
-        if ((now - _lastResetTime).TotalMilliseconds > ResetThrottleMs)
+        lock (_stateLock)
         {
-            _lastResetTime = now;
+            if ((now - _lastResetTime).TotalMilliseconds > ResetThrottleMs)
+            {
+                _lastResetTime = now;
+            }
         }
     }
 
@@ -374,7 +377,10 @@ public class WallpaperPreviewService : IWallpaperPreviewService
             _mediaPlayer.Play();
             entry.PreviewSource = drawingImage;
             entry.IsPreviewActive = true;
-            _lastResetTime = DateTime.UtcNow;
+            lock (_stateLock)
+            {
+                _lastResetTime = DateTime.UtcNow;
+            }
 
             DiagnosticsService.OnPreviewStarted(); // Track active preview sessions
 
@@ -448,7 +454,10 @@ public class WallpaperPreviewService : IWallpaperPreviewService
             _videoDrawing = null;
         }
 
-        _lastResetTime = DateTime.MinValue;
+        lock (_stateLock)
+        {
+            _lastResetTime = DateTime.MinValue;
+        }
         DiagnosticsService.OnPreviewStopped(); // Track active preview sessions
         DiagnosticsService.SetAction("Hover Preview Idle / TearDown complete");
         Debug.WriteLine("[Preview] TearDown complete.");
@@ -477,7 +486,11 @@ public class WallpaperPreviewService : IWallpaperPreviewService
                 while (idleMs < WatchdogInactivityMs && !wdToken.IsCancellationRequested)
                 {
                     await Task.Delay(100, wdToken);
-                    var sinceReset = (DateTime.UtcNow - _lastResetTime).TotalMilliseconds;
+                    double sinceReset;
+                    lock (_stateLock)
+                    {
+                        sinceReset = (DateTime.UtcNow - _lastResetTime).TotalMilliseconds;
+                    }
                     if (sinceReset < 150) idleMs = 0;
                     else idleMs += 100;
                 }

@@ -107,38 +107,51 @@ public sealed class AuthenticodeValidator : ISignatureValidator
             pgKnownSubject = IntPtr.Zero
         };
 
-        var fileInfoPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_FILE_INFO)));
-        Marshal.StructureToPtr(fileInfo, fileInfoPtr, false);
+        IntPtr fileInfoPtr = IntPtr.Zero;
+        IntPtr dataPtr = IntPtr.Zero;
 
-        var data = new WINTRUST_DATA
+        try
         {
-            cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_DATA)),
-            pPolicyCallbackData = IntPtr.Zero,
-            pSIPClientData = IntPtr.Zero,
-            dwUIChoice = WTD_UI_NONE,
-            fdwRevocationChecks = WTD_REVOKE_NONE,
-            dwUnionChoice = WTD_CHOICE_FILE,
-            pInfoStruct = fileInfoPtr,
-            dwStateAction = WTD_STATEACTION_IGNORE,
-            hWVTStateData = IntPtr.Zero,
-            pwszURLReference = IntPtr.Zero,
-            dwProvFlags = WTD_CACHE_ONLY_URL_RETRIEVAL,
-            dwUIContext = 0
-        };
+            fileInfoPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_FILE_INFO)));
+            Marshal.StructureToPtr(fileInfo, fileInfoPtr, false);
 
-        var dataPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_DATA)));
-        Marshal.StructureToPtr(data, dataPtr, false);
+            var data = new WINTRUST_DATA
+            {
+                cbStruct = (uint)Marshal.SizeOf(typeof(WINTRUST_DATA)),
+                pPolicyCallbackData = IntPtr.Zero,
+                pSIPClientData = IntPtr.Zero,
+                dwUIChoice = WTD_UI_NONE,
+                fdwRevocationChecks = WTD_REVOKE_NONE,
+                dwUnionChoice = WTD_CHOICE_FILE,
+                pInfoStruct = fileInfoPtr,
+                dwStateAction = WTD_STATEACTION_IGNORE,
+                hWVTStateData = IntPtr.Zero,
+                pwszURLReference = IntPtr.Zero,
+                dwProvFlags = WTD_CACHE_ONLY_URL_RETRIEVAL,
+                dwUIContext = 0
+            };
 
-        Guid actionId = new Guid("{00AAC56B-CD44-11d0-8CC2-00C04FC295EE}"); // WINTRUST_ACTION_GENERIC_VERIFY_V2
-        
-        uint result = WinVerifyTrust(IntPtr.Zero, actionId, dataPtr);
+            dataPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WINTRUST_DATA)));
+            Marshal.StructureToPtr(data, dataPtr, false);
 
-        Marshal.DestroyStructure(dataPtr, typeof(WINTRUST_DATA));
-        Marshal.FreeHGlobal(dataPtr);
-        Marshal.DestroyStructure(fileInfoPtr, typeof(WINTRUST_FILE_INFO));
-        Marshal.FreeHGlobal(fileInfoPtr);
+            Guid actionId = new Guid("{00AAC56B-CD44-11d0-8CC2-00C04FC295EE}"); // WINTRUST_ACTION_GENERIC_VERIFY_V2
+            uint result = WinVerifyTrust(IntPtr.Zero, actionId, dataPtr);
+            return result == 0;
+        }
+        finally
+        {
+            if (dataPtr != IntPtr.Zero)
+            {
+                Marshal.DestroyStructure(dataPtr, typeof(WINTRUST_DATA));
+                Marshal.FreeHGlobal(dataPtr);
+            }
 
-        return result == 0;
+            if (fileInfoPtr != IntPtr.Zero)
+            {
+                Marshal.DestroyStructure(fileInfoPtr, typeof(WINTRUST_FILE_INFO));
+                Marshal.FreeHGlobal(fileInfoPtr);
+            }
+        }
     }
 
     private static (bool IsValid, X500DistinguishedName? SubjectName, string ErrorMessage) VerifyAuthenticodeSignature(string filePath)

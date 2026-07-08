@@ -331,6 +331,7 @@ public class WallpaperService
     private string _appRunnerDir = string.Empty;
     private string _appRunnerExePath = string.Empty; // Non-readonly so test fixtures can override via reflection
     private List<WallpaperEntry> _wallpapers = new();
+    private readonly object _wallpaperLock = new();
     private int _activeWallpaperIndex = -1;
     private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
     private DateTime _lastStateFileWriteTime = DateTime.MinValue;
@@ -421,48 +422,53 @@ public class WallpaperService
     public async Task<List<WallpaperEntry>> GetWallpapersAsync()
     {
         var list = await _libraryService.GetWallpapersAsync();
-        
-        // Merge list with _wallpapers in-place to preserve original WallpaperEntry instances
-        var mergedList = new List<WallpaperEntry>();
-        foreach (var incoming in list)
+        lock (_wallpaperLock)
         {
-            var existing = _wallpapers.FirstOrDefault(w => w.Id == incoming.Id);
-            if (existing != null)
+            // Merge list with _wallpapers in-place to preserve original WallpaperEntry instances
+            var mergedList = new List<WallpaperEntry>();
+            foreach (var incoming in list)
             {
-                // In-place update to preserve the reference (and LoadedThumbnail!)
-                existing.Title = incoming.Title;
-                existing.Video = incoming.Video;
-                existing.Author = incoming.Author;
-                existing.Tags = incoming.Tags;
-                existing.IsFallbackThumbnail = incoming.IsFallbackThumbnail;
-                
-                // Only update Thumbnail path if it has actually changed, to avoid re-triggering disk I/O
-                if (existing.Thumbnail != incoming.Thumbnail)
+                var existing = _wallpapers.FirstOrDefault(w => w.Id == incoming.Id);
+                if (existing != null)
                 {
-                    existing.Thumbnail = incoming.Thumbnail;
+                    // In-place update to preserve the reference (and LoadedThumbnail!)
+                    existing.Title = incoming.Title;
+                    existing.Video = incoming.Video;
+                    existing.Author = incoming.Author;
+                    existing.Tags = incoming.Tags;
+                    existing.IsFallbackThumbnail = incoming.IsFallbackThumbnail;
+
+                    // Only update Thumbnail path if it has actually changed, to avoid re-triggering disk I/O
+                    if (existing.Thumbnail != incoming.Thumbnail)
+                    {
+                        existing.Thumbnail = incoming.Thumbnail;
+                    }
+                    mergedList.Add(existing);
                 }
-                mergedList.Add(existing);
+                else
+                {
+                    mergedList.Add(incoming);
+                }
             }
-            else
-            {
-                mergedList.Add(incoming);
-            }
+
+            _wallpapers = mergedList;
+
+            // Sync active states on reload
+            bool running = IsEngineRunning();
+            UpdateActiveStates(running ? _activeWallpaperIndex : -1);
+
+            return _wallpapers.ToList();
         }
-        
-        _wallpapers = mergedList;
-        
-        // Sync active states on reload
-        bool running = IsEngineRunning();
-        UpdateActiveStates(running ? _activeWallpaperIndex : -1);
-        
-        return _wallpapers;
     }
 
     private void UpdateActiveStates(int activeIndex)
     {
-        for (int i = 0; i < _wallpapers.Count; i++)
+        lock (_wallpaperLock)
         {
-            _wallpapers[i].IsActive = (i == activeIndex - 1);
+            for (int i = 0; i < _wallpapers.Count; i++)
+            {
+                _wallpapers[i].IsActive = (i == activeIndex - 1);
+            }
         }
     }
 
@@ -537,20 +543,28 @@ public class WallpaperService
                 {
                     int index = idxProp.GetInt32();
                     activeIndex = index;
-                    if (index != _activeWallpaperIndex)
-                    {
-                        _activeWallpaperIndex = index;
-                        UpdateActiveStates(index);
+                if (index != _activeWallpaperIndex)
+                {
+                    _activeWallpaperIndex = index;
+                    UpdateActiveStates(index);
                         
-                        if (index > 0 && index <= _wallpapers.Count)
+                        WallpaperEntry? activeWallpaper = null;
+                        lock (_wallpaperLock)
                         {
-                            var wp = _wallpapers[index - 1];
+                            if (index > 0 && index <= _wallpapers.Count)
+                            {
+                                activeWallpaper = _wallpapers[index - 1];
+                            }
+                        }
+
+                        if (activeWallpaper != null)
+                        {
                             Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                             {
                                 var mainVm = App.GetService<MainViewModel>();
                                 if (mainVm != null)
                                 {
-                                    mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
+                                    mainVm.SetActiveWallpaperInfo(activeWallpaper.Title, $"{activeWallpaper.Resolution} • {activeWallpaper.Fps}");
                                 }
                             }));
                         }
@@ -567,7 +581,11 @@ public class WallpaperService
                             var mainVm = App.GetService<MainViewModel>();
                             if (mainVm != null && mainVm.ActiveWallpaperTitle != title)
                             {
-                                var wp = _wallpapers.FirstOrDefault(w => w.Title == title);
+                                WallpaperEntry? wp;
+                                lock (_wallpaperLock)
+                                {
+                                    wp = _wallpapers.FirstOrDefault(w => w.Title == title);
+                                }
                                 string specs = wp != null ? $"{wp.Resolution} • {wp.Fps}" : "3840 x 2160 • 60 FPS";
                                 mainVm.SetActiveWallpaperInfo(title, specs);
                             }
@@ -588,17 +606,25 @@ public class WallpaperService
                     }));
                 }
 
-                if (activeIndex > 0 && activeIndex <= _wallpapers.Count && string.IsNullOrEmpty(title))
+                WallpaperEntry? activeWallpaperForSession = null;
+                lock (_wallpaperLock)
                 {
-                    title = _wallpapers[activeIndex - 1].Title;
+                    if (activeIndex > 0 && activeIndex <= _wallpapers.Count)
+                    {
+                        activeWallpaperForSession = _wallpapers[activeIndex - 1];
+                        if (string.IsNullOrEmpty(title))
+                        {
+                            title = activeWallpaperForSession.Title;
+                        }
+                    }
                 }
 
                 // Notify session changed
                 bool isVisible = isPlaying && (activeIndex > 0);
                 string thumbnail = "";
-                if (activeIndex > 0 && activeIndex <= _wallpapers.Count)
+                if (activeWallpaperForSession != null)
                 {
-                    thumbnail = _wallpapers[activeIndex - 1].Thumbnail;
+                    thumbnail = activeWallpaperForSession.Thumbnail;
                 }
                 
                 var newSession = new WallpaperSessionEventArgs(title, thumbnail, isPlaying, isVisible);
@@ -625,16 +651,19 @@ public class WallpaperService
         if (DebugFlags.SafeDebugMode)
         {
             Debug.WriteLine($"[ISOLATE] LaunchWallpaperAsync requested for index: {index}, pauseMode: {pauseMode}, softwareDecode: {softwareDecode}, forceFreshLaunch: {forceFreshLaunch}");
-            _activeWallpaperIndex = index;
-            UpdateActiveStates(index);
-            _mockEngineRunning = true;
-
             string title = "";
             string thumbnail = "";
-            if (index > 0 && index <= _wallpapers.Count)
+            lock (_wallpaperLock)
             {
-                title = _wallpapers[index - 1].Title;
-                thumbnail = _wallpapers[index - 1].Thumbnail;
+                _activeWallpaperIndex = index;
+                UpdateActiveStates(index);
+                _mockEngineRunning = true;
+
+                if (index > 0 && index <= _wallpapers.Count)
+                {
+                    title = _wallpapers[index - 1].Title;
+                    thumbnail = _wallpapers[index - 1].Thumbnail;
+                }
             }
             var newSession = new WallpaperSessionEventArgs(title, thumbnail, true, true);
             ActiveSession = newSession;
@@ -667,8 +696,11 @@ public class WallpaperService
         // Try to swap in real-time over IPC Named Pipe first (skip if fresh launch is forced)
         if (!forceFreshLaunch && (await SendIpcCommandAsync($"swap {index}")) == "success")
         {
-            _activeWallpaperIndex = index;
-            UpdateActiveStates(index);
+            lock (_wallpaperLock)
+            {
+                _activeWallpaperIndex = index;
+                UpdateActiveStates(index);
+            }
             DiagnosticsService.SetAction("Wallpaper Service Idle / Swap via IPC complete");
             return true;
         }
@@ -681,8 +713,11 @@ public class WallpaperService
             return false;
         }
 
-        _activeWallpaperIndex = index;
-        UpdateActiveStates(index);
+        lock (_wallpaperLock)
+        {
+            _activeWallpaperIndex = index;
+            UpdateActiveStates(index);
+        }
 
         string mode = pauseMode ?? ActivePauseProfile;
         bool softDecode = softwareDecode ?? UseSoftwareDecoding;
@@ -736,9 +771,12 @@ public class WallpaperService
         if (DebugFlags.SafeDebugMode)
         {
             Debug.WriteLine("[ISOLATE] StopPlaybackAsync requested.");
-            _activeWallpaperIndex = -1;
-            UpdateActiveStates(-1);
-            _mockEngineRunning = false;
+            lock (_wallpaperLock)
+            {
+                _activeWallpaperIndex = -1;
+                UpdateActiveStates(-1);
+                _mockEngineRunning = false;
+            }
 
             var debugSession = new WallpaperSessionEventArgs("", "", false, false);
             ActiveSession = debugSession;
@@ -754,8 +792,11 @@ public class WallpaperService
             return false;
         }
 
-        _activeWallpaperIndex = -1;
-        UpdateActiveStates(-1);
+        lock (_wallpaperLock)
+        {
+            _activeWallpaperIndex = -1;
+            UpdateActiveStates(-1);
+        }
 
         bool result = await Task.Run(() =>
         {
@@ -859,7 +900,12 @@ public class WallpaperService
     public async Task<bool> DeleteWallpaperAsync(WallpaperEntry wp)
     {
         // 1. If currently playing, stop playback first
-        int index = _wallpapers.IndexOf(wp);
+        int index;
+        lock (_wallpaperLock)
+        {
+            index = _wallpapers.IndexOf(wp);
+        }
+
         if (wp.IsActive || _activeWallpaperIndex == index + 1)
         {
             await StopPlaybackAsync();
@@ -870,7 +916,10 @@ public class WallpaperService
         if (success)
         {
             // Remove from the local cache list
-            _wallpapers.Remove(wp);
+            lock (_wallpaperLock)
+            {
+                _wallpapers.Remove(wp);
+            }
         }
         return success;
     }

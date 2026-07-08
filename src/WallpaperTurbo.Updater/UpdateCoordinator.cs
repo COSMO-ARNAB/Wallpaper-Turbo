@@ -21,7 +21,9 @@ public sealed class UpdateCoordinator : IDisposable
     private readonly IProcessManager _processManager;
 
     private readonly SemaphoreSlim _stateLock = new(1, 1);
+    private readonly object _ctsLock = new();
     private CancellationTokenSource? _activeCts;
+    private bool _disposed;
 
     private UpdateState _currentState = UpdateState.Idle;
     private UpdateManifest? _currentManifest;
@@ -136,7 +138,8 @@ public sealed class UpdateCoordinator : IDisposable
 
         try
         {
-            var (isAvailable, manifest) = await _updateService.CheckForUpdatesAsync(channel, _activeCts.Token);
+            var token = GetActiveToken();
+            var (isAvailable, manifest) = await _updateService.CheckForUpdatesAsync(channel, token);
 
             if (isAvailable && manifest != null)
             {
@@ -174,7 +177,12 @@ public sealed class UpdateCoordinator : IDisposable
             return;
         }
 
-        var oldCts = Interlocked.Exchange(ref _activeCts, new CancellationTokenSource());
+        CancellationTokenSource? oldCts;
+        lock (_ctsLock)
+        {
+            oldCts = _activeCts;
+            _activeCts = new CancellationTokenSource();
+        }
         if (oldCts != null)
         {
             oldCts.Cancel();
@@ -191,7 +199,7 @@ public sealed class UpdateCoordinator : IDisposable
 
         try
         {
-            _downloadedFilePath = await _downloadManager.DownloadUpdateAsync(_currentManifest, destinationPath, progress, _activeCts.Token);
+            _downloadedFilePath = await _downloadManager.DownloadUpdateAsync(_currentManifest, destinationPath, progress, GetActiveToken());
             
             await ForceStateAsync(UpdateState.Downloaded);
             
@@ -305,6 +313,7 @@ public sealed class UpdateCoordinator : IDisposable
             if (!shutdownSuccess)
             {
                 Debug.WriteLine("[UpdateCoordinator] Graceful shutdown failed. Terminating update to prevent lock errors.");
+                CleanupPartialDownload(_downloadedFilePath);
                 await HandleErrorAsync("Failed to cleanly shut down the wallpaper engine.", null);
                 return;
             }
@@ -320,13 +329,18 @@ public sealed class UpdateCoordinator : IDisposable
         catch (Exception ex)
         {
             Debug.WriteLine($"[UpdateCoordinator] Error during installation handoff: {ex.Message}");
+            CleanupPartialDownload(_downloadedFilePath);
             await HandleErrorAsync("Failed to launch the installer.", ex);
         }
     }
 
     public void CancelAsync()
     {
-        var cts = _activeCts;
+        CancellationTokenSource? cts;
+        lock (_ctsLock)
+        {
+            cts = _activeCts;
+        }
         if (cts != null && !cts.IsCancellationRequested)
         {
             try { cts.Cancel(); } catch { }
@@ -335,12 +349,27 @@ public sealed class UpdateCoordinator : IDisposable
 
     public void Dispose()
     {
-        try { _activeCts?.Cancel(); } catch { }
-        _activeCts?.Dispose();
-        // Dispose _stateLock in a try-catch because threads may be currently awaiting it
-        // during shutdown. An ObjectDisposedException is safe to ignore here — the
-        // semaphore will be reclaimed by the GC along with the coordinator.
-        try { _stateLock?.Dispose(); } catch (ObjectDisposedException) { }
+        if (_disposed) return;
+        _disposed = true;
+
+        CancellationTokenSource? cts;
+        lock (_ctsLock)
+        {
+            cts = _activeCts;
+            _activeCts = null;
+        }
+
+        try { cts?.Cancel(); } catch { }
+        cts?.Dispose();
+        try { _stateLock.Dispose(); } catch (ObjectDisposedException) { }
+    }
+
+    private CancellationToken GetActiveToken()
+    {
+        lock (_ctsLock)
+        {
+            return _activeCts?.Token ?? CancellationToken.None;
+        }
     }
 
     private async Task HandleErrorAsync(string message, Exception? ex)
