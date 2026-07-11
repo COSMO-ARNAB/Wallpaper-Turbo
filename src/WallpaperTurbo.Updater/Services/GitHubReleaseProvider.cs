@@ -36,53 +36,52 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
 
     public async Task<UpdateManifest?> GetLatestManifestAsync(ReleaseChannel channel, CancellationToken cancellationToken = default)
     {
-        // PHASE 1 MITIGATION: per_page=100 raises GitHub's default page size
-        // from 30 to 100. Full pagination traversal is NOT implemented in this
-        // phase; the updater therefore reflects the 100 most recent releases
-        // for the repo. This is acceptable for projects with <100 active
-        // releases (current state of Wallpaper Turbo) and is the intended
-        // Phase 1 mitigation. Phase 3 will add proper Link-header-based
-        // pagination traversal if needed.
-        string apiUrl = $"https://api.github.com/repos/{_owner}/{_repo}/releases?per_page=100";
-        UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"GET {apiUrl} | requested channel={channel}");
-
-        using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-        UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"HTTP status: {(int)response.StatusCode} {response.StatusCode}");
-
-        if (!response.IsSuccessStatusCode)
-        {
-            UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"REJECTION: Non-success HTTP status {(int)response.StatusCode} {response.StatusCode} from {apiUrl}");
-            Debug.WriteLine($"[GitHubReleaseProvider] Failed to fetch releases: {response.StatusCode}");
-            return null;
-        }
-
-        string json = await response.Content.ReadAsStringAsync(cancellationToken);
-        using var doc = JsonDocument.Parse(json);
-
-        int releaseCount = 0;
-        foreach (var _ in doc.RootElement.EnumerateArray()) releaseCount++;
-        UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"Releases returned by API: {releaseCount}");
-
-        // Collect ALL valid manifests for the requested channel, then return the
-        // highest by SemanticVersion. The previous "first match wins" behavior
-        // made selection order-dependent on GitHub's published_at ordering, which
-        // is re-publishable by anyone with write access to the repo.
         var validManifests = new List<UpdateManifest>();
-        foreach (var releaseElement in doc.RootElement.EnumerateArray())
+        int releaseCount = 0;
+        for (int page = 1; ; page++)
         {
-            try
+            string apiUrl = $"https://api.github.com/repos/{_owner}/{_repo}/releases?per_page=100&page={page}";
+            UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"GET {apiUrl} | requested channel={channel}");
+
+            using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
+            UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"HTTP status: {(int)response.StatusCode} {response.StatusCode}");
+
+            if (!response.IsSuccessStatusCode)
             {
-                var manifest = await ParseReleaseAsync(releaseElement, channel, cancellationToken);
-                if (manifest != null)
+                UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"REJECTION: Non-success HTTP status {(int)response.StatusCode} {response.StatusCode} from {apiUrl}");
+                Debug.WriteLine($"[GitHubReleaseProvider] Failed to fetch releases: {response.StatusCode}");
+                return null;
+            }
+
+            string json = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(json);
+
+            int pageCount = 0;
+            foreach (var _ in doc.RootElement.EnumerateArray()) pageCount++;
+            releaseCount += pageCount;
+            UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"Releases returned by API page {page}: {pageCount}");
+
+            foreach (var releaseElement in doc.RootElement.EnumerateArray())
+            {
+                try
                 {
-                    validManifests.Add(manifest);
+                    var manifest = await ParseReleaseAsync(releaseElement, channel, cancellationToken);
+                    if (manifest != null)
+                    {
+                        validManifests.Add(manifest);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"Exception parsing release: {ex.Message}");
+                    Debug.WriteLine($"[GitHubReleaseProvider] Skipping invalid release: {ex.Message}");
+                    continue;
                 }
             }
-            catch (Exception ex)
+
+            if (pageCount < 100)
             {
-                UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"Exception parsing release: {ex.Message}");
-                Debug.WriteLine($"[GitHubReleaseProvider] Skipping invalid release: {ex.Message}");
-                continue;
+                break;
             }
         }
 

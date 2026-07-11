@@ -69,6 +69,7 @@ public partial class SettingsViewModel : ObservableObject
             _selectedLayout = settings.Layout;
             _selectedGlassBackdrop = settings.GlassBackdrop;
             _selectedGlassOpacityPercent = (int)Math.Round(settings.GlassOpacity * 100);
+            _useHardwareAcceleration = settings.UseHardwareAcceleration;
             _pauseOnFullscreen = settings.PauseOnMaximized;
             _muteWallpaperAudio = settings.MuteAudio;
             _selectedGpuPreference = settings.GpuPreference;
@@ -118,15 +119,27 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnUseHardwareAccelerationChanged(bool value)
     {
+        if (_isSyncing) return;
+
         _wallpaperService.UseSoftwareDecoding = !value;
+
+        var settings = _settingsStore.Load();
+        settings.UseHardwareAcceleration = value;
+        _settingsStore.Save(settings);
     }
 
     partial void OnActivePauseProfileChanged(string value)
     {
+        if (_isSyncing) return;
+
         if (value != null)
         {
             _wallpaperService.ActivePauseProfile = value;
             PauseOnFullscreen = value != "Disabled" && value != "None";
+
+            var settings = _settingsStore.Load();
+            settings.PauseOnMaximized = PauseOnFullscreen;
+            _settingsStore.Save(settings);
         }
     }
 

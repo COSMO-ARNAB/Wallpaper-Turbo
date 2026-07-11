@@ -53,14 +53,8 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
-; Standard interactive launch checkbox (skipped in silent updates)
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent; Check: not ShouldRestart
-
-; Silent updater relaunch (executed in silent updates when intent is detected)
-Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: ShouldRestart
+; Standard finish-page launch checkbox. Checked by default, user can untick it.
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName} after setup"; Flags: nowait postinstall skipifsilent
 
 [Code]
-function ShouldRestart: Boolean;
-begin
-  Result := WizardSilent;
-end;
+// No custom relaunch logic; the final page checkbox controls launch directly.
