@@ -617,9 +617,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
+        "Update installer now launches visibly instead of hiding in the background",
+        "Kept the installer wizard interactive with the normal finish-page launch checkbox",
         "Fixed the startup update loop with a one-shot skip after installation",
-        "Added ETag caching for update.json so repeat checks reuse cached manifest data",
-        "Kept the stable channel on the single-call /releases/latest endpoint",
         "Improved update check reliability with conditional requests and safer release handling"
     };
 

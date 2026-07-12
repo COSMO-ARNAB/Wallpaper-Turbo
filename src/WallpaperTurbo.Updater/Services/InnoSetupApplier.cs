@@ -32,8 +32,6 @@ public sealed class InnoSetupApplier : IUpdateApplier
                 FileName = installerFilePath,
                 Arguments = _installArgs,
                 UseShellExecute = true,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden,
                 WorkingDirectory = System.IO.Path.GetDirectoryName(installerFilePath)
             };
 
