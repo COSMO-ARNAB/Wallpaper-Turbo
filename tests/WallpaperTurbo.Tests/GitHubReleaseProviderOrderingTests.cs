@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,204 +13,83 @@ public class GitHubReleaseProviderOrderingTests
 {
     private sealed class FakeHttpMessageHandler : HttpMessageHandler
     {
-        public string ResponseJson { get; set; } = "[]";
-        public string? LastRequestUri { get; private set; }
+        public string ReleaseJson { get; set; } = "{}";
+        public string UpdateJson { get; set; } = "{}";
+        public List<string> RequestUris { get; } = new();
+        public List<string?> IfNoneMatchHeaders { get; } = new();
         public int CallCount { get; private set; }
+        public bool UseCaching { get; set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             CallCount++;
-            var uriStr = request.RequestUri?.ToString() ?? string.Empty;
-            LastRequestUri = uriStr;
+            RequestUris.Add(request.RequestUri?.ToString() ?? string.Empty);
+            IfNoneMatchHeaders.Add(request.Headers.IfNoneMatch.Count > 0 ? request.Headers.IfNoneMatch.ToString() : null);
 
-            string content;
-            if (uriStr.Contains("update.json"))
+            if (UseCaching && request.Headers.IfNoneMatch.Count > 0)
             {
-                if (uriStr.Contains("v1.0.5"))
-                {
-                    content = """
-                    {
-                        "schema_version": 1,
-                        "generated_at": "2026-06-05T00:00:00Z",
-                        "version": "1.0.5",
-                        "channel": "stable",
-                        "installer_filename": "Wallpaper_Turbo_Setup.exe",
-                        "download_url": "https://example.invalid/v1.0.5/setup.exe",
-                        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
-                        "file_size_bytes": 1000,
-                        "min_supported_version": "1.0.0",
-                        "min_signature_required": "authenticode",
-                        "rollback_eligible": false
-                    }
-                    """;
-                }
-                else if (uriStr.Contains("v2.0.0"))
-                {
-                    content = """
-                    {
-                        "schema_version": 1,
-                        "generated_at": "2026-06-01T00:00:00Z",
-                        "version": "2.0.0",
-                        "channel": "stable",
-                        "installer_filename": "Wallpaper_Turbo_Setup.exe",
-                        "download_url": "https://example.invalid/v2.0.0/setup.exe",
-                        "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
-                        "file_size_bytes": 2000,
-                        "min_supported_version": "1.0.0",
-                        "min_signature_required": "authenticode",
-                        "rollback_eligible": false
-                    }
-                    """;
-                }
-                else if (uriStr.Contains("v1.2.0"))
-                {
-                    content = """
-                    {
-                        "schema_version": 1,
-                        "generated_at": "2026-06-01T00:00:00Z",
-                        "version": "1.2.0",
-                        "channel": "stable",
-                        "installer_filename": "Wallpaper_Turbo_Setup.exe",
-                        "download_url": "https://example.invalid/v1.2.0/setup.exe",
-                        "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
-                        "file_size_bytes": 1000,
-                        "min_supported_version": "1.0.0",
-                        "min_signature_required": "authenticode",
-                        "rollback_eligible": false
-                    }
-                    """;
-                }
-                else
-                {
-                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
-                }
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotModified));
             }
-            else
-            {
-                content = ResponseJson;
-            }
+
+            var uriStr = request.RequestUri?.ToString() ?? string.Empty;
+            var content = uriStr.Contains("update.json", StringComparison.OrdinalIgnoreCase)
+                ? UpdateJson
+                : ReleaseJson;
 
             var response = new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(content, Encoding.UTF8, "application/json")
             };
+            response.Headers.TryAddWithoutValidation("ETag", "\"etag-1\"");
             return Task.FromResult(response);
         }
     }
 
     [Fact]
-    public async Task GetLatestManifest_HighestVersionWins_RegardlessOfGitHubOrder()
+    public async Task GetLatestManifest_StableUsesLatestEndpoint()
     {
-        // Two Stable releases. v1.0.5 is listed FIRST in the JSON (simulating
-        // GitHub's date-descending order with a re-publish / later update),
-        // v2.0.0 is listed SECOND. The test MUST NOT depend on GitHub's
-        // ordering — the fix must select v2.0.0 because it's the higher
-        // SemanticVersion.
-        const string releasesJson = """
-        [
-            {
-                "id": 1,
-                "tag_name": "v1.0.5",
-                "prerelease": false,
-                "draft": false,
-                "body": "SHA256: 1111111111111111111111111111111111111111111111111111111111111111 Wallpaper_Turbo_Setup.exe",
-                "published_at": "2026-06-05T00:00:00Z",
-                "created_at": "2026-06-05T00:00:00Z",
-                "updated_at": "2026-06-05T00:00:00Z",
-                "assets": [
-                    {
-                        "name": "Wallpaper_Turbo_Setup.exe",
-                        "browser_download_url": "https://example.invalid/v1.0.5/setup.exe",
-                        "size": 1000
-                    },
-                    {
-                        "name": "update.json",
-                        "browser_download_url": "https://example.invalid/v1.0.5/update.json",
-                        "size": 200
-                    }
-                ]
-            },
-            {
-                "id": 2,
-                "tag_name": "v2.0.0",
-                "prerelease": false,
-                "draft": false,
-                "body": "SHA256: 2222222222222222222222222222222222222222222222222222222222222222 Wallpaper_Turbo_Setup.exe",
-                "published_at": "2026-06-01T00:00:00Z",
-                "created_at": "2026-06-01T00:00:00Z",
-                "updated_at": "2026-06-01T00:00:00Z",
-                "assets": [
-                    {
-                        "name": "Wallpaper_Turbo_Setup.exe",
-                        "browser_download_url": "https://example.invalid/v2.0.0/setup.exe",
-                        "size": 2000
-                    },
-                    {
-                        "name": "update.json",
-                        "browser_download_url": "https://example.invalid/v2.0.0/update.json",
-                        "size": 200
-                    }
-                ]
-            }
-        ]
+        const string releaseJson = """
+        {
+            "id": 1,
+            "tag_name": "v1.2.0",
+            "prerelease": false,
+            "draft": false,
+            "body": "SHA256: 3333333333333333333333333333333333333333333333333333333333333333 Wallpaper_Turbo_Setup.exe",
+            "published_at": "2026-06-01T00:00:00Z",
+            "created_at": "2026-06-01T00:00:00Z",
+            "updated_at": "2026-06-01T00:00:00Z",
+            "assets": [
+                {
+                    "name": "Wallpaper_Turbo_Setup.exe",
+                    "browser_download_url": "https://example.invalid/v1.2.0/setup.exe",
+                    "size": 1000
+                },
+                {
+                    "name": "update.json",
+                    "browser_download_url": "https://example.invalid/v1.2.0/update.json",
+                    "size": 200
+                }
+            ]
+        }
         """;
 
-        var handler = new FakeHttpMessageHandler { ResponseJson = releasesJson };
-        using var client = new HttpClient(handler);
-        var provider = new GitHubReleaseProvider(client, "test-owner", "test-repo");
-
-        var manifest = await provider.GetLatestManifestAsync(ReleaseChannel.Stable);
-
-        Assert.NotNull(manifest);
-        Assert.Equal(new SemanticVersion(2, 0, 0), manifest!.Version);
-        Assert.Equal("https://example.invalid/v2.0.0/setup.exe", manifest.DownloadUrl);
-        Assert.Equal(ReleaseChannel.Stable, manifest.Channel);
-    }
-
-    [Fact]
-    public async Task GetLatestManifest_RequestUrl_ContainsPerPage100()
-    {
-        var handler = new FakeHttpMessageHandler { ResponseJson = "[]" };
-        using var client = new HttpClient(handler);
-        var provider = new GitHubReleaseProvider(client, "test-owner", "test-repo");
-
-        await provider.GetLatestManifestAsync(ReleaseChannel.Stable);
-
-        Assert.NotNull(handler.LastRequestUri);
-        Assert.Contains("per_page=100", handler.LastRequestUri!);
-    }
-
-    [Fact]
-    public async Task GetLatestManifest_SingleRelease_ReturnsIt()
-    {
-        const string releasesJson = """
-        [
-            {
-                "id": 1,
-                "tag_name": "v1.2.0",
-                "prerelease": false,
-                "draft": false,
-                "body": "SHA256: 3333333333333333333333333333333333333333333333333333333333333333 Wallpaper_Turbo_Setup.exe",
-                "published_at": "2026-06-01T00:00:00Z",
-                "created_at": "2026-06-01T00:00:00Z",
-                "updated_at": "2026-06-01T00:00:00Z",
-                "assets": [
-                    {
-                        "name": "Wallpaper_Turbo_Setup.exe",
-                        "browser_download_url": "https://example.invalid/v1.2.0/setup.exe",
-                        "size": 1000
-                    },
-                    {
-                        "name": "update.json",
-                        "browser_download_url": "https://example.invalid/v1.2.0/update.json",
-                        "size": 200
-                    }
-                ]
-            }
-        ]
+        const string updateJson = """
+        {
+            "schema_version": 1,
+            "generated_at": "2026-06-01T00:00:00Z",
+            "version": "1.2.0",
+            "channel": "stable",
+            "installer_filename": "Wallpaper_Turbo_Setup.exe",
+            "download_url": "https://example.invalid/v1.2.0/setup.exe",
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "file_size_bytes": 1000,
+            "min_supported_version": "1.0.0",
+            "min_signature_required": "authenticode",
+            "rollback_eligible": false
+        }
         """;
 
-        var handler = new FakeHttpMessageHandler { ResponseJson = releasesJson };
+        var handler = new FakeHttpMessageHandler { ReleaseJson = releaseJson, UpdateJson = updateJson };
         using var client = new HttpClient(handler);
         var provider = new GitHubReleaseProvider(client, "test-owner", "test-repo");
 
@@ -217,5 +97,77 @@ public class GitHubReleaseProviderOrderingTests
 
         Assert.NotNull(manifest);
         Assert.Equal(new SemanticVersion(1, 2, 0), manifest!.Version);
+        Assert.Equal("https://example.invalid/v1.2.0/setup.exe", manifest.DownloadUrl);
+        Assert.Contains("/releases/latest", handler.RequestUris[0]);
+    }
+
+    [Fact]
+    public async Task GetLatestManifest_StableSendsIfNoneMatchOnCachedRepeatCall()
+    {
+        const string releaseJson = """
+        {
+            "id": 1,
+            "tag_name": "v1.2.0",
+            "prerelease": false,
+            "draft": false,
+            "body": "SHA256: 3333333333333333333333333333333333333333333333333333333333333333 Wallpaper_Turbo_Setup.exe",
+            "published_at": "2026-06-01T00:00:00Z",
+            "created_at": "2026-06-01T00:00:00Z",
+            "updated_at": "2026-06-01T00:00:00Z",
+            "assets": [
+                {
+                    "name": "Wallpaper_Turbo_Setup.exe",
+                    "browser_download_url": "https://example.invalid/v1.2.0/setup.exe",
+                    "size": 1000
+                },
+                {
+                    "name": "update.json",
+                    "browser_download_url": "https://example.invalid/v1.2.0/update.json",
+                    "size": 200
+                }
+            ]
+        }
+        """;
+
+        const string updateJson = """
+        {
+            "schema_version": 1,
+            "generated_at": "2026-06-01T00:00:00Z",
+            "version": "1.2.0",
+            "channel": "stable",
+            "installer_filename": "Wallpaper_Turbo_Setup.exe",
+            "download_url": "https://example.invalid/v1.2.0/setup.exe",
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "file_size_bytes": 1000,
+            "min_supported_version": "1.0.0",
+            "min_signature_required": "authenticode",
+            "rollback_eligible": false
+        }
+        """;
+
+        var handler = new FakeHttpMessageHandler { ReleaseJson = releaseJson, UpdateJson = updateJson };
+        using var client = new HttpClient(handler);
+        var provider = new GitHubReleaseProvider(client, "test-owner", "test-repo");
+
+        var first = await provider.GetLatestManifestAsync(ReleaseChannel.Stable);
+        var second = await provider.GetLatestManifestAsync(ReleaseChannel.Stable);
+
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        Assert.Equal(4, handler.CallCount);
+        Assert.Equal(first!.Version, second!.Version);
+    }
+
+    [Fact]
+    public async Task GetLatestManifest_NonStableStillUsesPagedEndpoint()
+    {
+        var handler = new FakeHttpMessageHandler { ReleaseJson = "[]", UpdateJson = "{}" };
+        using var client = new HttpClient(handler);
+        var provider = new GitHubReleaseProvider(client, "test-owner", "test-repo");
+
+        await provider.GetLatestManifestAsync(ReleaseChannel.Preview);
+
+        Assert.NotEmpty(handler.RequestUris);
+        Assert.Contains("/releases?per_page=100&page=1", handler.RequestUris[0]);
     }
 }

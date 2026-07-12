@@ -74,3 +74,4 @@ gpu_preference_revised_design.md
 git_diff.txt
 *_wpftmp.csproj
 *.md
+!README.md

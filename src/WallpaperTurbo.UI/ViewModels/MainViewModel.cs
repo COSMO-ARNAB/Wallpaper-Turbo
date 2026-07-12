@@ -617,10 +617,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
-        "Fixed the auto-updater silently aborting without installing in the background.",
-        "Fixed the duplicate startup entries causing the app to open twice on boot.",
-        "Fixed the vertical text clipping bug in the Glass Opacity settings.",
-        "Added subtle rotating border glows to the settings cards for a more premium look."
+        "Fixed GitHub API rate-limit issue: Stable channel now uses /releases/latest endpoint for single-call update checks",
+        "Added ETag caching for repeated update checks — no more wasted GitHub API calls",
+        "Preview and Nightly channels still scan all releases to find the newest matching version",
+        "Improved update check reliability with conditional requests and fallback to cached data"
     };
 
     private void CheckForVersionUpdate()

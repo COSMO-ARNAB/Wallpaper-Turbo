@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -17,6 +21,8 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
     private readonly HttpClient _httpClient;
     private readonly string _owner;
     private readonly string _repo;
+    private readonly Dictionary<string, CachedResponse> _responseCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _responseCacheLock = new();
 
     private const string InstallerFileName = "Wallpaper_Turbo_Setup.exe";
     private const string UpdateJsonAssetName = "update.json";
@@ -27,6 +33,12 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
         Converters = { new JsonStringEnumConverter() }
     };
 
+    private sealed class CachedResponse
+    {
+        public string? ETag { get; init; }
+        public string Body { get; init; } = string.Empty;
+    }
+
     public GitHubReleaseProvider(HttpClient httpClient, string owner, string repo)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
@@ -36,6 +48,21 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
 
     public async Task<UpdateManifest?> GetLatestManifestAsync(ReleaseChannel channel, CancellationToken cancellationToken = default)
     {
+        if (channel == ReleaseChannel.Stable)
+        {
+            var apiUrl = $"https://api.github.com/repos/{_owner}/{_repo}/releases/latest";
+            UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"GET {apiUrl} | requested channel={channel}");
+
+            using var doc = await GetJsonDocumentAsync(apiUrl, cancellationToken);
+            if (doc == null)
+            {
+                UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"REJECTION: Failed to fetch latest release from {apiUrl}");
+                return null;
+            }
+
+            return await ParseReleaseAsync(doc.RootElement, channel, cancellationToken);
+        }
+
         var validManifests = new List<UpdateManifest>();
         int releaseCount = 0;
         for (int page = 1; ; page++)
@@ -43,18 +70,12 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
             string apiUrl = $"https://api.github.com/repos/{_owner}/{_repo}/releases?per_page=100&page={page}";
             UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"GET {apiUrl} | requested channel={channel}");
 
-            using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-            UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"HTTP status: {(int)response.StatusCode} {response.StatusCode}");
-
-            if (!response.IsSuccessStatusCode)
+            using var doc = await GetJsonDocumentAsync(apiUrl, cancellationToken);
+            if (doc == null)
             {
-                UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"REJECTION: Non-success HTTP status {(int)response.StatusCode} {response.StatusCode} from {apiUrl}");
-                Debug.WriteLine($"[GitHubReleaseProvider] Failed to fetch releases: {response.StatusCode}");
+                UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"REJECTION: Failed to fetch releases page {page} from {apiUrl}");
                 return null;
             }
-
-            string json = await response.Content.ReadAsStringAsync(cancellationToken);
-            using var doc = JsonDocument.Parse(json);
 
             int pageCount = 0;
             foreach (var _ in doc.RootElement.EnumerateArray()) pageCount++;
@@ -99,6 +120,72 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
 
         UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"Selected highest-version manifest: {best.Version} (channel={best.Channel}, url={best.DownloadUrl}, sigReq={best.MinSignatureRequirement}) out of {validManifests.Count} candidate(s)");
         return best;
+    }
+
+    private async Task<JsonDocument?> GetJsonDocumentAsync(string url, CancellationToken cancellationToken)
+    {
+        string? cachedEtag = null;
+        string? cachedBody = null;
+
+        lock (_responseCacheLock)
+        {
+            if (_responseCache.TryGetValue(url, out var cached))
+            {
+                cachedEtag = cached.ETag;
+                cachedBody = cached.Body;
+            }
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("WallpaperTurbo", "1.0"));
+        if (!string.IsNullOrWhiteSpace(cachedEtag))
+        {
+            request.Headers.IfNoneMatch.Add(EntityTagHeaderValue.Parse(cachedEtag));
+        }
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"HTTP status: {(int)response.StatusCode} {response.StatusCode}");
+
+        if (response.StatusCode == HttpStatusCode.NotModified)
+        {
+            if (cachedBody == null)
+            {
+                UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"REJECTION: 304 Not Modified for {url} but no cached body exists.");
+                return null;
+            }
+
+            return JsonDocument.Parse(cachedBody);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            UpdaterDiagnostic.Log("GitHubReleaseProvider.GetLatestManifest", $"REJECTION: Non-success HTTP status {(int)response.StatusCode} {response.StatusCode} from {url}");
+            Debug.WriteLine($"[GitHubReleaseProvider] Failed to fetch releases: {response.StatusCode}");
+            return null;
+        }
+
+        string json = await response.Content.ReadAsStringAsync(cancellationToken);
+        var document = JsonDocument.Parse(json);
+
+        var responseEtag = response.Headers.ETag?.ToString();
+        if (string.IsNullOrWhiteSpace(responseEtag) && response.Headers.TryGetValues("ETag", out var headerValues))
+        {
+            responseEtag = headerValues.FirstOrDefault();
+        }
+        if (!string.IsNullOrWhiteSpace(responseEtag))
+        {
+            lock (_responseCacheLock)
+            {
+                _responseCache[url] = new CachedResponse
+                {
+                    ETag = responseEtag,
+                    Body = json
+                };
+            }
+        }
+
+        return document;
     }
 
     private async Task<UpdateManifest?> ParseReleaseAsync(JsonElement release, ReleaseChannel requestedChannel, CancellationToken cancellationToken)
