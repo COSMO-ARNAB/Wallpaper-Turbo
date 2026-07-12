@@ -291,20 +291,18 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
         string? rejectionReason = null;
         try
         {
-            using var response = await _httpClient.GetAsync(downloadUrl, cancellationToken);
-            UpdaterDiagnostic.Log("GitHubReleaseProvider.TryFetchRemote", $"GET {downloadUrl} -> {(int)response.StatusCode} {response.StatusCode}");
-            if (!response.IsSuccessStatusCode)
+            using var document = await GetJsonDocumentAsync(downloadUrl, cancellationToken);
+            if (document == null)
             {
-                UpdaterDiagnostic.Log("GitHubReleaseProvider.TryFetchRemote", $"REJECTION: Non-success HTTP status {(int)response.StatusCode} from update.json URL");
-                rejectionReason = $"http_{((int)response.StatusCode)}";
+                UpdaterDiagnostic.Log("GitHubReleaseProvider.TryFetchRemote", $"REJECTION: Failed to fetch update.json from {downloadUrl}");
+                rejectionReason = "fetch_failed";
                 return (null, rejectionReason);
             }
 
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             RemoteUpdateManifest? remote;
             try
             {
-                remote = JsonSerializer.Deserialize<RemoteUpdateManifest>(json, ManifestJsonOptions);
+                remote = JsonSerializer.Deserialize<RemoteUpdateManifest>(document.RootElement.GetRawText(), ManifestJsonOptions);
             }
             catch (JsonException ex)
             {

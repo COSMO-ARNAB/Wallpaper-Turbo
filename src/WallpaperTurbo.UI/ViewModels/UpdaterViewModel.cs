@@ -166,6 +166,7 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
     {
         try
         {
+            MarkSkipStartupCheckOnce();
             await _coordinator.InstallUpdateAsync();
         }
         catch (Exception ex)
@@ -208,6 +209,14 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
         {
             UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", "CheckOnStartup is false; skipping.");
             Debug.WriteLine("[UpdaterViewModel] CheckOnStartup disabled; skipping startup check.");
+            return;
+        }
+
+        if (_settings.SkipStartupCheckOnce)
+        {
+            UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", "SkipStartupCheckOnce is true; suppressing this startup check and clearing the flag.");
+            _settings.SkipStartupCheckOnce = false;
+            _settingsStore.Save(_settings);
             return;
         }
 
@@ -265,6 +274,17 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
                 });
             }
         });
+    }
+
+    public void MarkSkipStartupCheckOnce()
+    {
+        if (_settings.SkipStartupCheckOnce)
+        {
+            return;
+        }
+
+        _settings.SkipStartupCheckOnce = true;
+        _settingsStore.Save(_settings);
     }
 
     private void OnCoordinatorErrorOccurred(object? sender, UpdateErrorEventArgs e)

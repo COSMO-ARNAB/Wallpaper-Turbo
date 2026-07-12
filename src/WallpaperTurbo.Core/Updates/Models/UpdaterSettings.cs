@@ -4,6 +4,7 @@ public sealed class UpdaterSettings
 {
     public bool AutoUpdateEnabled { get; set; } = true;
     public bool CheckOnStartup { get; set; } = true;
+    public bool SkipStartupCheckOnce { get; set; }
     public ReleaseChannel ReleaseChannel { get; set; } = ReleaseChannel.Stable;
 
     public UpdaterSettings Clone()
@@ -12,6 +13,7 @@ public sealed class UpdaterSettings
         {
             AutoUpdateEnabled = AutoUpdateEnabled,
             CheckOnStartup = CheckOnStartup,
+            SkipStartupCheckOnce = SkipStartupCheckOnce,
             ReleaseChannel = ReleaseChannel
         };
     }

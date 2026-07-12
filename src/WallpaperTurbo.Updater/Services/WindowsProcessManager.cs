@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Management;
 using System.Threading;
 using System.Threading.Tasks;
 using WallpaperTurbo.Core.Updates.Interfaces;
@@ -217,19 +218,19 @@ public sealed class WindowsProcessManager : IProcessManager
     {
         try
         {
-            var psi = new ProcessStartInfo
+            using var searcher = new ManagementObjectSearcher(
+                $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {pid}");
+
+            foreach (ManagementObject process in searcher.Get())
             {
-                FileName = "wmic.exe",
-                Arguments = $"process where ProcessId={pid} get CommandLine",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var proc = Process.Start(psi);
-            if (proc == null) return string.Empty;
-            string output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(1000);
-            return output;
+                var commandLine = process["CommandLine"] as string;
+                if (!string.IsNullOrWhiteSpace(commandLine))
+                {
+                    return commandLine;
+                }
+            }
+
+            return string.Empty;
         }
         catch
         {

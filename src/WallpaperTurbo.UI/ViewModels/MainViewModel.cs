@@ -617,10 +617,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
-        "Fixed GitHub API rate-limit issue: Stable channel now uses /releases/latest endpoint for single-call update checks",
-        "Added ETag caching for repeated update checks — no more wasted GitHub API calls",
-        "Preview and Nightly channels still scan all releases to find the newest matching version",
-        "Improved update check reliability with conditional requests and fallback to cached data"
+        "Fixed the startup update loop with a one-shot skip after installation",
+        "Added ETag caching for update.json so repeat checks reuse cached manifest data",
+        "Kept the stable channel on the single-call /releases/latest endpoint",
+        "Improved update check reliability with conditional requests and safer release handling"
     };
 
     private void CheckForVersionUpdate()

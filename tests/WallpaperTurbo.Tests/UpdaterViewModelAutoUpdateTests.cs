@@ -45,6 +45,24 @@ public sealed class UpdaterViewModelAutoUpdateTests
         Assert.Equal(UpdateState.UpToDate, fixture.Coordinator.CurrentState);
     }
 
+    [Fact]
+    public async Task RunStartupCheck_WhenSkipStartupCheckOnceIsSet_SkipsOnceThenClearsFlag()
+    {
+        var fixture = new UpdaterFixture(
+            new UpdaterSettings
+            {
+                AutoUpdateEnabled = true,
+                CheckOnStartup = true,
+                SkipStartupCheckOnce = true,
+                ReleaseChannel = ReleaseChannel.Stable
+            });
+
+        await fixture.ViewModel.RunStartupCheckAsync();
+
+        Assert.Equal(0, fixture.UpdateService.CallCount);
+        Assert.False(fixture.ViewModel.GetSettingsSnapshot().SkipStartupCheckOnce);
+    }
+
     private sealed class FakeUpdaterSettingsStore : IUpdaterSettingsStore
     {
         private UpdaterSettings _settings;

@@ -11,7 +11,7 @@ public sealed class InnoSetupApplier : IUpdateApplier
 
     public InnoSetupApplier(string installArgs = "/LOG=\"%TEMP%\\WallpaperTurbo_Install.log\"")
     {
-        _installArgs = installArgs ?? "/SILENT";
+        _installArgs = installArgs ?? throw new ArgumentNullException(nameof(installArgs));
     }
 
     public void ApplyUpdate(string installerFilePath)
