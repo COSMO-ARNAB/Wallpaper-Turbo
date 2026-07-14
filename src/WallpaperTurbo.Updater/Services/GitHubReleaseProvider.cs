@@ -165,8 +165,14 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
             return null;
         }
 
-        string json = await response.Content.ReadAsStringAsync(cancellationToken);
-        var document = JsonDocument.Parse(json);
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var document = JsonDocument.Parse(bytes);
+
+        string json = System.Text.Encoding.UTF8.GetString(bytes);
+        if (json.StartsWith('\uFEFF'))
+        {
+            json = json.Substring(1);
+        }
 
         var responseEtag = response.Headers.ETag?.ToString();
         if (string.IsNullOrWhiteSpace(responseEtag) && response.Headers.TryGetValues("ETag", out var headerValues))
