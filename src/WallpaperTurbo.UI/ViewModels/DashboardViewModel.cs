@@ -348,6 +348,10 @@ public partial class DashboardViewModel : ObservableObject
             if (_allWallpapers.Count == 0)
             {
                 ActiveWallpaper = null;
+                HeroWallpaper = null;
+                LastDisplayedWallpaper = null;
+                RecentlyUsedWallpapers.Clear();
+                
                 GpuValue = 0;
                 VideoDecodeValue = 0;
                 CpuValue = 0;

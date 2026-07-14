@@ -15,7 +15,7 @@ public class AppSettings
 
     public string LastRunVersion { get; set; } = string.Empty;
 
-    public string GlassBackdrop { get; set; } = "Acrylic";
+    public string GlassBackdrop { get; set; } = "Glass";
     public double GlassOpacity { get; set; } = 0.40;
 
     public bool UseHardwareAcceleration { get; set; } = true;

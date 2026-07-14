@@ -27,29 +27,12 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid>
+    <Grid Background="Transparent">
         <Grid.Style>
             <Style TargetType="Grid">
-                <!-- FIX: Background MUST live in a Style Setter, never as a local value.
-                     A local <Grid.Background> property value is auto-frozen by WPF at
-                     visual-tree load time — any DataTrigger Setter that tries to modify
-                     a frozen brush silently fails, keeping the background permanently opaque. -->
-                <Setter Property="Background">
-                    <Setter.Value>
-                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                            <GradientStop Color="#11141B" Offset="0" />
-                            <GradientStop Color="#0A0B0E" Offset="1" />
-                        </LinearGradientBrush>
-                    </Setter.Value>
-                </Setter>
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
                         <Setter Property="Margin" Value="8" />
-                    </DataTrigger>
-
-                    <!-- Glass mode: Transparent Grid background to let DWM backdrop show through -->
-                    <DataTrigger Binding="{Binding DataContext.Presentation.IsWallpaperVisible, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                        <Setter Property="Background" Value="Transparent" />
                     </DataTrigger>
                 </Style.Triggers>
             </Style>
@@ -61,7 +44,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Dynamic glass background tint overlay border at bottom of Z-order -->
+        <!-- Dynamic glass background tint overlay border at bottom of Z-order (Allows opacity slider to work) -->
         <Border Grid.RowSpan="3"
                 Background="#0D0F15"
                 Opacity="{Binding DataContext.Presentation.OverlayOpacity, RelativeSource={RelativeSource AncestorType=Window}}"

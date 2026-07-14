@@ -80,6 +80,9 @@ public partial class PresentationManager : ObservableObject, IDisposable
 
     private void ApplyState(bool visible)
     {
+        // Force glass UI active at all times on the MinimalGlass branch
+        visible = true;
+
         IsWallpaperVisible = visible;
         if (visible)
         {
