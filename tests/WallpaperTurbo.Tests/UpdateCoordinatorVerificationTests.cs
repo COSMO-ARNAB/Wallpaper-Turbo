@@ -228,6 +228,63 @@ public class UpdateCoordinatorVerificationTests
         Assert.Equal(UpdateState.ReadyToInstall, fixture.Coordinator.CurrentState);
     }
 
+    [Fact]
+    public async Task Install_WhenInstallerLaunchSucceeds_ShutsDownCurrentProcessAfterLaunch()
+    {
+        var fixture = await CreateReadyToInstallFixtureAsync();
+
+        await fixture.Coordinator.InstallUpdateAsync();
+
+        Assert.Equal(
+            new[] { "shutdown-others", "launch-installer", "shutdown-current" },
+            fixture.Events);
+        Assert.Equal(UpdateState.Installing, fixture.Coordinator.CurrentState);
+    }
+
+    [Fact]
+    public async Task Install_WhenInstallerLaunchFails_DoesNotShutDownCurrentProcess()
+    {
+        var fixture = await CreateReadyToInstallFixtureAsync();
+        fixture.Applier.ExceptionToThrow = new InvalidOperationException("launch failed");
+        UpdateErrorEventArgs? capturedError = null;
+        fixture.Coordinator.ErrorOccurred += (_, error) => capturedError = error;
+
+        await fixture.Coordinator.InstallUpdateAsync();
+
+        Assert.Equal(new[] { "shutdown-others", "launch-installer" }, fixture.Events);
+        Assert.Equal(UpdateState.Failed, fixture.Coordinator.CurrentState);
+        Assert.NotNull(capturedError);
+        Assert.Contains("launch", capturedError!.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Install_WhenOtherProcessesCannotBeStopped_DoesNotLaunchInstaller()
+    {
+        var fixture = await CreateReadyToInstallFixtureAsync();
+        fixture.ProcessManager.ShutdownOthersResult = false;
+
+        await fixture.Coordinator.InstallUpdateAsync();
+
+        Assert.Equal(new[] { "shutdown-others" }, fixture.Events);
+        Assert.Equal(UpdateState.Failed, fixture.Coordinator.CurrentState);
+    }
+
+    private static async Task<CoordinatorFixture> CreateReadyToInstallFixtureAsync()
+    {
+        var fixture = new CoordinatorFixture();
+        fixture.UpdateService.ManifestToReturn = MakeManifest(
+            ComputeSha256Hex(TestBytes),
+            SignatureRequirement.Sha256Only,
+            ReleaseChannel.Stable,
+            new SemanticVersion(2, 0, 0));
+        fixture.DownloadManager.BytesToWrite = TestBytes;
+
+        await fixture.Coordinator.CheckForUpdatesAsync(ReleaseChannel.Stable);
+        await fixture.Coordinator.DownloadUpdateAsync();
+        Assert.Equal(UpdateState.ReadyToInstall, fixture.Coordinator.CurrentState);
+        return fixture;
+    }
+
     // -----------------------------------------------------------------------
     // Test fakes
     // -----------------------------------------------------------------------
@@ -268,14 +325,34 @@ public class UpdateCoordinatorVerificationTests
 
     private sealed class FakeUpdateApplier : IUpdateApplier
     {
+        private readonly List<string> _events;
         public bool ApplyWasCalled;
-        public void ApplyUpdate(string installerFilePath) => ApplyWasCalled = true;
+        public Exception? ExceptionToThrow;
+
+        public FakeUpdateApplier(List<string> events) => _events = events;
+
+        public void ApplyUpdate(string installerFilePath)
+        {
+            ApplyWasCalled = true;
+            _events.Add("launch-installer");
+            if (ExceptionToThrow is not null) throw ExceptionToThrow;
+        }
     }
 
     private sealed class FakeProcessManager : IProcessManager
     {
-        public Task<bool> ShutdownOtherProcessesGracefullyAsync(int timeoutMilliseconds) => Task.FromResult(true);
-        public void ShutdownCurrentProcessGracefully() { }
+        private readonly List<string> _events;
+        public bool ShutdownOthersResult = true;
+
+        public FakeProcessManager(List<string> events) => _events = events;
+
+        public Task<bool> ShutdownOtherProcessesGracefullyAsync(int timeoutMilliseconds)
+        {
+            _events.Add("shutdown-others");
+            return Task.FromResult(ShutdownOthersResult);
+        }
+
+        public void ShutdownCurrentProcessGracefully() => _events.Add("shutdown-current");
     }
 
     private sealed class CoordinatorFixture
@@ -283,12 +360,15 @@ public class UpdateCoordinatorVerificationTests
         public FakeUpdateService UpdateService { get; } = new();
         public FakeDownloadManager DownloadManager { get; } = new();
         public FakeSignatureValidator SignatureValidator { get; } = new();
-        public FakeUpdateApplier Applier { get; } = new();
-        public FakeProcessManager ProcessManager { get; } = new();
+        public List<string> Events { get; } = new();
+        public FakeUpdateApplier Applier { get; }
+        public FakeProcessManager ProcessManager { get; }
         public UpdateCoordinator Coordinator { get; }
 
         public CoordinatorFixture()
         {
+            Applier = new FakeUpdateApplier(Events);
+            ProcessManager = new FakeProcessManager(Events);
             Coordinator = new UpdateCoordinator(
                 UpdateService,
                 DownloadManager,

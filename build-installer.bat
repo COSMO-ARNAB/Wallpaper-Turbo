@@ -1,11 +1,17 @@
 @echo off
 title Wallpaper Turbo Installer Compiler
+for /f "usebackq delims=" %%V in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\get-release-version.ps1"`) do set "RELEASE_VERSION=%%V"
+if "%RELEASE_VERSION%"=="" (
+    echo [ERROR] Could not resolve the release version from MSBuild.
+    exit /b 1
+)
+echo [INFO] Release version: %RELEASE_VERSION%
 echo [1/6] Cleaning up previous artifacts...
 if exist publish rmdir /s /q publish
 if exist setup rmdir /s /q setup
 
 echo [2/6] Publishing Wallpaper Turbo in Release Mode (Self-Contained win-x64)...
-dotnet publish src\WallpaperTurbo.UI\WallpaperTurbo.UI.csproj -c Release -r win-x64 -p:Platform=x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -o "%~dp0publish\"
+dotnet publish src\WallpaperTurbo.UI\WallpaperTurbo.UI.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version=%RELEASE_VERSION% --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=true -o "%~dp0publish\"
 
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Publishing failed!
@@ -31,7 +37,7 @@ if %ERRORLEVEL% NEQ 0 (
         set "ISCC_CMD=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
     )
 )
-"%ISCC_CMD%" src\WallpaperTurbo.Installer\installer.iss
+"%ISCC_CMD%" /DMyAppVersion=%RELEASE_VERSION% src\WallpaperTurbo.Installer\installer.iss
 
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Installation build failed! Ensure Inno Setup is installed and ISCC is in system PATH or local Programs folders.
@@ -48,12 +54,17 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo [6/6] Generating update.json manifest...
-rem Version + channel detection lives in scripts\build-update-manifest.ps1
-rem (reads installer.iss directly). CMD's `"` parser is too brittle for
-rem inline substring extraction, so we delegate the parsing to PowerShell.
-powershell -ExecutionPolicy Bypass -NoProfile -File "scripts\build-update-manifest.ps1" -InstallerPath "setup\Wallpaper_Turbo_Setup.exe" -OutputPath "setup\update.json"
+rem The version is supplied explicitly from Directory.Build.props.
+powershell -ExecutionPolicy Bypass -NoProfile -File "scripts\build-update-manifest.ps1" -Version "%RELEASE_VERSION%" -InstallerPath "setup\Wallpaper_Turbo_Setup.exe" -OutputPath "setup\update.json"
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] update.json manifest generation failed!
+    pause
+    exit /b %ERRORLEVEL%
+)
+
+powershell -ExecutionPolicy Bypass -NoProfile -File "%~dp0scripts\validate-release.ps1" -Version "%RELEASE_VERSION%" -InstallerPath "%~dp0setup\Wallpaper_Turbo_Setup.exe" -ManifestPath "%~dp0setup\update.json" -PublishDir "%~dp0publish"
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Release integrity validation failed!
     pause
     exit /b %ERRORLEVEL%
 )

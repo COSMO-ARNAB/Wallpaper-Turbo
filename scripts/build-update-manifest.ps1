@@ -53,14 +53,7 @@ function Resolve-RepoName {
 function Resolve-Version {
     param([string] $Default)
     if (-not [string]::IsNullOrWhiteSpace($Default)) { return $Default }
-    $issPath = Join-Path $PSScriptRoot "..\src\WallpaperTurbo.Installer\installer.iss"
-    $issPath = [System.IO.Path]::GetFullPath($issPath)
-    if (Test-Path -LiteralPath $issPath) {
-        $content = Get-Content -LiteralPath $issPath -Raw
-        $m = [regex]::Match($content, 'MyAppVersion\s+"(?<v>[^"]+)"')
-        if ($m.Success) { return $m.Groups["v"].Value }
-    }
-    throw "Could not determine Version. Pass -Version explicitly or ensure installer.iss exists."
+    throw "Version is required. Resolve it from Directory.Build.props and pass -Version explicitly."
 }
 
 function Resolve-ChannelFromVersion {

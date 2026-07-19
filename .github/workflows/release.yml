@@ -15,6 +15,19 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
+    - name: Resolve and validate release tag
+      shell: pwsh
+      run: |
+        $version = $env:GITHUB_REF_NAME -replace '^v', ''
+        if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') { throw "Invalid release tag: $env:GITHUB_REF_NAME" }
+        $sourceVersion = .\scripts\get-release-version.ps1
+        if ($sourceVersion -ne $version) { throw "Release tag version '$version' does not match Directory.Build.props version '$sourceVersion'." }
+        "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+        $existing = gh release view $env:GITHUB_REF_NAME 2>$null
+        if ($LASTEXITCODE -eq 0) { throw "Release $env:GITHUB_REF_NAME already exists; refusing to overwrite release assets." }
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
@@ -25,25 +38,31 @@ jobs:
         dotnet restore src/WallpaperTurbo.UI/WallpaperTurbo.UI.csproj -p:Platform=x64
         dotnet restore src/WallpaperTurbo.AppRunner/WallpaperTurbo.AppRunner.csproj -p:Platform=x64
 
+    - name: Run tests
+      run: dotnet test tests/WallpaperTurbo.Tests/WallpaperTurbo.Tests.csproj --configuration Release
+
     - name: Compile and Publish WPF App
       run: |
-        dotnet publish src/WallpaperTurbo.UI/WallpaperTurbo.UI.csproj -c Release -r win-x64 -p:Platform=x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -o ${{ github.workspace }}/publish/
+        dotnet publish src/WallpaperTurbo.UI/WallpaperTurbo.UI.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version=${{ env.RELEASE_VERSION }} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=true -o ${{ github.workspace }}/publish/
 
     - name: Install Inno Setup
       run: choco install innosetup
 
     - name: Build Installer (Inno Setup)
       shell: cmd
-      run: '"C:\Program Files (x86)\Inno Setup 6\iscc.exe" src/WallpaperTurbo.Installer/installer.iss'
+      run: '"C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyAppVersion=${{ env.RELEASE_VERSION }} src/WallpaperTurbo.Installer/installer.iss'
 
     - name: Generate Update Manifest
       shell: pwsh
       run: |
-        .\scripts\build-update-manifest.ps1 -InstallerPath "setup\Wallpaper_Turbo_Setup.exe" -OutputPath "setup\update.json"
+        .\scripts\build-update-manifest.ps1 -Version "${{ env.RELEASE_VERSION }}" -InstallerPath "setup\Wallpaper_Turbo_Setup.exe" -OutputPath "setup\update.json"
+        .\scripts\validate-release.ps1 -Version "${{ env.RELEASE_VERSION }}" -InstallerPath "setup\Wallpaper_Turbo_Setup.exe" -ManifestPath "setup\update.json" -PublishDir "publish"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: v${{ env.RELEASE_VERSION }}
+        fail_on_unmatched_files: true
         files: |
           setup/Wallpaper_Turbo_Setup.exe
           setup/update.json
