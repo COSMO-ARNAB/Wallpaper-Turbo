@@ -73,6 +73,8 @@ public partial class SettingsViewModel : ObservableObject
             _pauseOnFullscreen = settings.PauseOnMaximized;
             _muteWallpaperAudio = settings.MuteAudio;
             _selectedGpuPreference = settings.GpuPreference;
+            _autoStartWallpaperEngine = settings.AutoStartWallpaperEngine;
+            _rememberLastWallpaper = settings.RememberLastWallpaper;
         }
         finally
         {
@@ -109,6 +111,8 @@ public partial class SettingsViewModel : ObservableObject
                 if (PauseOnFullscreen != newSettings.PauseOnMaximized) PauseOnFullscreen = newSettings.PauseOnMaximized;
                 if (MuteWallpaperAudio != newSettings.MuteAudio) MuteWallpaperAudio = newSettings.MuteAudio;
                 if (SelectedGpuPreference != newSettings.GpuPreference) SelectedGpuPreference = newSettings.GpuPreference;
+                if (AutoStartWallpaperEngine != newSettings.AutoStartWallpaperEngine) AutoStartWallpaperEngine = newSettings.AutoStartWallpaperEngine;
+                if (RememberLastWallpaper != newSettings.RememberLastWallpaper) RememberLastWallpaper = newSettings.RememberLastWallpaper;
             }
             finally
             {
@@ -162,6 +166,30 @@ public partial class SettingsViewModel : ObservableObject
 
         var settings = _settingsStore.Load();
         settings.MuteAudio = value;
+        _settingsStore.Save(settings);
+    }
+
+    partial void OnAutoStartWallpaperEngineChanged(bool value)
+    {
+        if (_isSyncing) return;
+
+        var settings = _settingsStore.Load();
+        settings.AutoStartWallpaperEngine = value;
+        _settingsStore.Save(settings);
+    }
+
+    partial void OnRememberLastWallpaperChanged(bool value)
+    {
+        if (_isSyncing) return;
+
+        var settings = _settingsStore.Load();
+        settings.RememberLastWallpaper = value;
+        // If the user turns off "remember last wallpaper", drop the persisted
+        // restore target so the next launch doesn't resurrect it.
+        if (!value)
+        {
+            settings.LastActiveWallpaperId = null;
+        }
         _settingsStore.Save(settings);
     }
 

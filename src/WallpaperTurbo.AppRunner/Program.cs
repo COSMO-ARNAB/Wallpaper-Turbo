@@ -55,6 +55,10 @@ internal static class Program
     // Semaphore to serialize IPC command processing (prevents race conditions
     // when rapid Live Swap / pause / play / mute commands arrive concurrently)
     private static readonly SemaphoreSlim _ipcLock = new(1, 1);
+    private static readonly object _stateFileLock = new();
+    private static int _lastStateIndex = -1;
+    private static string _lastStateTitle = "No Active Wallpaper";
+    private static bool _lastStateIsPlaying = false;
 
     // ── Idea 2: Manifest cache + FileSystemWatcher invalidation ──────────────────
     // The manifests are only re-read from disk when the watcher fires, not on every swap.
@@ -1389,6 +1393,29 @@ internal static class Program
                 }
             });
 
+            // Heartbeat: rewrite active_state.json every 60 seconds so the UI's freshness
+            // validation (5-minute window) keeps recognizing this healthy session during
+            // long, unchanged playback sessions.
+            _ = Task.Run(async () =>
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await Task.Delay(60000, cts.Token);
+                        UpdateActiveStateFile(_lastStateIndex, _lastStateTitle, _lastStateIsPlaying);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch
+                    {
+                        // Safe failure
+                    }
+                }
+            });
+
             // Start Named Pipe IPC Server for real-time UI control
             _ = Task.Run(async () =>
             {
@@ -1632,6 +1659,10 @@ internal static class Program
 
         switch (command)
         {
+            case "ping":
+                // Liveness handshake used by the UI's startup coordinator
+                return "pong";
+
             case "swap":
                 if (int.TryParse(args, out int newIndex))
                 {
@@ -2312,26 +2343,38 @@ internal static class Program
 
     private static void UpdateActiveStateFile(int index, string title, bool isPlaying)
     {
-        try
+        lock (_stateFileLock)
         {
-            string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo");
-            Directory.CreateDirectory(appDataDir);
-            string stateFilePath = Path.Combine(appDataDir, "active_state.json");
-            
-            var state = new Dictionary<string, object>
+            // Remember the last written state so the heartbeat can refresh the timestamp
+            _lastStateIndex = index;
+            _lastStateTitle = title;
+            _lastStateIsPlaying = isPlaying;
+
+            try
             {
-                { "ActiveWallpaperIndex", index },
-                { "ActiveWallpaperTitle", title },
-                { "IsPlaying", isPlaying },
-                { "IpcPipeName", "WallpaperTurbo_IPC_" + Environment.ProcessId }
-            };
-            
-            string json = System.Text.Json.JsonSerializer.Serialize(state);
-            File.WriteAllText(stateFilePath, json);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[State] Failed to write active state file: {ex.Message}");
+                string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo");
+                Directory.CreateDirectory(appDataDir);
+                string stateFilePath = Path.Combine(appDataDir, "active_state.json");
+
+                var state = new Dictionary<string, object>
+                {
+                    { "ProcessId", Environment.ProcessId },
+                    { "ActiveWallpaperIndex", index },
+                    { "ActiveWallpaperTitle", title },
+                    { "IsPlaying", isPlaying },
+                    { "IpcPipeName", "WallpaperTurbo_IPC_" + Environment.ProcessId },
+                    { "UpdatedAtUtc", DateTime.UtcNow.ToString("o") }
+                };
+
+                string json = System.Text.Json.JsonSerializer.Serialize(state);
+                string tempFilePath = stateFilePath + ".tmp";
+                File.WriteAllText(tempFilePath, json);
+                File.Move(tempFilePath, stateFilePath, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[State] Failed to write active state file: {ex.Message}");
+            }
         }
     }
 }

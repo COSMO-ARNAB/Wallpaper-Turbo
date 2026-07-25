@@ -89,6 +89,9 @@ public class JsonSettingsStore : ISettingsStore
             MuteAudio = source.MuteAudio,
             StartWithWindows = source.StartWithWindows,
             LastRunVersion = source.LastRunVersion,
+            LastActiveWallpaperId = source.LastActiveWallpaperId,
+            AutoStartWallpaperEngine = source.AutoStartWallpaperEngine,
+            RememberLastWallpaper = source.RememberLastWallpaper,
             GpuPreference = source.GpuPreference,
             GlassBackdrop = source.GlassBackdrop,
             GlassOpacity = source.GlassOpacity

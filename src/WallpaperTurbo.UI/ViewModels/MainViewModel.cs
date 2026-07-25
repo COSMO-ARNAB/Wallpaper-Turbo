@@ -49,6 +49,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private bool _isEngineRunning;
 
     [ObservableProperty]
+    private bool _isEngineStartupTimedOut;
+
+    [ObservableProperty]
+    private string _engineStartupMessage = string.Empty;
+
+    [ObservableProperty]
     private bool _isPlaying = true;
 
     [ObservableProperty]
@@ -273,16 +279,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         else
         {
-            // Resume the last wallpaper shown in the dashboard hero when available.
+            // Start engine with the last genuinely active wallpaper.
+            // LastActiveWallpaperId is the one source of truth for restore (written only
+            // when AppRunner confirms playback) — never the recent-history fallback.
             var list = await _wallpaperService.GetWallpapersAsync();
             if (list.Any())
             {
-                var preferredWallpaper = _dashboardViewModel.CurrentWallpaper;
-                var wallpaperToLaunch = preferredWallpaper != null
-                    ? list.FirstOrDefault(w => w.Id == preferredWallpaper.Id || w.Title == preferredWallpaper.Title)
+                var lastActiveId = _settingsStore.Load().LastActiveWallpaperId;
+                var wallpaperToLaunch = !string.IsNullOrEmpty(lastActiveId)
+                    ? list.FirstOrDefault(w => w.Id == lastActiveId)
                     : null;
 
-                wallpaperToLaunch ??= list.First();
+                // Fall back to the dashboard's current wallpaper only if no persisted ID resolves
+                if (wallpaperToLaunch == null)
+                {
+                    var preferredWallpaper = _dashboardViewModel.CurrentWallpaper;
+                    wallpaperToLaunch = preferredWallpaper != null
+                        ? list.FirstOrDefault(w => w.Id == preferredWallpaper.Id || w.Title == preferredWallpaper.Title)
+                        : null;
+                }
+
+                wallpaperToLaunch ??= list[0];
 
                 int index = list.IndexOf(wallpaperToLaunch) + 1;
                 if (index > 0)
@@ -295,6 +312,49 @@ public partial class MainViewModel : ObservableObject, IDisposable
             }
         }
         UpdateEngineStatus();
+    }
+
+    /// <summary>
+    /// Applies the outcome of the startup coordinator so the UI can surface
+    /// "engine is still starting" with a retry path instead of hanging silently.
+    /// </summary>
+    public void ApplyStartupResult(StartupResult result)
+    {
+        if (result.TimedOut)
+        {
+            IsEngineStartupTimedOut = true;
+            EngineStartupMessage = result.ErrorMessage ?? "Wallpaper engine is still starting.";
+        }
+        else
+        {
+            IsEngineStartupTimedOut = false;
+            EngineStartupMessage = string.Empty;
+
+            if (result.IsEngineRunning && result.ActiveWallpaper != null)
+            {
+                SetActiveWallpaperInfo(
+                    result.ActiveWallpaper.Title,
+                    $"{result.ActiveWallpaper.Resolution} • {result.ActiveWallpaper.Fps}");
+                _dashboardViewModel.LastDisplayedWallpaper = result.ActiveWallpaper;
+            }
+        }
+        UpdateEngineStatus();
+    }
+
+    [RelayCommand]
+    private async Task RetryEngineStartAsync()
+    {
+        IsEngineStartupTimedOut = false;
+        EngineStartupMessage = string.Empty;
+
+        var coordinator = App.GetService<WallpaperStartupCoordinator>();
+        if (coordinator == null)
+        {
+            return;
+        }
+
+        var result = await coordinator.EnsureWallpaperRunningAsync();
+        ApplyStartupResult(result);
     }
 
     [RelayCommand]

@@ -16,6 +16,7 @@ obj/
 .kilo/
 .codex-build/
 .opencode/
+graphify-out/
 
 # ─────────────────────────────────────────────
 # Node / npm (not part of .NET project)

@@ -866,12 +866,14 @@
                                     </StackPanel>
                                 </ToggleButton>
 
-                                <ToggleButton IsChecked="{Binding AutoStartEngine}" Margin="4,4,0,0" Height="48" Background="#10FFFFFF" BorderThickness="0">
+                                <ui:Button Command="{Binding DataContext.RetryEngineStartCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Visibility="{Binding DataContext.IsEngineStartupTimedOut, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisConverter}}"
+                                            Margin="4,4,0,0" Height="48" CornerRadius="4" BorderThickness="0" Background="#10FFFFFF">
                                     <StackPanel Orientation="Horizontal" Margin="8,0">
-                                        <ui:SymbolIcon Symbol="Flash24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Auto Engine" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <ui:SymbolIcon Symbol="ArrowSync24" Foreground="{StaticResource ActivePurpleBrush}" FontSize="16" Margin="0,8,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Retry Engine" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
                                     </StackPanel>
-                                </ToggleButton>
+                                </ui:Button>
                             </UniformGrid>
 
                             <ui:Button Command="{Binding DataContext.ToggleEngineCommand, RelativeSource={RelativeSource AncestorType=Window}}"

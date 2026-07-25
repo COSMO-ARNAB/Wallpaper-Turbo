@@ -323,37 +323,41 @@ public class WallpaperSessionEventArgs : EventArgs
 }
 
 public class WallpaperService
-{
-    private readonly IWallpaperLibraryService _libraryService;
-    private readonly ISettingsStore _settingsStore;
-    private readonly IGpuPreferenceService _gpuPreferenceService;
-    private string _manifestPath = string.Empty;
-    private string _appRunnerDir = string.Empty;
-    private string _appRunnerExePath = string.Empty; // Non-readonly so test fixtures can override via reflection
-    private List<WallpaperEntry> _wallpapers = new();
-    private readonly object _wallpaperLock = new();
-    private int _activeWallpaperIndex = -1;
-    private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
-    private DateTime _lastStateFileWriteTime = DateTime.MinValue;
-
-    public WallpaperSessionEventArgs? ActiveSession { get; private set; }
-    public event EventHandler<WallpaperSessionEventArgs>? SessionStateChanged;
-
-    private string _activePauseProfile = "Maximized";
-    public string ActivePauseProfile
     {
-        get => _activePauseProfile;
-        set
+        private readonly IWallpaperLibraryService _libraryService;
+        private readonly ISettingsStore _settingsStore;
+        private readonly IGpuPreferenceService _gpuPreferenceService;
+        private string _manifestPath = string.Empty;
+        private string _appRunnerDir = string.Empty;
+        private string _appRunnerExePath = string.Empty; // Non-readonly so test fixtures can override via reflection
+        private List<WallpaperEntry> _wallpapers = new();
+        private readonly object _wallpaperLock = new();
+private int _activeWallpaperIndex = -1;
+        private string? _activeWallpaperId; // Track by ID for stability across reloads
+        private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
+        private DateTime _lastStateFileWriteTime = DateTime.MinValue;
+        private string? _cachedIpcPipeName;
+        private readonly SemaphoreSlim _launchGate = new(1, 1); // Single-flight gate for wallpaper launches
+        private int _launchGeneration; // Increments on each launch request to discard stale completions
+
+        public WallpaperSessionEventArgs? ActiveSession { get; private set; }
+        public event EventHandler<WallpaperSessionEventArgs>? SessionStateChanged;
+
+        private string _activePauseProfile = "Maximized";
+        public string ActivePauseProfile
         {
-            if (_activePauseProfile != value)
+            get => _activePauseProfile;
+            set
             {
-                _activePauseProfile = value;
-                _ = UpdatePauseProfileAsync(value);
+                if (_activePauseProfile != value)
+                {
+                    _activePauseProfile = value;
+                    _ = UpdatePauseProfileAsync(value);
+                }
             }
         }
-    }
-    public bool UseSoftwareDecoding { get; set; } = false;
-    public string AppRunnerExePath => _appRunnerExePath;
+        public bool UseSoftwareDecoding { get; set; } = false;
+        public string AppRunnerExePath => _appRunnerExePath;
 
     public WallpaperService(IWallpaperLibraryService libraryService, ISettingsStore settingsStore, IGpuPreferenceService gpuPreferenceService)
     {
@@ -516,253 +520,389 @@ public class WallpaperService
         return isRunning;
     }
 
-    private void SyncActiveStateFromFile()
-    {
-        try
+private void SyncActiveStateFromFile()
         {
-            string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo");
-            string stateFilePath = Path.Combine(appDataDir, "active_state.json");
-            if (File.Exists(stateFilePath))
+            try
             {
-                // Performance cache optimization: Check last write time before parsing JSON from disk
-                DateTime currentWriteTime = File.GetLastWriteTimeUtc(stateFilePath);
-                if (currentWriteTime == _lastStateFileWriteTime)
+                string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WallpaperTurbo");
+                string stateFilePath = Path.Combine(appDataDir, "active_state.json");
+                if (File.Exists(stateFilePath))
                 {
-                    return;
-                }
-                _lastStateFileWriteTime = currentWriteTime;
+                    // Performance cache optimization: Check last write time before parsing JSON from disk
+                    DateTime currentWriteTime = File.GetLastWriteTimeUtc(stateFilePath);
+                    if (currentWriteTime == _lastStateFileWriteTime)
+                    {
+                        return;
+                    }
+                    _lastStateFileWriteTime = currentWriteTime;
 
-                string title = string.Empty;
-                bool isPlaying = false;
-                int activeIndex = _activeWallpaperIndex;
+                    string title = string.Empty;
+                    bool isPlaying = false;
+                    int activeIndex = _activeWallpaperIndex;
 
-                using var fs = new FileStream(stateFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                using var doc = JsonDocument.Parse(fs);
-                var root = doc.RootElement;
-                if (root.TryGetProperty("ActiveWallpaperIndex", out var idxProp))
-                {
-                    int index = idxProp.GetInt32();
-                    activeIndex = index;
-                if (index != _activeWallpaperIndex)
-                {
-                    _activeWallpaperIndex = index;
-                    UpdateActiveStates(index);
-                        
-                        WallpaperEntry? activeWallpaper = null;
-                        lock (_wallpaperLock)
+                    using var fs = new FileStream(stateFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    using var doc = JsonDocument.Parse(fs);
+                    var root = doc.RootElement;
+
+                    // Validate state is not stale: must have ProcessId matching a running AppRunner, and recent UpdatedAtUtc
+                    if (!ValidateStateFile(root))
+                    {
+                        // Stale state — clear cached pipe name so we don't retry a dead IPC
+                        ClearCachedIpcPipeName();
+                        return;
+                    }
+
+                    if (root.TryGetProperty("ActiveWallpaperIndex", out var idxProp))
+                    {
+                        int index = idxProp.GetInt32();
+                        activeIndex = index;
+                        if (index != _activeWallpaperIndex)
                         {
-                            if (index > 0 && index <= _wallpapers.Count)
+                            _activeWallpaperIndex = index;
+                            UpdateActiveStates(index);
+                                
+                            WallpaperEntry? activeWallpaper = null;
+                            lock (_wallpaperLock)
                             {
-                                activeWallpaper = _wallpapers[index - 1];
+                                if (index > 0 && index <= _wallpapers.Count)
+                                {
+                                    activeWallpaper = _wallpapers[index - 1];
+                                }
+                            }
+
+                            if (activeWallpaper != null)
+                            {
+                                _activeWallpaperId = activeWallpaper.Id;
+                                Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                                {
+                                    var mainVm = App.GetService<MainViewModel>();
+                                    if (mainVm != null)
+                                    {
+                                        mainVm.SetActiveWallpaperInfo(activeWallpaper.Title, $"{activeWallpaper.Resolution} • {activeWallpaper.Fps}");
+                                    }
+                                }));
                             }
                         }
-
-                        if (activeWallpaper != null)
+                    }
+                    
+                    if (root.TryGetProperty("ActiveWallpaperTitle", out var titleProp))
+                    {
+                        title = titleProp.GetString() ?? string.Empty;
+                        if (!string.IsNullOrEmpty(title))
                         {
                             Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                             {
                                 var mainVm = App.GetService<MainViewModel>();
-                                if (mainVm != null)
+                                if (mainVm != null && mainVm.ActiveWallpaperTitle != title)
                                 {
-                                    mainVm.SetActiveWallpaperInfo(activeWallpaper.Title, $"{activeWallpaper.Resolution} • {activeWallpaper.Fps}");
+                                    WallpaperEntry? wp;
+                                    lock (_wallpaperLock)
+                                    {
+                                        wp = _wallpapers.FirstOrDefault(w => w.Title == title);
+                                    }
+                                    string specs = wp != null ? $"{wp.Resolution} • {wp.Fps}" : "3840 x 2160 • 60 FPS";
+                                    mainVm.SetActiveWallpaperInfo(title, specs);
                                 }
                             }));
                         }
                     }
-                }
-                
-                if (root.TryGetProperty("ActiveWallpaperTitle", out var titleProp))
-                {
-                    title = titleProp.GetString() ?? string.Empty;
-                    if (!string.IsNullOrEmpty(title))
+
+                    if (root.TryGetProperty("IsPlaying", out var playingProp))
                     {
+                        isPlaying = playingProp.GetBoolean();
                         Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                         {
                             var mainVm = App.GetService<MainViewModel>();
-                            if (mainVm != null && mainVm.ActiveWallpaperTitle != title)
+                            if (mainVm != null && mainVm.IsPlaying != isPlaying)
                             {
-                                WallpaperEntry? wp;
-                                lock (_wallpaperLock)
-                                {
-                                    wp = _wallpapers.FirstOrDefault(w => w.Title == title);
-                                }
-                                string specs = wp != null ? $"{wp.Resolution} • {wp.Fps}" : "3840 x 2160 • 60 FPS";
-                                mainVm.SetActiveWallpaperInfo(title, specs);
+                                mainVm.IsPlaying = isPlaying;
                             }
                         }));
                     }
-                }
 
-                if (root.TryGetProperty("IsPlaying", out var playingProp))
-                {
-                    isPlaying = playingProp.GetBoolean();
-                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    WallpaperEntry? activeWallpaperForSession = null;
+                    lock (_wallpaperLock)
                     {
-                        var mainVm = App.GetService<MainViewModel>();
-                        if (mainVm != null && mainVm.IsPlaying != isPlaying)
+                        if (activeIndex > 0 && activeIndex <= _wallpapers.Count)
                         {
-                            mainVm.IsPlaying = isPlaying;
+                            activeWallpaperForSession = _wallpapers[activeIndex - 1];
+                            if (string.IsNullOrEmpty(title))
+                            {
+                                title = activeWallpaperForSession.Title;
+                            }
                         }
-                    }));
+                    }
+
+                    // Notify session changed
+                    bool isVisible = isPlaying && (activeIndex > 0);
+                    string thumbnail = "";
+                    if (activeWallpaperForSession != null)
+                    {
+                        thumbnail = activeWallpaperForSession.Thumbnail;
+                    }
+                    
+                    var newSession = new WallpaperSessionEventArgs(title, thumbnail, isPlaying, isVisible);
+                    if (ActiveSession == null || 
+                        ActiveSession.WallpaperTitle != newSession.WallpaperTitle || 
+                        ActiveSession.IsPlaying != newSession.IsPlaying || 
+                        ActiveSession.IsActive != newSession.IsActive)
+                    {
+                        ActiveSession = newSession;
+                        SessionStateChanged?.Invoke(this, newSession);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore file read/parse errors during polling
+            }
+        }
+
+        private bool ValidateStateFile(JsonElement root)
+        {
+            try
+            {
+                // Must have ProcessId matching a running AppRunner
+                if (!root.TryGetProperty("ProcessId", out var pidProp))
+                {
+                    Debug.WriteLine("[WallpaperService] State file missing ProcessId — stale");
+                    return false;
+                }
+                int statePid = pidProp.GetInt32();
+                var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
+                bool pidMatches = runnerProcesses.Any(p => p.Id == statePid);
+                foreach (var p in runnerProcesses) p.Dispose();
+                if (!pidMatches)
+                {
+                    Debug.WriteLine($"[WallpaperService] State PID {statePid} not running — stale");
+                    return false;
                 }
 
-                WallpaperEntry? activeWallpaperForSession = null;
-                lock (_wallpaperLock)
+                // Must have recent UpdatedAtUtc (within 5 minutes)
+                if (root.TryGetProperty("UpdatedAtUtc", out var updatedProp))
                 {
-                    if (activeIndex > 0 && activeIndex <= _wallpapers.Count)
+                    if (DateTime.TryParse(updatedProp.GetString(), out var updated))
                     {
-                        activeWallpaperForSession = _wallpapers[activeIndex - 1];
-                        if (string.IsNullOrEmpty(title))
+                        if (DateTime.UtcNow - updated > TimeSpan.FromMinutes(5))
                         {
-                            title = activeWallpaperForSession.Title;
+                            Debug.WriteLine($"[WallpaperService] State file older than 5 minutes ({updated}) — stale");
+                            return false;
                         }
                     }
                 }
-
-                // Notify session changed
-                bool isVisible = isPlaying && (activeIndex > 0);
-                string thumbnail = "";
-                if (activeWallpaperForSession != null)
+                else
                 {
-                    thumbnail = activeWallpaperForSession.Thumbnail;
+                    Debug.WriteLine("[WallpaperService] State file missing UpdatedAtUtc — stale format");
+                    return false;
                 }
-                
-                var newSession = new WallpaperSessionEventArgs(title, thumbnail, isPlaying, isVisible);
-                if (ActiveSession == null || 
-                    ActiveSession.WallpaperTitle != newSession.WallpaperTitle || 
-                    ActiveSession.IsPlaying != newSession.IsPlaying || 
-                    ActiveSession.IsActive != newSession.IsActive)
-                {
-                    ActiveSession = newSession;
-                    SessionStateChanged?.Invoke(this, newSession);
-                }
-            }
-        }
-        catch
-        {
-            // Ignore file read/parse errors during polling
-        }
-    }
 
-    public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null, bool? softwareDecode = null, bool forceFreshLaunch = false)
-    {
-        DiagnosticsService.SetAction($"Wallpaper Service Launching Wallpaper: Index {index} (ForceFresh: {forceFreshLaunch})");
-
-        if (DebugFlags.SafeDebugMode)
-        {
-            Debug.WriteLine($"[ISOLATE] LaunchWallpaperAsync requested for index: {index}, pauseMode: {pauseMode}, softwareDecode: {softwareDecode}, forceFreshLaunch: {forceFreshLaunch}");
-            string title = "";
-            string thumbnail = "";
-            lock (_wallpaperLock)
-            {
-                _activeWallpaperIndex = index;
-                UpdateActiveStates(index);
-                _mockEngineRunning = true;
-
-                if (index > 0 && index <= _wallpapers.Count)
-                {
-                    title = _wallpapers[index - 1].Title;
-                    thumbnail = _wallpapers[index - 1].Thumbnail;
-                }
-            }
-            var newSession = new WallpaperSessionEventArgs(title, thumbnail, true, true);
-            ActiveSession = newSession;
-            SessionStateChanged?.Invoke(this, newSession);
-
-            DiagnosticsService.SetAction("Wallpaper Service Idle / Launch complete (SafeDebugMode)");
-            return await Task.FromResult(true);
-        }
-
-        // Idea 4: GPU preference sync only matters when launching a *fresh* process.
-        // A running engine cannot change its GPU mid-session, so skip the disk read
-        // and registry query entirely on the IPC live-swap path.
-        if (forceFreshLaunch || !IsEngineRunning())
-        {
-            try
-            {
-                var syncSettings = _settingsStore.Load();
-                var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
-                if (registryPref != syncSettings.GpuPreference)
-                {
-                    _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, syncSettings.GpuPreference);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[WallpaperService] GPU preference registry sync failed: {ex.Message}");
-            }
-        }
-
-        // Try to swap in real-time over IPC Named Pipe first (skip if fresh launch is forced)
-        if (!forceFreshLaunch && (await SendIpcCommandAsync($"swap {index}")) == "success")
-        {
-            lock (_wallpaperLock)
-            {
-                _activeWallpaperIndex = index;
-                UpdateActiveStates(index);
-            }
-            DiagnosticsService.SetAction("Wallpaper Service Idle / Swap via IPC complete");
-            return true;
-        }
-
-
-        if (!File.Exists(_appRunnerExePath))
-        {
-            Debug.WriteLine($"AppRunner executable not found at: {_appRunnerExePath}");
-            DiagnosticsService.SetAction("Wallpaper Service Idle / Launch failed (Exe missing)");
-            return false;
-        }
-
-        lock (_wallpaperLock)
-        {
-            _activeWallpaperIndex = index;
-            UpdateActiveStates(index);
-        }
-
-        string mode = pauseMode ?? ActivePauseProfile;
-        bool softDecode = softwareDecode ?? UseSoftwareDecoding;
-        bool isMuted = _settingsStore.Load().MuteAudio;
-
-        // Map UI "Disabled" option to AppRunner "None" parameter
-        if (string.Equals(mode, "Disabled", StringComparison.OrdinalIgnoreCase))
-        {
-            mode = "None";
-        }
-
-        bool result = await Task.Run(() =>
-        {
-            try
-            {
-                string decodeArg = softDecode ? " --software-decode" : string.Empty;
-                string muteArg = $" --mute-audio {isMuted.ToString().ToLowerInvariant()}";
-                int currentPid = Environment.ProcessId;
-                string args = $"--detach --wallpaper {index} --silent --pause-mode {mode}{decodeArg}{muteArg} --ui-pid {currentPid}";
-
-                DiagnosticsService.SetAction($"Wallpaper Service Starting process: {args}");
-
-                var psi = new ProcessStartInfo
-                {
-                    FileName = _appRunnerExePath,
-                    Arguments = args,
-                    UseShellExecute = true,
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    WorkingDirectory = _appRunnerDir
-                };
-
-                using var p = Process.Start(psi);
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error launching wallpaper process: {ex.Message}");
+                Debug.WriteLine($"[WallpaperService] State validation failed: {ex.Message}");
                 return false;
             }
-        });
+        }
 
-        DiagnosticsService.SetAction("Wallpaper Service Idle / Launch complete");
-        return result;
-    }
+        public void ClearCachedIpcPipeName()
+        {
+            _cachedIpcPipeName = null;
+        }
+
+        public async Task<bool> PingIpcAsync()
+        {
+            try
+            {
+                var result = await SendIpcCommandAsync("ping");
+                return result == "pong";
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null, bool? softwareDecode = null, bool forceFreshLaunch = false)
+        {
+            DiagnosticsService.SetAction($"Wallpaper Service Launching Wallpaper: Index {index} (ForceFresh: {forceFreshLaunch})");
+
+            if (DebugFlags.SafeDebugMode)
+            {
+                Debug.WriteLine($"[ISOLATE] LaunchWallpaperAsync requested for index: {index}, pauseMode: {pauseMode}, softwareDecode: {softwareDecode}, forceFreshLaunch: {forceFreshLaunch}");
+                string title = "";
+                string thumbnail = "";
+                lock (_wallpaperLock)
+                {
+                    _activeWallpaperIndex = index;
+                    UpdateActiveStates(index);
+                    _mockEngineRunning = true;
+
+                    if (index > 0 && index <= _wallpapers.Count)
+                    {
+                        title = _wallpapers[index - 1].Title;
+                        thumbnail = _wallpapers[index - 1].Thumbnail;
+                        _activeWallpaperId = _wallpapers[index - 1].Id;
+                    }
+                }
+                var newSession = new WallpaperSessionEventArgs(title, thumbnail, true, true);
+                ActiveSession = newSession;
+                SessionStateChanged?.Invoke(this, newSession);
+
+                DiagnosticsService.SetAction("Wallpaper Service Idle / Launch complete (SafeDebugMode)");
+                return await Task.FromResult(true);
+            }
+
+            // Single-flight gate: only one launch/swap at a time
+            var generation = Interlocked.Increment(ref _launchGeneration);
+            await _launchGate.WaitAsync();
+            try
+            {
+                // Idea 4: GPU preference sync only matters when launching a *fresh* process.
+                // A running engine cannot change its GPU mid-session, so skip the disk read
+                // and registry query entirely on the IPC live-swap path.
+                if (forceFreshLaunch || !IsEngineRunning())
+                {
+                    try
+                    {
+                        var syncSettings = _settingsStore.Load();
+                        var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
+                        if (registryPref != syncSettings.GpuPreference)
+                        {
+                            _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, syncSettings.GpuPreference);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WallpaperService] GPU preference registry sync failed: {ex.Message}");
+                    }
+                }
+
+                // Try to swap in real-time over IPC Named Pipe first (skip if fresh launch is forced)
+                if (!forceFreshLaunch && (await SendIpcCommandAsync($"swap {index}")) == "success")
+                {
+                    string? launchedId = null;
+                    lock (_wallpaperLock)
+                    {
+                        _activeWallpaperIndex = index;
+                        UpdateActiveStates(index);
+                        if (index > 0 && index <= _wallpapers.Count)
+                        {
+                            launchedId = _wallpapers[index - 1].Id;
+                            _activeWallpaperId = launchedId;
+                        }
+                    }
+
+                    // Persist the confirmed active wallpaper ID, but only if this launch is
+                    // still the current generation (a newer launch would have overwritten state)
+                    if (launchedId != null && generation == _launchGeneration)
+                    {
+                        await PersistLastActiveWallpaperIdAsync(launchedId);
+                    }
+
+                    DiagnosticsService.SetAction("Wallpaper Service Idle / Swap via IPC complete");
+                    return true;
+                }
+
+
+                if (!File.Exists(_appRunnerExePath))
+                {
+                    Debug.WriteLine($"AppRunner executable not found at: {_appRunnerExePath}");
+                    DiagnosticsService.SetAction("Wallpaper Service Idle / Launch failed (Exe missing)");
+                    return false;
+                }
+
+                string? launchedWallpaperId = null;
+                lock (_wallpaperLock)
+                {
+                    _activeWallpaperIndex = index;
+                    UpdateActiveStates(index);
+                    if (index > 0 && index <= _wallpapers.Count)
+                    {
+                        launchedWallpaperId = _wallpapers[index - 1].Id;
+                        _activeWallpaperId = launchedWallpaperId;
+                    }
+                }
+
+                string mode = pauseMode ?? ActivePauseProfile;
+                bool softDecode = softwareDecode ?? UseSoftwareDecoding;
+                bool isMuted = _settingsStore.Load().MuteAudio;
+
+                // Map UI "Disabled" option to AppRunner "None" parameter
+                if (string.Equals(mode, "Disabled", StringComparison.OrdinalIgnoreCase))
+                {
+                    mode = "None";
+                }
+
+                bool result = await Task.Run(() =>
+                {
+                    try
+                    {
+                        string decodeArg = softDecode ? " --software-decode" : string.Empty;
+                        string muteArg = $" --mute-audio {isMuted.ToString().ToLowerInvariant()}";
+                        int currentPid = Environment.ProcessId;
+                        string args = $"--detach --wallpaper {index} --silent --pause-mode {mode}{decodeArg}{muteArg} --ui-pid {currentPid}";
+
+                        DiagnosticsService.SetAction($"Wallpaper Service Starting process: {args}");
+
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = _appRunnerExePath,
+                            Arguments = args,
+                            UseShellExecute = true,
+                            CreateNoWindow = true,
+                            WindowStyle = ProcessWindowStyle.Hidden,
+                            WorkingDirectory = _appRunnerDir
+                        };
+
+                        using var p = Process.Start(psi);
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error launching wallpaper process: {ex.Message}");
+                        return false;
+                    }
+                });
+
+                // Only persist if this is still the current generation (no newer launch started)
+                if (result && generation == _launchGeneration && launchedWallpaperId != null)
+                {
+                    await PersistLastActiveWallpaperIdAsync(launchedWallpaperId);
+                }
+
+                DiagnosticsService.SetAction("Wallpaper Service Idle / Launch complete");
+                return result;
+            }
+            finally
+            {
+                _launchGate.Release();
+            }
+        }
+
+        private async Task PersistLastActiveWallpaperIdAsync(string wallpaperId)
+        {
+            try
+            {
+                var settings = _settingsStore.Load();
+                // Respect "remember last wallpaper": when off, don't persist a restore target.
+                if (!settings.RememberLastWallpaper)
+                {
+                    return;
+                }
+                if (settings.LastActiveWallpaperId != wallpaperId)
+                {
+                    settings.LastActiveWallpaperId = wallpaperId;
+                    _settingsStore.Save(settings);
+                    Debug.WriteLine($"[WallpaperService] Persisted LastActiveWallpaperId: {wallpaperId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WallpaperService] Failed to persist LastActiveWallpaperId: {ex.Message}");
+            }
+            await Task.CompletedTask;
+        }
 
     public async Task<bool> StopPlaybackAsync()
     {
@@ -949,8 +1089,6 @@ public class WallpaperService
         DiagnosticsService.SetAction($"Wallpaper Service updating mute state to {isMuted} via IPC");
         return (await SendIpcCommandAsync($"mute {isMuted.ToString().ToLowerInvariant()}")) == "success";
     }
-
-    private string? _cachedIpcPipeName;
 
     /// <summary>
     /// Determines the named pipe name used by the running AppRunner instance.

@@ -85,6 +85,9 @@ public partial class App : Application
         services.AddSingleton<ViewModels.SettingsViewModel>();
         services.AddSingleton<ViewModels.UpdaterViewModel>();
 
+        // Startup Coordinator
+        services.AddSingleton<Services.WallpaperStartupCoordinator>();
+
         // Presentation Management
         services.AddSingleton<Services.PresentationManager>();
 
@@ -219,6 +222,20 @@ public partial class App : Application
         {
             Console.WriteLine("DEBUG: Starting startup update check");
             _ = updater.RunStartupCheckAsync();
+        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+        // Start wallpaper engine coordination after UI is shown
+        var startupCoordinator = _serviceProvider.GetRequiredService<Services.WallpaperStartupCoordinator>();
+        mainWindow.Dispatcher.BeginInvoke(new System.Action(async () =>
+        {
+            Console.WriteLine("DEBUG: Starting wallpaper engine coordination");
+            var result = await startupCoordinator.EnsureWallpaperRunningAsync();
+            Console.WriteLine($"DEBUG: Wallpaper coordination result: running={result.IsEngineRunning}, timeout={result.TimedOut}");
+
+            // Surface the outcome to the UI: on timeout the user gets
+            // "Engine is still starting" with a Retry command instead of a silent hang
+            var mainVm = _serviceProvider.GetService<ViewModels.MainViewModel>();
+            mainVm?.ApplyStartupResult(result);
         }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
         Console.WriteLine("DEBUG: Calling base.OnStartup");

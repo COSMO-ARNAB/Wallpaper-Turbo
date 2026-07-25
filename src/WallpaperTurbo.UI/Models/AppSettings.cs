@@ -15,6 +15,12 @@ public class AppSettings
 
     public string LastRunVersion { get; set; } = string.Empty;
 
+    public string? LastActiveWallpaperId { get; set; }
+
+    public bool AutoStartWallpaperEngine { get; set; } = true;
+
+    public bool RememberLastWallpaper { get; set; } = true;
+
     public string GlassBackdrop { get; set; } = "Glass";
     public double GlassOpacity { get; set; } = 0.40;
 
