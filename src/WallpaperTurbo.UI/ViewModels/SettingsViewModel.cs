@@ -34,7 +34,7 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _selectedTheme = "System";
     [ObservableProperty] private string _selectedLayout = "Minimal";
-    [ObservableProperty] private string _selectedGlassBackdrop = "Glass";
+    [ObservableProperty] private string _selectedGlassBackdrop = "Mica";
     [ObservableProperty] private int _selectedGlassOpacityPercent = 40;
     [ObservableProperty] private GpuPreference _selectedGpuPreference = GpuPreference.Auto;
     [ObservableProperty] private bool _isGpuSwitching = false;
@@ -134,24 +134,42 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnActivePauseProfileChanged(string value)
     {
-        if (_isSyncing) return;
+        if (_isSyncing || value == null) return;
 
-        if (value != null)
+        bool isEnabled = value != "Disabled" && value != "None";
+        _isSyncing = true;
+        try
         {
-            _wallpaperService.ActivePauseProfile = value;
-            PauseOnFullscreen = value != "Disabled" && value != "None";
-
-            var settings = _settingsStore.Load();
-            settings.PauseOnMaximized = PauseOnFullscreen;
-            _settingsStore.Save(settings);
+            PauseOnFullscreen = isEnabled;
         }
+        finally
+        {
+            _isSyncing = false;
+        }
+
+        _wallpaperService.ActivePauseProfile = value;
+
+        var settings = _settingsStore.Load();
+        settings.PauseOnMaximized = isEnabled;
+        _settingsStore.Save(settings);
     }
 
     partial void OnPauseOnFullscreenChanged(bool value)
     {
         if (_isSyncing) return;
 
-        ActivePauseProfile = value ? "Maximized" : "Disabled";
+        string profile = value ? "Maximized" : "Disabled";
+        _isSyncing = true;
+        try
+        {
+            ActivePauseProfile = profile;
+        }
+        finally
+        {
+            _isSyncing = false;
+        }
+
+        _wallpaperService.ActivePauseProfile = profile;
 
         var settings = _settingsStore.Load();
         settings.PauseOnMaximized = value;

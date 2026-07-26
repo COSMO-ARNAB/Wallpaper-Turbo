@@ -78,9 +78,10 @@ public class PresentationManagerTests
 
         using var presentationManager = new PresentationManager(wallpaperService, store);
 
-        Assert.True(presentationManager.IsWallpaperVisible);
-        Assert.NotEqual(WindowBackdropMode.None, presentationManager.BackdropMode);
-        Assert.Equal(UIMaterialMode.Glass, presentationManager.MaterialMode);
+        Assert.False(presentationManager.IsWallpaperVisible);
+        Assert.Equal(WindowBackdropMode.Transient, presentationManager.BackdropMode);
+        Assert.Equal(UIMaterialMode.Solid, presentationManager.MaterialMode);
+        Assert.Equal(1.0, presentationManager.OverlayOpacity);
     }
 
     [Fact]
@@ -110,7 +111,7 @@ public class PresentationManagerTests
         SimulateSessionStateChange(wallpaperService, activeSession);
 
         Assert.True(presentationManager.IsWallpaperVisible);
-        Assert.Equal(WindowBackdropMode.Acrylic, presentationManager.BackdropMode);
+        Assert.Equal(WindowBackdropMode.Tabbed, presentationManager.BackdropMode);
         Assert.Equal(UIMaterialMode.Glass, presentationManager.MaterialMode);
         Assert.True(propertyChangedCount >= 0);
 
@@ -121,13 +122,13 @@ public class PresentationManagerTests
         var inactiveSession = new WallpaperSessionEventArgs("", "", false, false);
         SimulateSessionStateChange(wallpaperService, inactiveSession);
 
-        Assert.True(presentationManager.IsWallpaperVisible);
-        Assert.NotEqual(WindowBackdropMode.None, presentationManager.BackdropMode);
-        Assert.Equal(UIMaterialMode.Glass, presentationManager.MaterialMode);
+        Assert.False(presentationManager.IsWallpaperVisible);
+        Assert.Equal(WindowBackdropMode.Transient, presentationManager.BackdropMode);
+        Assert.Equal(UIMaterialMode.Solid, presentationManager.MaterialMode);
     }
 
     [Fact]
-    public void PresentationManager_Keeps_Glass_When_Wallpaper_Is_Active_But_Paused()
+    public void PresentationManager_Reverts_To_Solid_When_Wallpaper_Is_Paused()
     {
         var lib = new FakeWallpaperLibraryService();
         var store = new FakeSettingsStore();
@@ -136,17 +137,17 @@ public class PresentationManagerTests
 
         using var presentationManager = new PresentationManager(wallpaperService, store);
 
-        var pausedVisibleSession = new WallpaperSessionEventArgs("Sunset Walk", "thumb.jpg", false, true);
-        SimulateSessionStateChange(wallpaperService, pausedVisibleSession);
+        var pausedSession = new WallpaperSessionEventArgs("Sunset Walk", "thumb.jpg", false, true);
+        SimulateSessionStateChange(wallpaperService, pausedSession);
 
-        Assert.True(presentationManager.IsWallpaperVisible);
-        Assert.Equal(WindowBackdropMode.Acrylic, presentationManager.BackdropMode);
-        Assert.Equal(UIMaterialMode.Glass, presentationManager.MaterialMode);
+        Assert.False(presentationManager.IsWallpaperVisible);
+        Assert.Equal(WindowBackdropMode.Transient, presentationManager.BackdropMode);
+        Assert.Equal(UIMaterialMode.Solid, presentationManager.MaterialMode);
     }
 
     [Theory]
-    [InlineData("Acrylic", WindowBackdropMode.Acrylic)]
-    [InlineData("Mica", WindowBackdropMode.Mica)]
+    [InlineData("Mica", WindowBackdropMode.Tabbed)]
+    [InlineData("Glass", WindowBackdropMode.Transient)]
     [InlineData("None", WindowBackdropMode.None)]
     [InlineData("Tabbed", WindowBackdropMode.Tabbed)]
     public void PresentationManager_Maps_Backdrop_Settings_To_Dwm_Constants(

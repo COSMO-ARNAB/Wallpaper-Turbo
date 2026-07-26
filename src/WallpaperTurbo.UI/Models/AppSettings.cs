@@ -21,7 +21,7 @@ public class AppSettings
 
     public bool RememberLastWallpaper { get; set; } = true;
 
-    public string GlassBackdrop { get; set; } = "Glass";
+    public string GlassBackdrop { get; set; } = "Mica";
     public double GlassOpacity { get; set; } = 0.40;
 
     public bool UseHardwareAcceleration { get; set; } = true;

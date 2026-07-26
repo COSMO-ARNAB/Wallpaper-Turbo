@@ -44,11 +44,10 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Dynamic glass background tint overlay border at bottom of Z-order (Allows opacity slider to work) -->
+        <!-- Dynamic glass background tint overlay border at bottom of Z-order (Solid dark when idle, glassmorphic overlay when playing) -->
         <Border Grid.RowSpan="3"
                 Background="#0D0F15"
-                Opacity="{Binding DataContext.Presentation.OverlayOpacity, RelativeSource={RelativeSource AncestorType=Window}}"
-                Visibility="{Binding DataContext.Presentation.IsWallpaperVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisConverter}}" />
+                Opacity="{Binding DataContext.Presentation.OverlayOpacity, RelativeSource={RelativeSource AncestorType=Window}}" />
 
         <!-- ROW 0: TOP HEADER -->
         <Grid Grid.Row="0" Height="56">

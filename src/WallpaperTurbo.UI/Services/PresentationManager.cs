@@ -65,7 +65,7 @@ public partial class PresentationManager : ObservableObject, IDisposable
 
     private void SyncSessionState(WallpaperSessionEventArgs? session)
     {
-        bool visible = session != null && session.IsActive;
+        bool visible = session != null && session.IsActive && session.IsPlaying;
         var dispatcher = Application.Current?.Dispatcher;
         
         if (dispatcher == null || dispatcher.CheckAccess())
@@ -80,27 +80,39 @@ public partial class PresentationManager : ObservableObject, IDisposable
 
     private void ApplyState(bool visible)
     {
-        // Force glass UI active at all times on the MinimalGlass branch
-        visible = true;
-
         IsWallpaperVisible = visible;
         if (visible)
         {
             var settings = _settingsStore.Load();
-            if (Enum.TryParse<WindowBackdropMode>(settings.GlassBackdrop, out var customBackdrop))
+            string setting = settings.GlassBackdrop ?? "Mica";
+
+            if (string.Equals(setting, "Mica", StringComparison.OrdinalIgnoreCase))
             {
-                BackdropMode = customBackdrop;
+                BackdropMode = WindowBackdropMode.Tabbed;
+            }
+            else if (string.Equals(setting, "Glass", StringComparison.OrdinalIgnoreCase))
+            {
+                BackdropMode = WindowBackdropMode.Transient;
+            }
+            else if (string.Equals(setting, "None", StringComparison.OrdinalIgnoreCase))
+            {
+                BackdropMode = WindowBackdropMode.None;
+            }
+            else if (Enum.TryParse<WindowBackdropMode>(setting, out var parsed))
+            {
+                BackdropMode = parsed;
             }
             else
             {
-                BackdropMode = WindowBackdropMode.Acrylic;
+                BackdropMode = WindowBackdropMode.Tabbed;
             }
+
             OverlayOpacity = settings.GlassOpacity;
             MaterialMode = UIMaterialMode.Glass;
         }
         else
         {
-            BackdropMode = WindowBackdropMode.None;
+            BackdropMode = WindowBackdropMode.Transient;
             OverlayOpacity = 1.0;
             MaterialMode = UIMaterialMode.Solid;
         }

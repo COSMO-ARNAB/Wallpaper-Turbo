@@ -172,8 +172,8 @@
                                 <TextBlock Text="Select dynamic window blur type" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,1,0,0" TextWrapping="Wrap" MaxWidth="160" HorizontalAlignment="Left" />
                             </StackPanel>
                             <ComboBox Grid.Column="2" SelectedValue="{Binding SelectedGlassBackdrop}" SelectedValuePath="Content" Width="140" HorizontalAlignment="Right" VerticalAlignment="Center" Cursor="Hand">
-                                <ComboBoxItem Content="Glass" />
                                 <ComboBoxItem Content="Mica" />
+                                <ComboBoxItem Content="Glass" />
                                 <ComboBoxItem Content="None" />
                             </ComboBox>
                         </Grid>

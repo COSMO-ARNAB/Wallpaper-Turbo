@@ -300,4 +300,203 @@
         </Setter>
     </Style>
 
+    <!-- ======================================================= -->
+    <!-- MINIMAL LAYOUT APPLE LIQUID GLASS TOGGLE SWITCH         -->
+    <!-- Glassmorphic Liquid Blur & Elastic Spring Physics        -->
+    <!-- ======================================================= -->
+
+    <SolidColorBrush x:Key="AppleSwitchTrackOffBrush" Color="#2A2F40" />
+    <SolidColorBrush x:Key="AppleSwitchTrackOnBrush" Color="#34C759" />
+
+    <LinearGradientBrush x:Key="AppleGlassTrackBorderBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#50FFFFFF" Offset="0" />
+        <GradientStop Color="#15FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="AppleGlassThumbBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FFFFFF" Offset="0" />
+        <GradientStop Color="#E6F2EC" Offset="1" />
+    </LinearGradientBrush>
+
+    <Style x:Key="AppleToggleSwitchStyle" TargetType="{x:Type ui:ToggleSwitch}">
+        <Setter Property="Width" Value="46" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ui:ToggleSwitch}">
+                    <Grid x:Name="RootGrid" Width="46" Height="24" Background="Transparent" SnapsToDevicePixels="True">
+                        <!-- 1. Outer Liquid Green Glow -->
+                        <Border x:Name="GlowEffect" CornerRadius="12" Opacity="0" Background="{StaticResource AppleSwitchTrackOnBrush}">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#34C759" BlurRadius="12" ShadowDepth="0" Opacity="0.45" />
+                            </Border.Effect>
+                        </Border>
+
+                        <!-- 2. Track OFF Background (Dark Glass) -->
+                        <Border x:Name="TrackBackground" 
+                                CornerRadius="12" 
+                                Background="{StaticResource AppleSwitchTrackOffBrush}" 
+                                BorderBrush="{StaticResource AppleGlassTrackBorderBrush}" 
+                                BorderThickness="1" />
+
+                        <!-- 3. Track ON Background (iOS Green) -->
+                        <Border x:Name="TrackActiveBackground" 
+                                CornerRadius="12" 
+                                Background="{StaticResource AppleSwitchTrackOnBrush}" 
+                                BorderBrush="{StaticResource AppleGlassTrackBorderBrush}"
+                                BorderThickness="1"
+                                Opacity="0" />
+
+                        <!-- 4. Liquid Glass Motion Blur Trail -->
+                        <Border x:Name="LiquidTrail" 
+                                Width="24" 
+                                Height="18" 
+                                CornerRadius="9" 
+                                Background="#66FFFFFF" 
+                                HorizontalAlignment="Left" 
+                                VerticalAlignment="Center" 
+                                Margin="3,0,0,0"
+                                Opacity="0"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.Effect>
+                                <BlurEffect Radius="12" KernelType="Gaussian" />
+                            </Border.Effect>
+                            <Border.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform x:Name="LiquidTrailScale" ScaleX="1.0" ScaleY="1.0" />
+                                    <TranslateTransform x:Name="LiquidTrailTranslate" X="0" Y="0" />
+                                </TransformGroup>
+                            </Border.RenderTransform>
+                        </Border>
+
+                        <!-- 5. Glass Thumb Knob with Specular Highlight -->
+                        <Border x:Name="ThumbKnob" 
+                                Width="18" 
+                                Height="18" 
+                                CornerRadius="9" 
+                                Background="{StaticResource AppleGlassThumbBrush}" 
+                                BorderBrush="#70FFFFFF"
+                                BorderThickness="1"
+                                HorizontalAlignment="Left" 
+                                VerticalAlignment="Center" 
+                                Margin="3,0,0,0"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#000000" BlurRadius="8" ShadowDepth="1.5" Opacity="0.28" />
+                            </Border.Effect>
+                            <Border.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform x:Name="ThumbScale" ScaleX="1.0" ScaleY="1.0" />
+                                    <TranslateTransform x:Name="ThumbTranslate" X="0" Y="0" />
+                                </TransformGroup>
+                            </Border.RenderTransform>
+                        </Border>
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <!-- Checked State (ON) -->
+                        <Trigger Property="IsChecked" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <!-- Thumb Translation -->
+                                        <DoubleAnimation Storyboard.TargetName="ThumbTranslate" 
+                                                         Storyboard.TargetProperty="X" 
+                                                         To="22" 
+                                                         Duration="0:0:0.22">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CircleEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+
+                                        <!-- Elastic Glass Stretch Animation -->
+                                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ThumbScale" 
+                                                                       Storyboard.TargetProperty="ScaleX">
+                                            <SplineDoubleKeyFrame KeyTime="0:0:0.10" Value="1.18" />
+                                            <SplineDoubleKeyFrame KeyTime="0:0:0.22" Value="1.00" />
+                                        </DoubleAnimationUsingKeyFrames>
+
+                                        <!-- Liquid Blur Trail Animation -->
+                                        <DoubleAnimation Storyboard.TargetName="LiquidTrailTranslate" 
+                                                         Storyboard.TargetProperty="X" 
+                                                         To="18" 
+                                                         Duration="0:0:0.22" />
+                                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LiquidTrail" 
+                                                                       Storyboard.TargetProperty="Opacity">
+                                            <SplineDoubleKeyFrame KeyTime="0:0:0.08" Value="0.75" />
+                                            <SplineDoubleKeyFrame KeyTime="0:0:0.22" Value="0.00" />
+                                        </DoubleAnimationUsingKeyFrames>
+
+                                        <!-- Background & Glow Fade -->
+                                        <DoubleAnimation Storyboard.TargetName="TrackActiveBackground" 
+                                                         Storyboard.TargetProperty="Opacity" 
+                                                         To="1" 
+                                                         Duration="0:0:0.18" />
+                                        <DoubleAnimation Storyboard.TargetName="GlowEffect" 
+                                                         Storyboard.TargetProperty="Opacity" 
+                                                         To="1" 
+                                                         Duration="0:0:0.2" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <!-- Thumb Translation OFF -->
+                                        <DoubleAnimation Storyboard.TargetName="ThumbTranslate" 
+                                                         Storyboard.TargetProperty="X" 
+                                                         To="0" 
+                                                         Duration="0:0:0.22">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CircleEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+
+                                        <!-- Elastic Glass Stretch Animation OFF -->
+                                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ThumbScale" 
+                                                                       Storyboard.TargetProperty="ScaleX">
+                                            <SplineDoubleKeyFrame KeyTime="0:0:0.10" Value="1.18" />
+                                            <SplineDoubleKeyFrame KeyTime="0:0:0.22" Value="1.00" />
+                                        </DoubleAnimationUsingKeyFrames>
+
+                                        <!-- Liquid Blur Trail Animation OFF -->
+                                        <DoubleAnimation Storyboard.TargetName="LiquidTrailTranslate" 
+                                                         Storyboard.TargetProperty="X" 
+                                                         To="0" 
+                                                         Duration="0:0:0.22" />
+                                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LiquidTrail" 
+                                                                       Storyboard.TargetProperty="Opacity">
+                                            <SplineDoubleKeyFrame KeyTime="0:0:0.08" Value="0.75" />
+                                            <SplineDoubleKeyFrame KeyTime="0:0:0.22" Value="0.00" />
+                                        </DoubleAnimationUsingKeyFrames>
+
+                                        <!-- Background & Glow Fade OFF -->
+                                        <DoubleAnimation Storyboard.TargetName="TrackActiveBackground" 
+                                                         Storyboard.TargetProperty="Opacity" 
+                                                         To="0" 
+                                                         Duration="0:0:0.18" />
+                                        <DoubleAnimation Storyboard.TargetName="GlowEffect" 
+                                                         Storyboard.TargetProperty="Opacity" 
+                                                         To="0" 
+                                                         Duration="0:0:0.2" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+
+                        <!-- Disabled State -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="RootGrid" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Implicit Override for ui:ToggleSwitch in Minimal Layout -->
+    <Style TargetType="{x:Type ui:ToggleSwitch}" BasedOn="{StaticResource AppleToggleSwitchStyle}" />
+
 </ResourceDictionary>
