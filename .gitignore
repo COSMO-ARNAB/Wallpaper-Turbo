@@ -80,3 +80,5 @@ git_diff.txt
 .claude/settings.local.json
 .github/hooks/impeccable.json
 skills-lock.json
+TestResults/
+[Tt]est[Rr]esults/
