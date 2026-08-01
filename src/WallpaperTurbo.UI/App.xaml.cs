@@ -41,6 +41,7 @@ public partial class App : Application
         services.AddSingleton<Services.ISettingsStore, Services.JsonSettingsStore>();
         services.AddSingleton<Services.IGpuPreferenceService, Services.WindowsGpuPreferenceService>();
         services.AddSingleton<Services.WallpaperService>();
+        services.AddSingleton<Services.PowerManagementService>();
         services.AddSingleton<Services.TelemetryService>();
         services.AddSingleton<Services.IWallpaperPreviewService, Services.WallpaperPreviewService>();
         services.AddSingleton<Services.DiagnosticsService>(); // Development-time stability counters
@@ -192,6 +193,9 @@ public partial class App : Application
         {
             Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme();
         }
+
+        // Initialize PowerManagementService to begin listening to Windows power line events
+        _serviceProvider.GetRequiredService<Services.PowerManagementService>();
 
         Services.StartupDiagnostics.StartTimer("MainWindow resolve");
         Console.WriteLine("DEBUG: Resolving MainWindow");

@@ -73,8 +73,12 @@ public partial class SettingsViewModel : ObservableObject
             _pauseOnFullscreen = settings.PauseOnMaximized;
             _muteWallpaperAudio = settings.MuteAudio;
             _selectedGpuPreference = settings.GpuPreference;
+<<<<<<< HEAD
             _autoStartWallpaperEngine = settings.AutoStartWallpaperEngine;
             _rememberLastWallpaper = settings.RememberLastWallpaper;
+=======
+            _batterySaverEnabled = settings.BatterySaverEnabled;
+>>>>>>> 3bf17cd (WIP: save power management and UI fixes before branch switch)
         }
         finally
         {
@@ -113,12 +117,22 @@ public partial class SettingsViewModel : ObservableObject
                 if (SelectedGpuPreference != newSettings.GpuPreference) SelectedGpuPreference = newSettings.GpuPreference;
                 if (AutoStartWallpaperEngine != newSettings.AutoStartWallpaperEngine) AutoStartWallpaperEngine = newSettings.AutoStartWallpaperEngine;
                 if (RememberLastWallpaper != newSettings.RememberLastWallpaper) RememberLastWallpaper = newSettings.RememberLastWallpaper;
+                if (BatterySaverEnabled != newSettings.BatterySaverEnabled) BatterySaverEnabled = newSettings.BatterySaverEnabled;
             }
             finally
             {
                 _isSyncing = false;
             }
         }));
+    }
+
+    partial void OnBatterySaverEnabledChanged(bool value)
+    {
+        if (_isSyncing) return;
+
+        var settings = _settingsStore.Load();
+        settings.BatterySaverEnabled = value;
+        _settingsStore.Save(settings);
     }
 
     partial void OnUseHardwareAccelerationChanged(bool value)

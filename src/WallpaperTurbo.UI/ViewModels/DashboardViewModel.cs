@@ -393,6 +393,36 @@ public partial class DashboardViewModel : ObservableObject
             OnPropertyChanged(nameof(HasWallpapers));
             IsLoading = false;
         }
+        // Auto-start engine on startup if configured and offline
+        if (AutoStartEngine && !_wallpaperService.IsEngineRunning())
+        {
+            var settings = _settingsStore.Load();
+            bool onBattery = PowerManagementService.IsOnBatteryPower();
+
+            if (settings.BatterySaverEnabled && onBattery)
+            {
+                System.Diagnostics.Debug.WriteLine("[DashboardViewModel] Engine auto-start suppressed because system is running on battery power and Battery Saver is enabled.");
+            }
+            else
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1000); // Give the WPF UI a 1-second window to render fluidly
+                    var mainVm = App.GetService<MainViewModel>();
+                    var app = System.Windows.Application.Current;
+                    if (app?.Dispatcher != null && mainVm != null)
+                    {
+                        await app.Dispatcher.InvokeAsync(async () =>
+                        {
+                            if (!mainVm.IsEngineRunning)
+                            {
+                                await mainVm.ToggleEngineCommand.ExecuteAsync(null);
+                            }
+                        });
+                    }
+                });
+            }
+        }
     }
 
     public async Task LoadFeaturedWallpapersAsync()

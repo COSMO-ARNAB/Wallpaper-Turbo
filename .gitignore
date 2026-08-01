@@ -1,21 +1,25 @@
 # ─────────────────────────────────────────────
-# .NET Build Artifacts
+# .NET Build Artifacts & Test Outputs
 # ─────────────────────────────────────────────
 bin/
 obj/
+TestResults/
 *.user
 *.suo
 *.dbmdl
 *.jfm
+*.dmp
 
 # ─────────────────────────────────────────────
-# IDE & Editor Config
+# IDE, Editor & Tool Config
 # ─────────────────────────────────────────────
 .vs/
 .vscode/
+.claude/
 .kilo/
 .codex-build/
 .opencode/
+.github/hooks/
 graphify-out/
 
 # ─────────────────────────────────────────────
@@ -29,7 +33,13 @@ package.json
 # Publish / Build Outputs
 # ─────────────────────────────────────────────
 publish/
+publish_output/
 setup/
+
+# ─────────────────────────────────────────────
+# Graphify Knowledge Graph
+# ─────────────────────────────────────────────
+graphify-out/
 
 # ─────────────────────────────────────────────
 # Media Assets (large files, not versioned)
@@ -37,7 +47,7 @@ setup/
 src/WallpaperTurbo.AppRunner/Assets/*.mp4
 
 # ─────────────────────────────────────────────
-# Scratch / Temp / Dev Notes (root level)
+# Scratch / Temp / Dev Notes
 # ─────────────────────────────────────────────
 scratch/
 .planning/
@@ -45,19 +55,24 @@ decoded-structure.txt
 project-structure.txt
 virtualization_diagnostic.log
 vlc-help.txt
+<<<<<<< HEAD
 LLD_FIX_PLAN.md
 BUGS_REPORT.md
 PUBLISHING_GUIDE.md
+=======
+git_diff.txt
+>>>>>>> 3bf17cd (WIP: save power management and UI fixes before branch switch)
 test_py.txt
 test_write.txt
 *.log
 *.tmp
 
 # ─────────────────────────────────────────────
-# AI Agent Skill Bundles (external, not project code)
+# AI Agent Skill Bundles & Lock Files
 # ─────────────────────────────────────────────
-AGENTS.md 
+AGENTS.md
 skills/
+skills-lock.json
 
 # ─────────────────────────────────────────────
 # Legacy / Old Directory
@@ -65,13 +80,11 @@ skills/
 /lively-core-separation/
 
 # ─────────────────────────────────────────────
-# Publish Output
+# Architecture Drafts & Ignored Docs
 # ─────────────────────────────────────────────
-publish_output/
-
-
 docs/architecture/*
 gpu_preference_revised_design.md
+<<<<<<< HEAD
 git_diff.txt
 *_wpftmp.csproj
 *.md
@@ -82,3 +95,10 @@ git_diff.txt
 skills-lock.json
 TestResults/
 [Tt]est[Rr]esults/
+=======
+
+# ─────────────────────────────────────────────
+# Markdown Files
+# ─────────────────────────────────────────────
+*.md
+>>>>>>> 3bf17cd (WIP: save power management and UI fixes before branch switch)

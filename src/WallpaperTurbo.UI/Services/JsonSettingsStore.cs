@@ -94,7 +94,9 @@ public class JsonSettingsStore : ISettingsStore
             RememberLastWallpaper = source.RememberLastWallpaper,
             GpuPreference = source.GpuPreference,
             GlassBackdrop = source.GlassBackdrop,
-            GlassOpacity = source.GlassOpacity
+            GlassOpacity = source.GlassOpacity,
+            UseHardwareAcceleration = source.UseHardwareAcceleration,
+            BatterySaverEnabled = source.BatterySaverEnabled
         };
     }
 }

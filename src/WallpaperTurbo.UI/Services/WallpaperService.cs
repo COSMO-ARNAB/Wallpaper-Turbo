@@ -308,10 +308,23 @@ public class WallpaperManifest
 
 public class WallpaperSessionEventArgs : EventArgs
 {
+<<<<<<< HEAD
     public string WallpaperTitle { get; }
     public string ThumbnailPath { get; }
     public bool IsPlaying { get; }
     public bool IsActive { get; }
+=======
+    private readonly IWallpaperLibraryService _libraryService;
+    private readonly ISettingsStore _settingsStore;
+    private readonly IGpuPreferenceService _gpuPreferenceService;
+    private readonly string _manifestPath;
+    private readonly string _appRunnerDir;
+    private readonly string _appRunnerExePath;
+    private List<WallpaperEntry> _wallpapers = new();
+    private int _activeWallpaperIndex = -1;
+    private int _lastActiveWallpaperIndex = -1;
+    private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
+>>>>>>> 3bf17cd (WIP: save power management and UI fixes before branch switch)
 
     public WallpaperSessionEventArgs(string title, string thumbnailPath, bool isPlaying, bool isActive)
     {
@@ -332,7 +345,8 @@ public class WallpaperService
         private string _appRunnerExePath = string.Empty; // Non-readonly so test fixtures can override via reflection
         private List<WallpaperEntry> _wallpapers = new();
         private readonly object _wallpaperLock = new();
-private int _activeWallpaperIndex = -1;
+        private int _activeWallpaperIndex = -1;
+        private int _lastActiveWallpaperIndex = -1;
         private string? _activeWallpaperId; // Track by ID for stability across reloads
         private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
         private DateTime _lastStateFileWriteTime = DateTime.MinValue;
@@ -342,6 +356,8 @@ private int _activeWallpaperIndex = -1;
 
         public WallpaperSessionEventArgs? ActiveSession { get; private set; }
         public event EventHandler<WallpaperSessionEventArgs>? SessionStateChanged;
+
+        public int LastActiveWallpaperIndex => _lastActiveWallpaperIndex;
 
         private string _activePauseProfile = "Maximized";
         public string ActivePauseProfile
@@ -358,6 +374,8 @@ private int _activeWallpaperIndex = -1;
         }
         public bool UseSoftwareDecoding { get; set; } = false;
         public string AppRunnerExePath => _appRunnerExePath;
+        public int ActiveWallpaperIndex => _activeWallpaperIndex;
+        public int LastActiveWallpaperIndex => _lastActiveWallpaperIndex;
 
     public WallpaperService(IWallpaperLibraryService libraryService, ISettingsStore settingsStore, IGpuPreferenceService gpuPreferenceService)
     {
@@ -932,11 +950,20 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
             return false;
         }
 
+<<<<<<< HEAD
         lock (_wallpaperLock)
         {
             _activeWallpaperIndex = -1;
             UpdateActiveStates(-1);
         }
+=======
+        if (_activeWallpaperIndex >= 0)
+        {
+            _lastActiveWallpaperIndex = _activeWallpaperIndex;
+        }
+        _activeWallpaperIndex = -1;
+        UpdateActiveStates(-1);
+>>>>>>> 3bf17cd (WIP: save power management and UI fixes before branch switch)
 
         bool result = await Task.Run(() =>
         {

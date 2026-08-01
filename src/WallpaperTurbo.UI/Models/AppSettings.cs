@@ -25,6 +25,7 @@ public class AppSettings
     public double GlassOpacity { get; set; } = 0.40;
 
     public bool UseHardwareAcceleration { get; set; } = true;
+    public bool BatterySaverEnabled { get; set; } = false;
 
     [JsonConverter(typeof(GpuPreferenceJsonConverter))]
     public GpuPreference GpuPreference { get; set; } = GpuPreference.Auto;

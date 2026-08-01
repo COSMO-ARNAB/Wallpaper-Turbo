@@ -1,1 +1,57 @@
+# ─────────────────────────────────────────────
+# Line Endings & Text Auto-Detection
+# ─────────────────────────────────────────────
+* text=auto
+
 graphify-out/graph.json merge=graphify
+
+# ─────────────────────────────────────────────
+# Source Code & Project Configuration (CRLF for Windows .NET/WPF)
+# ─────────────────────────────────────────────
+*.cs       text eol=crlf
+*.xaml     text eol=crlf
+*.csproj   text eol=crlf merge=union
+*.sln      text eol=crlf merge=union
+*.props    text eol=crlf
+*.targets  text eol=crlf
+*.config   text eol=crlf
+*.manifest text eol=crlf
+*.json     text eol=crlf
+*.xml      text eol=crlf
+*.md       text eol=crlf
+*.txt      text eol=crlf
+*.yml      text eol=crlf
+*.yaml     text eol=crlf
+
+# ─────────────────────────────────────────────
+# Windows Batch & PowerShell Scripts (CRLF)
+# ─────────────────────────────────────────────
+*.bat      text eol=crlf
+*.cmd      text eol=crlf
+*.ps1      text eol=crlf
+
+# ─────────────────────────────────────────────
+# Shell Scripts (MUST use LF line endings)
+# ─────────────────────────────────────────────
+*.sh       text eol=lf
+*.bash     text eol=lf
+
+# ─────────────────────────────────────────────
+# Binary Assets (Prevent line ending conversion & corruption)
+# ─────────────────────────────────────────────
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.ico      binary
+*.gif      binary
+*.bmp      binary
+*.webp     binary
+*.mp4      binary
+*.mkv      binary
+*.avi      binary
+*.dll      binary
+*.exe      binary
+*.zip      binary
+*.7z       binary
+*.pdf      binary
+*.dmp      binary
