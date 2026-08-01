@@ -9,31 +9,37 @@ namespace WallpaperTurbo.UI.Services;
 public class TelemetryMetrics
 {
     public double CpuUsage { get; set; }
+    public bool IsCpuAvailable { get; set; }
     public double GpuUsage { get; set; }
+    public bool IsGpuAvailable { get; set; }
     public double VideoDecodeUsage { get; set; }
+    public bool IsVideoDecodeAvailable { get; set; }
     public double RamUsageGb { get; set; }
-    public double RamTotalGb { get; set; } = 16.0;
+    public bool IsRamAvailable { get; set; }
+    public double RamTotalGb { get; set; }
     public double VramUsageGb { get; set; }
-    public double VramTotalGb { get; set; } = 8.0;
-    public int Fps { get; set; } = 60;
+    public bool IsVramAvailable { get; set; }
+    public double VramTotalGb { get; set; }
+    public int Fps { get; set; }
+    public bool IsFpsAvailable { get; set; }
     public TimeSpan Uptime { get; set; } = TimeSpan.Zero;
     public bool IsWorkerWAttached { get; set; }
+    public bool IsDwmCompositionAvailable { get; set; }
     public bool IsDwmCompositionEnabled { get; set; } = true;
-    public string Renderer { get; set; } = "VLC (D3D11VA)";
-    public string HardwareDecodeStatus { get; set; } = "Enabled";
+    public string Renderer { get; set; } = "None";
+    public string HardwareDecodeStatus { get; set; } = "Inactive";
 }
 
 public class TelemetryService
 {
     private readonly System.Timers.Timer _timer;
-    private readonly Random _rand = new();
     private readonly TelemetryMetrics _metrics = new();
     private readonly object _metricsLock = new();
     private DateTime _startTime = DateTime.UtcNow;
 
     private int _lastAppRunnerPid = -1;
     private ITelemetryProvider _provider = null!;
-    private int _consecutiveZeroPolls = 0;
+    private int _fallbackPolls;
 
     // Win32 Helpers for WorkerW & DWM
     [DllImport("user32.dll", SetLastError = true)]
@@ -51,11 +57,11 @@ public class TelemetryService
         {
             _metrics.RamTotalGb = Math.Round(GetTotalPhysicalMemoryBytes() / (1024.0 * 1024.0 * 1024.0), 1);
             if (_metrics.RamTotalGb <= 0)
-                _metrics.RamTotalGb = 16.0; // standard fallback
+                _metrics.RamTotalGb = 0;
         }
         catch
         {
-            _metrics.RamTotalGb = 16.0;
+            _metrics.RamTotalGb = 0;
         }
 
         // Initialize default provider (attempt PerformanceCounters first)
@@ -105,15 +111,22 @@ public class TelemetryService
         return new TelemetryMetrics
         {
             CpuUsage = source.CpuUsage,
+            IsCpuAvailable = source.IsCpuAvailable,
             GpuUsage = source.GpuUsage,
+            IsGpuAvailable = source.IsGpuAvailable,
             VideoDecodeUsage = source.VideoDecodeUsage,
+            IsVideoDecodeAvailable = source.IsVideoDecodeAvailable,
             RamUsageGb = source.RamUsageGb,
+            IsRamAvailable = source.IsRamAvailable,
             RamTotalGb = source.RamTotalGb,
             VramUsageGb = source.VramUsageGb,
+            IsVramAvailable = source.IsVramAvailable,
             VramTotalGb = source.VramTotalGb,
             Fps = source.Fps,
+            IsFpsAvailable = source.IsFpsAvailable,
             Uptime = source.Uptime,
             IsWorkerWAttached = source.IsWorkerWAttached,
+            IsDwmCompositionAvailable = source.IsDwmCompositionAvailable,
             IsDwmCompositionEnabled = source.IsDwmCompositionEnabled,
             Renderer = source.Renderer,
             HardwareDecodeStatus = source.HardwareDecodeStatus
@@ -124,55 +137,11 @@ public class TelemetryService
     {
         if (DebugFlags.SafeDebugMode)
         {
-            try
+            lock (_metricsLock)
             {
-                bool isRunning = false;
-                try
-                {
-                    isRunning = App.GetService<WallpaperService>().IsEngineRunning();
-                }
-                catch { }
-
-                lock (_metricsLock)
-                {
-                    if (isRunning)
-                    {
-                        _metrics.Uptime = DateTime.UtcNow - _startTime;
-                        _metrics.RamUsageGb = 0.08;
-                        _metrics.CpuUsage = Math.Round(1.0 + (_rand.NextDouble() * 0.5), 1);
-                        _metrics.GpuUsage = Math.Round(6.0 + (_rand.NextDouble() * 3.0), 1);
-                        _metrics.VideoDecodeUsage = Math.Round(4.0 + (_rand.NextDouble() * 2.0), 1);
-                        _metrics.VramUsageGb = 0.28;
-                        _metrics.Fps = 60;
-                        _metrics.Renderer = "VLC (D3D11VA)";
-                        _metrics.HardwareDecodeStatus = "Enabled";
-                        _metrics.IsWorkerWAttached = true;
-                    }
-                    else
-                    {
-                        _metrics.Uptime = TimeSpan.Zero;
-                        _metrics.RamUsageGb = 0.0;
-                        _metrics.CpuUsage = Math.Round(1.0 + (_rand.NextDouble() * 1.5), 1);
-                        _metrics.GpuUsage = 0.0;
-                        _metrics.VideoDecodeUsage = 0.0;
-                        _metrics.VramUsageGb = 0.0;
-                        _metrics.Fps = 0;
-                        _metrics.Renderer = "None";
-                        _metrics.HardwareDecodeStatus = "Inactive";
-                        _metrics.IsWorkerWAttached = false;
-                    }
-                    _metrics.IsDwmCompositionEnabled = true;
-                }
-
-                var snapshot = CurrentMetrics;
-                System.Windows.Application.Current?.Dispatcher?.BeginInvoke(
-                    new Action(() => MetricsUpdated?.Invoke(snapshot)),
-                    System.Windows.Threading.DispatcherPriority.Background);
+                ResetProcessMetrics(_metrics);
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ISOLATE] Telemetry mock error: {ex.Message}");
-            }
+            PublishSnapshot();
             return;
         }
 
@@ -208,17 +177,15 @@ public class TelemetryService
                     lock (_metricsLock)
                     {
                         _metrics.RamUsageGb = Math.Round(runner.WorkingSet64 / (1024.0 * 1024.0 * 1024.0), 2);
-                        if (_metrics.RamUsageGb < 0.05)
-                        {
-                            _metrics.RamUsageGb = 0.08;
-                        }
+                        _metrics.IsRamAvailable = true;
                     }
                 }
                 catch
                 {
                     lock (_metricsLock)
                     {
-                        _metrics.RamUsageGb = 0.08; // 80 MB fallback
+                        _metrics.RamUsageGb = 0;
+                        _metrics.IsRamAvailable = false;
                     }
                 }
             }
@@ -228,6 +195,7 @@ public class TelemetryService
                 {
                     _metrics.Uptime = TimeSpan.Zero;
                     _metrics.RamUsageGb = 0;
+                    _metrics.IsRamAvailable = false;
                 }
             }
 
@@ -242,8 +210,6 @@ public class TelemetryService
                     if (pid != _lastAppRunnerPid)
                     {
                         _lastAppRunnerPid = pid;
-                        _consecutiveZeroPolls = 0;
-
                         // Try primary PerformanceCounter provider
                         bool success = false;
                         try
@@ -267,7 +233,23 @@ public class TelemetryService
                             _provider?.Dispose();
                             _provider = new FallbackTelemetryProvider();
                             _provider.Initialize(pid);
+                            _fallbackPolls = 0;
                         }
+                    }
+
+                    if (_provider is FallbackTelemetryProvider && ++_fallbackPolls >= 5)
+                    {
+                        var primary = new PerformanceCounterTelemetryProvider();
+                        if (primary.Initialize(pid))
+                        {
+                            _provider.Dispose();
+                            _provider = primary;
+                        }
+                        else
+                        {
+                            primary.Dispose();
+                        }
+                        _fallbackPolls = 0;
                     }
 
                     // Poll using the active provider
@@ -277,45 +259,23 @@ public class TelemetryService
                         {
                             _provider.Poll(pid, _metrics);
                         }
-                        
-                        if (_provider is PerformanceCounterTelemetryProvider)
-                        {
-                            if (_metrics.GpuUsage == 0.0 && _metrics.VramUsageGb == 0.0)
-                            {
-                                _consecutiveZeroPolls++;
-                                if (_consecutiveZeroPolls >= 3)
-                                {
-                                    Debug.WriteLine("PerformanceCounter telemetry is yielding all zeros. Falling back to dynamic provider.");
-                                    _provider?.Dispose();
-                                    _provider = new FallbackTelemetryProvider();
-                                    _provider.Initialize(pid);
-                                    lock (_metricsLock)
-                                    {
-                                        _provider.Poll(pid, _metrics);
-                                    }
-                                    _consecutiveZeroPolls = 0;
-                                }
-                            }
-                            else
-                            {
-                                _consecutiveZeroPolls = 0;
-                            }
-                        }
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Error polling telemetry provider: {ex.Message}");
                         // Force a fallback switch next loop
                         _lastAppRunnerPid = -1;
-                        _consecutiveZeroPolls = 0;
+                        _fallbackPolls = 0;
                     }
 
-                    // Static indicators when running
+                    // FPS and renderer details require renderer-side instrumentation.
+                    // Never present metadata or assumed values as live measurements.
                     lock (_metricsLock)
                     {
-                        _metrics.Fps = 60;
-                        _metrics.Renderer = "VLC (D3D11VA)";
-                        _metrics.HardwareDecodeStatus = "Enabled";
+                        _metrics.Fps = 0;
+                        _metrics.IsFpsAvailable = false;
+                        _metrics.Renderer = "Unavailable";
+                        _metrics.HardwareDecodeStatus = "Unavailable";
                     }
                 }
                 else
@@ -325,19 +285,13 @@ public class TelemetryService
                     {
                         _provider?.Reset();
                         _lastAppRunnerPid = -1;
-                        _consecutiveZeroPolls = 0;
+                        _fallbackPolls = 0;
                     }
 
                     // Idle metrics
                     lock (_metricsLock)
                     {
-                        _metrics.CpuUsage = Math.Round(1.0 + (_rand.NextDouble() * 1.5), 1);
-                        _metrics.GpuUsage = 0.0;
-                        _metrics.VideoDecodeUsage = 0.0;
-                        _metrics.VramUsageGb = 0.0;
-                        _metrics.Fps = 0;
-                        _metrics.Renderer = "None";
-                        _metrics.HardwareDecodeStatus = "Inactive";
+                        ResetProcessMetrics(_metrics);
                     }
                 }
 
@@ -365,13 +319,15 @@ public class TelemetryService
                     lock (_metricsLock)
                     {
                         _metrics.IsDwmCompositionEnabled = dwmEnabled;
+                        _metrics.IsDwmCompositionAvailable = true;
                     }
                 }
                 catch
                 {
                     lock (_metricsLock)
                     {
-                        _metrics.IsDwmCompositionEnabled = true;
+                        _metrics.IsDwmCompositionEnabled = false;
+                        _metrics.IsDwmCompositionAvailable = false;
                     }
                 }
             });
@@ -379,10 +335,7 @@ public class TelemetryService
             // Always marshal MetricsUpdated to the UI dispatcher.
             // TelemetryService fires from System.Timers.Timer (background thread).
             // ObservableObject.SetProperty raises PropertyChanged; WPF bindings require UI thread.
-            var snapshot = CurrentMetrics;
-            System.Windows.Application.Current?.Dispatcher?.BeginInvoke(
-                new Action(() => MetricsUpdated?.Invoke(snapshot)),
-                System.Windows.Threading.DispatcherPriority.Background);
+            PublishSnapshot();
         }
         catch (Exception ex)
         {
@@ -398,6 +351,41 @@ public class TelemetryService
                 }
             }
         }
+    }
+
+    private void PublishSnapshot()
+    {
+        var snapshot = CurrentMetrics;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null || dispatcher.CheckAccess())
+        {
+            MetricsUpdated?.Invoke(snapshot);
+            return;
+        }
+
+        dispatcher.BeginInvoke(
+            new Action(() => MetricsUpdated?.Invoke(snapshot)),
+            System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private static void ResetProcessMetrics(TelemetryMetrics metrics)
+    {
+        metrics.CpuUsage = 0;
+        metrics.IsCpuAvailable = false;
+        metrics.GpuUsage = 0;
+        metrics.IsGpuAvailable = false;
+        metrics.VideoDecodeUsage = 0;
+        metrics.IsVideoDecodeAvailable = false;
+        metrics.RamUsageGb = 0;
+        metrics.IsRamAvailable = false;
+        metrics.VramUsageGb = 0;
+        metrics.IsVramAvailable = false;
+        metrics.Fps = 0;
+        metrics.IsFpsAvailable = false;
+        metrics.Uptime = TimeSpan.Zero;
+        metrics.Renderer = "None";
+        metrics.HardwareDecodeStatus = "Inactive";
+        metrics.IsWorkerWAttached = false;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
@@ -430,6 +418,6 @@ public class TelemetryService
         {
             return memStatus.ullTotalPhys;
         }
-        return 16 * 1024 * 1024 * 1024L; // 16GB default fallback
+        return 0;
     }
 }

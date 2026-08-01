@@ -11,16 +11,21 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
     private readonly List<GpuCounterInfo> _gpuCounters = new();
     private readonly List<VramCounterInfo> _vramCounters = new();
     private bool _isSupported = true;
+    private DateTime _lastCpuSampleUtc;
+    private TimeSpan _lastProcessorTime;
+    private DateTime _lastCounterDiscoveryUtc;
 
     private class GpuCounterInfo
     {
-        public string Luid { get; set; } = "";
+        public string InstanceName { get; set; } = "";
+        public string EngineId { get; set; } = "";
         public string EngineType { get; set; } = ""; // 3d, videodecode, copy
         public PerformanceCounter Counter { get; set; } = null!;
     }
 
     private class VramCounterInfo
     {
+        public string InstanceName { get; set; } = "";
         public string Luid { get; set; } = "";
         public PerformanceCounter Counter { get; set; } = null!;
     }
@@ -29,19 +34,53 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
 
     public bool Initialize(int pid)
     {
-        if (pid == _initializedPid && _isSupported)
+        if (pid == _initializedPid && _isSupported &&
+            DateTime.UtcNow - _lastCounterDiscoveryUtc < TimeSpan.FromSeconds(5))
             return true;
-
-        Reset();
 
         try
         {
-            // Initialize new GPU Engine counters for this process
+            if (pid != _initializedPid)
+            {
+                Reset();
+                using var process = Process.GetProcessById(pid);
+                _lastProcessorTime = process.TotalProcessorTime;
+                _lastCpuSampleUtc = DateTime.UtcNow;
+                _initializedPid = pid;
+            }
+
+            RefreshCounters(pid);
+            _isSupported = _gpuCounters.Count > 0;
+            _lastCounterDiscoveryUtc = DateTime.UtcNow;
+            return _isSupported;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to initialize GPU performance counters: {ex.Message}");
+            _isSupported = false;
+            return false;
+        }
+    }
+
+    private void RefreshCounters(int pid)
+    {
+            // GPU Engine exposes one instance per process/physical engine pair.
+            // Reading all instances and grouping out the PID yields system-wide usage.
             var engineCategory = new PerformanceCounterCategory("GPU Engine");
             string[] engineInstances = engineCategory.GetInstanceNames();
-            var processInstances = engineInstances.Where(i => i.StartsWith($"pid_{pid}_", StringComparison.OrdinalIgnoreCase));
+            var processEngineInstances = engineInstances
+                .Where(i => i.StartsWith($"pid_{pid}_", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            var currentEngineInstances = processEngineInstances.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var instance in processInstances)
+            foreach (var stale in _gpuCounters.Where(info => !currentEngineInstances.Contains(info.InstanceName)).ToArray())
+            {
+                stale.Counter.Dispose();
+                _gpuCounters.Remove(stale);
+            }
+
+            foreach (var instance in processEngineInstances.Where(instance =>
+                         !_gpuCounters.Any(info => string.Equals(info.InstanceName, instance, StringComparison.OrdinalIgnoreCase))))
             {
                 string[] parts = instance.Split('_');
                 int luidIndex = Array.IndexOf(parts, "luid");
@@ -58,12 +97,22 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
                     engtype = parts[engtypeIndex + 1].ToLowerInvariant();
                 }
 
-                if (engtype == "3d" || engtype == "videodecode" || engtype == "copy")
+                int physicalIndex = Array.IndexOf(parts, "phys");
+                string physical = physicalIndex >= 0 && physicalIndex + 1 < parts.Length
+                    ? parts[physicalIndex + 1]
+                    : "unknown";
+                int engineIndex = Array.IndexOf(parts, "eng");
+                string engine = engineIndex >= 0 && engineIndex + 1 < parts.Length
+                    ? parts[engineIndex + 1]
+                    : instance;
+
+                if (!string.IsNullOrEmpty(engtype))
                 {
                     var counter = new PerformanceCounter("GPU Engine", "Utilization Percentage", instance, true);
                     _gpuCounters.Add(new GpuCounterInfo
                     {
-                        Luid = luid,
+                        InstanceName = instance,
+                        EngineId = $"{luid}|{physical}|{engine}|{engtype}",
                         EngineType = engtype,
                         Counter = counter
                     });
@@ -73,9 +122,19 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
             // Initialize new VRAM counters for this process
             var memCategory = new PerformanceCounterCategory("GPU Process Memory");
             string[] memInstances = memCategory.GetInstanceNames();
-            var memProcessInstances = memInstances.Where(i => i.StartsWith($"pid_{pid}_", StringComparison.OrdinalIgnoreCase));
+            var memProcessInstances = memInstances
+                .Where(i => i.StartsWith($"pid_{pid}_", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            var currentMemoryInstances = memProcessInstances.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var instance in memProcessInstances)
+            foreach (var stale in _vramCounters.Where(info => !currentMemoryInstances.Contains(info.InstanceName)).ToArray())
+            {
+                stale.Counter.Dispose();
+                _vramCounters.Remove(stale);
+            }
+
+            foreach (var instance in memProcessInstances.Where(instance =>
+                         !_vramCounters.Any(info => string.Equals(info.InstanceName, instance, StringComparison.OrdinalIgnoreCase))))
             {
                 string[] parts = instance.Split('_');
                 int luidIndex = Array.IndexOf(parts, "luid");
@@ -88,21 +147,11 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
                 var counter = new PerformanceCounter("GPU Process Memory", "Dedicated Usage", instance, true);
                 _vramCounters.Add(new VramCounterInfo
                 {
+                    InstanceName = instance,
                     Luid = luid,
                     Counter = counter
                 });
             }
-
-            _initializedPid = pid;
-            _isSupported = _gpuCounters.Count > 0;
-            return _isSupported;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to initialize GPU performance counters: {ex.Message}");
-            _isSupported = false;
-            return false;
-        }
     }
 
     public void Poll(int pid, TelemetryMetrics metrics)
@@ -112,84 +161,78 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
 
         try
         {
-            var gpuValues = new Dictionary<string, (double Gpu3D, double GpuDecode)>();
+            if (DateTime.UtcNow - _lastCounterDiscoveryUtc >= TimeSpan.FromSeconds(5) && !Initialize(pid))
+            {
+                return;
+            }
+
+            using (var process = Process.GetProcessById(pid))
+            {
+                process.Refresh();
+                var now = DateTime.UtcNow;
+                var processorTime = process.TotalProcessorTime;
+                var elapsed = now - _lastCpuSampleUtc;
+                if (elapsed.TotalMilliseconds > 0)
+                {
+                    var cpu = (processorTime - _lastProcessorTime).TotalMilliseconds /
+                              (Environment.ProcessorCount * elapsed.TotalMilliseconds) * 100.0;
+                    metrics.CpuUsage = Math.Round(Math.Clamp(cpu, 0.0, 100.0), 1);
+                    metrics.IsCpuAvailable = true;
+                }
+                metrics.RamUsageGb = Math.Round(process.WorkingSet64 / (1024.0 * 1024.0 * 1024.0), 2);
+                metrics.IsRamAvailable = true;
+                _lastProcessorTime = processorTime;
+                _lastCpuSampleUtc = now;
+            }
+
+            var engineValues = new Dictionary<string, (string EngineType, double Usage)>();
             foreach (var info in _gpuCounters)
             {
                 try
                 {
                     float val = info.Counter.NextValue();
-                    if (!gpuValues.ContainsKey(info.Luid))
-                    {
-                        gpuValues[info.Luid] = (0.0, 0.0);
-                    }
-
-                    var current = gpuValues[info.Luid];
-                    if (info.EngineType == "3d")
-                    {
-                        current.Gpu3D = val;
-                    }
-                    else if (info.EngineType == "videodecode")
-                    {
-                        current.GpuDecode = val;
-                    }
-                    gpuValues[info.Luid] = current;
+                    engineValues.TryGetValue(info.EngineId, out var current);
+                    engineValues[info.EngineId] = (info.EngineType, current.Usage + val);
                 }
                 catch { }
             }
 
-            string activeLuid = "";
-            double maxDecode = -1.0;
-            double max3D = -1.0;
-
-            foreach (var kvp in gpuValues)
+            if (engineValues.Count > 0)
             {
-                if (kvp.Value.GpuDecode > maxDecode)
-                {
-                    maxDecode = kvp.Value.GpuDecode;
-                    activeLuid = kvp.Key;
-                }
-            }
+                // Task Manager's overall GPU percentage is the busiest physical engine,
+                // after each engine's per-process instances have been summed.
+                double totalGpu = engineValues.Values.Max(value => value.Usage);
+                var decodeEngines = engineValues.Values
+                    .Where(value => value.EngineType == "videodecode")
+                    .Select(value => value.Usage)
+                    .ToArray();
+                metrics.GpuUsage = Math.Round(Math.Clamp(totalGpu, 0, 100), 1);
+                metrics.IsGpuAvailable = true;
+                metrics.VideoDecodeUsage = decodeEngines.Length > 0
+                    ? Math.Round(Math.Clamp(decodeEngines.Max(), 0, 100), 1)
+                    : 0;
+                metrics.IsVideoDecodeAvailable = decodeEngines.Length > 0;
 
-            if (maxDecode <= 0)
-            {
-                foreach (var kvp in gpuValues)
-                {
-                    if (kvp.Value.Gpu3D > max3D)
-                    {
-                        max3D = kvp.Value.Gpu3D;
-                        activeLuid = kvp.Key;
-                    }
-                }
-            }
-
-            if (string.IsNullOrEmpty(activeLuid) && gpuValues.Count > 0)
-            {
-                activeLuid = gpuValues.Keys.First();
-            }
-
-            if (!string.IsNullOrEmpty(activeLuid) && gpuValues.ContainsKey(activeLuid))
-            {
-                var activeMetrics = gpuValues[activeLuid];
-                metrics.GpuUsage = Math.Round(activeMetrics.Gpu3D, 1);
-                metrics.VideoDecodeUsage = Math.Round(activeMetrics.GpuDecode, 1);
-
-                double vramGb = 0.0;
-                var vramInfo = _vramCounters.FirstOrDefault(x => x.Luid == activeLuid);
-                if (vramInfo != null)
+                long dedicatedBytes = 0;
+                foreach (var vramInfo in _vramCounters)
                 {
                     try
                     {
-                        vramGb = vramInfo.Counter.NextValue() / (1024.0 * 1024.0 * 1024.0);
+                        dedicatedBytes += (long)vramInfo.Counter.NextValue();
                     }
                     catch { }
                 }
-                metrics.VramUsageGb = Math.Round(vramGb, 2);
+                metrics.VramUsageGb = Math.Round(dedicatedBytes / (1024.0 * 1024.0 * 1024.0), 2);
+                metrics.IsVramAvailable = _vramCounters.Count > 0;
             }
             else
             {
                 metrics.GpuUsage = 0.0;
+                metrics.IsGpuAvailable = false;
                 metrics.VideoDecodeUsage = 0.0;
+                metrics.IsVideoDecodeAvailable = false;
                 metrics.VramUsageGb = 0.0;
+                metrics.IsVramAvailable = false;
             }
         }
         catch (Exception ex)

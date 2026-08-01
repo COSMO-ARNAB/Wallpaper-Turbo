@@ -142,6 +142,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public LayoutHostViewModel LayoutHost => _layoutHostViewModel;
 
     public PresentationManager Presentation { get; }
+    public TelemetryViewModel Telemetry { get; } = new();
 
     public MainViewModel(
         WallpaperService wallpaperService,
@@ -221,6 +222,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         // Update global performance status footer strings using high-efficiency property checks
         bool running = _wallpaperService.IsEngineRunning();
+        Telemetry.Update(m, running);
         if (IsEngineRunning != running) IsEngineRunning = running;
         
         string statusText = running ? "ENGINE RUNNING" : "ENGINE STOPPED";
@@ -231,16 +233,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
             : "00:00:00";
         if (UptimeText != uptime) UptimeText = uptime;
 
-        string fpsVal = running ? $"{m.Fps}" : "0";
+        string fpsVal = running && m.IsFpsAvailable ? $"{m.Fps}" : "N/A";
         if (FpsText != fpsVal) FpsText = fpsVal;
 
-        string gpuVal = running ? $"{m.GpuUsage:0}%" : "0%";
+        string gpuVal = running && m.IsGpuAvailable ? $"{m.GpuUsage:0.0}%" : "N/A";
         if (GpuText != gpuVal) GpuText = gpuVal;
 
-        string vramVal = running ? $"{m.VramUsageGb:0.0} / {m.VramTotalGb:0} GB" : $"0.0 / {m.VramTotalGb:0} GB";
+        string vramVal = running && m.IsVramAvailable ? $"{m.VramUsageGb:0.00} GB" : "N/A";
         if (VramText != vramVal) VramText = vramVal;
 
-        string ramVal = running ? $"{m.RamUsageGb:0.0} GB" : "0.0 GB";
+        string ramVal = running && m.IsRamAvailable ? $"{m.RamUsageGb:0.00} GB" : "N/A";
         if (RamText != ramVal) RamText = ramVal;
 
         string renderer = running ? m.Renderer : "None";

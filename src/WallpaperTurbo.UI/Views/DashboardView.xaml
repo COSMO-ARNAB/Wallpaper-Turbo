@@ -96,7 +96,7 @@
                            Style="{StaticResource TitleStyle}"
                            Margin="0,0,0,12" />
 
-                <UniformGrid Columns="3" Margin="0,0,0,28">
+                <UniformGrid Columns="4" Margin="0,0,0,28">
                     <!-- Card 1: Engine Status (Interactive Toggle Button) -->
                     <Button Command="{Binding DataContext.ToggleEngineCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             Style="{StaticResource CardButton}"
@@ -133,30 +133,30 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Card 2: FPS -->
+                    <!-- Card 2: measured AppRunner CPU -->
                     <Border Style="{StaticResource Card}" Padding="16,12" Margin="4,0,4,0">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <ui:SymbolIcon Symbol="Heart24" Foreground="{StaticResource AccentBrush}" Margin="0,0,8,0" FontSize="16" VerticalAlignment="Center"/>
-                            <TextBlock FontSize="13" FontWeight="600" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="FPS: 0" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                                <Setter Property="Text" Value="{Binding DataContext.FpsText, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='FPS: {0}'}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                            <ui:SymbolIcon Symbol="Pulse24" Foreground="{StaticResource AccentBrush}" Margin="0,0,8,0" FontSize="16" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DataContext.Telemetry.CpuText, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='ENGINE CPU: {0}'}"
+                                       FontSize="13" FontWeight="600" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
-                    <!-- Card 3: VRAM -->
-                    <Border Style="{StaticResource Card}" Padding="16,12" Margin="8,0,0,0">
+                    <!-- Card 3: measured AppRunner GPU load -->
+                    <Border Style="{StaticResource Card}" Padding="16,12" Margin="4,0,4,0">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <ui:SymbolIcon Symbol="Flash24" Foreground="{StaticResource AccentBrush}" Margin="0,0,8,0" FontSize="16" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding VramGbText, StringFormat='VRAM: {0}'}" FontSize="13" FontWeight="600" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DataContext.Telemetry.GpuText, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='ENGINE GPU: {0}'}"
+                                       FontSize="13" FontWeight="600" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Card 4: measured AppRunner working set RAM -->
+                    <Border Style="{StaticResource Card}" Padding="16,12" Margin="8,0,0,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="Grid24" Foreground="{StaticResource AccentBrush}" Margin="0,0,8,0" FontSize="16" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DataContext.Telemetry.RamText, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='ENGINE RAM: {0}'}"
+                                       FontSize="13" FontWeight="600" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                 </UniformGrid>

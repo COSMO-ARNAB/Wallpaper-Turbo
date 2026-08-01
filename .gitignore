@@ -77,3 +77,6 @@ git_diff.txt
 *.md
 !README.md
 .claude/settings.json
+.claude/settings.local.json
+.github/hooks/impeccable.json
+skills-lock.json

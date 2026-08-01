@@ -228,7 +228,7 @@ public class PresentationManagerTests
             Assert.True(presentationManager.IsWallpaperVisible);
 
             SimulateSessionStateChange(wallpaperService, inactiveSession);
-            Assert.True(presentationManager.IsWallpaperVisible);
+            Assert.False(presentationManager.IsWallpaperVisible);
         }
 
         watch.Stop();

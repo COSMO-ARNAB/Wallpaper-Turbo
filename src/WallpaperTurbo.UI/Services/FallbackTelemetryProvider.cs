@@ -5,12 +5,8 @@ namespace WallpaperTurbo.UI.Services;
 
 public class FallbackTelemetryProvider : ITelemetryProvider
 {
-    private readonly Random _rand = new();
-    private readonly object _randLock = new();
     private DateTime _lastCpuTime = DateTime.UtcNow;
     private TimeSpan _lastTotalProcessorTime = TimeSpan.Zero;
-    private double _smoothedGpu = 4.5;
-    private double _smoothedDecode = 8.2;
 
     public bool IsSupported => true;
 
@@ -44,7 +40,8 @@ public class FallbackTelemetryProvider : ITelemetryProvider
             if (timeWindow.TotalMilliseconds > 0)
             {
                 var cpuUsage = (cpuTime - _lastTotalProcessorTime).TotalMilliseconds / (Environment.ProcessorCount * timeWindow.TotalMilliseconds) * 100.0;
-                metrics.CpuUsage = Math.Round(Math.Clamp(cpuUsage, 0.5, 95.0), 1);
+                metrics.CpuUsage = Math.Round(Math.Clamp(cpuUsage, 0.0, 100.0), 1);
+                metrics.IsCpuAvailable = true;
             }
 
             _lastCpuTime = now;
@@ -52,36 +49,27 @@ public class FallbackTelemetryProvider : ITelemetryProvider
 
             // 2. RAM Usage
             metrics.RamUsageGb = Math.Round(process.WorkingSet64 / (1024.0 * 1024.0 * 1024.0), 2);
-
-            // 3. Fallback GPU loads (VLC hardware decoding is typically 4-8% GPU 3D and 6-12% Video Decode on standard hardware)
-            // We use standard stable ranges with a subtle natural jitter
-            double targetGpu;
-            double targetDecode;
-            lock (_randLock)
-            {
-                targetGpu = 4.0 + (_rand.NextDouble() * 2.0);
-                targetDecode = 8.0 + (_rand.NextDouble() * 3.0);
-            }
-
-            // Apply exponential moving average (smoothing) for premium feel
-            _smoothedGpu = (_smoothedGpu * 0.8) + (targetGpu * 0.2);
-            _smoothedDecode = (_smoothedDecode * 0.8) + (targetDecode * 0.2);
-
-            metrics.GpuUsage = Math.Round(_smoothedGpu, 1);
-            metrics.VideoDecodeUsage = Math.Round(_smoothedDecode, 1);
-
-            // 4. VRAM estimation: video stream buffers + VLC texture allocations typically consume around 180MB-350MB
-            lock (_randLock)
-            {
-                metrics.VramUsageGb = Math.Round(0.18 + (_rand.NextDouble() * 0.05), 2);
-            }
+            metrics.IsRamAvailable = true;
+            metrics.GpuUsage = 0;
+            metrics.IsGpuAvailable = false;
+            metrics.VideoDecodeUsage = 0;
+            metrics.IsVideoDecodeAvailable = false;
+            metrics.VramUsageGb = 0;
+            metrics.IsVramAvailable = false;
         }
         catch
         {
             // Process terminated or inaccessible
             metrics.GpuUsage = 0.0;
+            metrics.IsGpuAvailable = false;
             metrics.VideoDecodeUsage = 0.0;
+            metrics.IsVideoDecodeAvailable = false;
             metrics.VramUsageGb = 0.0;
+            metrics.IsVramAvailable = false;
+            metrics.CpuUsage = 0.0;
+            metrics.IsCpuAvailable = false;
+            metrics.RamUsageGb = 0.0;
+            metrics.IsRamAvailable = false;
         }
     }
 

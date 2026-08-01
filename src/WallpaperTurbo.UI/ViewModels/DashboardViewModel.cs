@@ -41,22 +41,22 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _greetingSubtext = "Your engine is running smoothly.";
 
     // Real-Time Telemetry Properties
-    [ObservableProperty] private double _gpuValue = 18;
-    [ObservableProperty] private double _videoDecodeValue = 11;
-    [ObservableProperty] private double _cpuValue = 6;
-    [ObservableProperty] private string _ramValueText = "5.1 / 32 GB";
-    [ObservableProperty] private string _vramValueText = "1.2 / 8 GB";
-    [ObservableProperty] private string _ramGbText = "3.1 GB";
-    [ObservableProperty] private string _vramGbText = "1.2 GB";
+    [ObservableProperty] private double _gpuValue;
+    [ObservableProperty] private double _videoDecodeValue;
+    [ObservableProperty] private double _cpuValue;
+    [ObservableProperty] private string _ramValueText = "N/A";
+    [ObservableProperty] private string _vramValueText = "N/A";
+    [ObservableProperty] private string _ramGbText = "N/A";
+    [ObservableProperty] private string _vramGbText = "N/A";
 
-    [ObservableProperty] private double _ramPercentage = 16;
-    [ObservableProperty] private double _vramPercentage = 15;
+    [ObservableProperty] private double _ramPercentage;
+    [ObservableProperty] private double _vramPercentage;
 
     // Engine Status Properties
-    [ObservableProperty] private string _rendererText = "VLC (D3D11VA)";
-    [ObservableProperty] private string _hardwareDecodeText = "Enabled";
-    [ObservableProperty] private string _dwmCompositionText = "Optimized";
-    [ObservableProperty] private string _workerWText = "Yes";
+    [ObservableProperty] private string _rendererText = "None";
+    [ObservableProperty] private string _hardwareDecodeText = "Inactive";
+    [ObservableProperty] private string _dwmCompositionText = "Unavailable";
+    [ObservableProperty] private string _workerWText = "No";
     [ObservableProperty] private string _presentationText = "Below Icons";
     [ObservableProperty] private string _frameSyncText = "Optimized";
 
@@ -521,37 +521,37 @@ public partial class DashboardViewModel : ObservableObject
         // 0.5% dead-band filter to prevent layout over-refresh stutters for micro-changes
         if (Math.Abs(m.GpuUsage - _lastGpu) >= 0.5 || m.GpuUsage == 0.0)
         {
-            GpuValue = m.GpuUsage;
+            GpuValue = m.IsGpuAvailable ? m.GpuUsage : 0;
             _lastGpu = m.GpuUsage;
         }
 
         if (Math.Abs(m.VideoDecodeUsage - _lastVideoDecode) >= 0.5 || m.VideoDecodeUsage == 0.0)
         {
-            VideoDecodeValue = m.VideoDecodeUsage;
+            VideoDecodeValue = m.IsVideoDecodeAvailable ? m.VideoDecodeUsage : 0;
             _lastVideoDecode = m.VideoDecodeUsage;
         }
 
         if (Math.Abs(m.CpuUsage - _lastCpu) >= 0.5 || m.CpuUsage == 0.0)
         {
-            CpuValue = m.CpuUsage;
+            CpuValue = m.IsCpuAvailable ? m.CpuUsage : 0;
             _lastCpu = m.CpuUsage;
         }
         
         // Ram formatting with 0.1 GB filter
         if (Math.Abs(m.RamUsageGb - _lastRam) >= 0.1 || m.RamUsageGb == 0.0)
         {
-            RamValueText = $"{m.RamUsageGb:0.0} / {m.RamTotalGb:0} GB";
-            RamGbText = $"{m.RamUsageGb:0.0} GB";
-            RamPercentage = CalculatePercentage(m.RamUsageGb, m.RamTotalGb);
+            RamValueText = m.IsRamAvailable ? $"{m.RamUsageGb:0.0} / {m.RamTotalGb:0} GB" : "N/A";
+            RamGbText = m.IsRamAvailable ? $"{m.RamUsageGb:0.0} GB" : "N/A";
+            RamPercentage = m.IsRamAvailable ? CalculatePercentage(m.RamUsageGb, m.RamTotalGb) : 0;
             _lastRam = m.RamUsageGb;
         }
 
         // Vram formatting with 0.05 GB filter
         if (Math.Abs(m.VramUsageGb - _lastVram) >= 0.05 || m.VramUsageGb == 0.0)
         {
-            VramValueText = $"{m.VramUsageGb:0.0} / {m.VramTotalGb:0} GB";
-            VramGbText = $"{m.VramUsageGb:0.0} GB";
-            VramPercentage = CalculatePercentage(m.VramUsageGb, m.VramTotalGb);
+            VramValueText = m.IsVramAvailable ? $"{m.VramUsageGb:0.0} / {m.VramTotalGb:0} GB" : "N/A";
+            VramGbText = m.IsVramAvailable ? $"{m.VramUsageGb:0.0} GB" : "N/A";
+            VramPercentage = m.IsVramAvailable ? CalculatePercentage(m.VramUsageGb, m.VramTotalGb) : 0;
             _lastVram = m.VramUsageGb;
         }
 
@@ -559,7 +559,9 @@ public partial class DashboardViewModel : ObservableObject
         if (RendererText != m.Renderer) RendererText = m.Renderer;
         if (HardwareDecodeText != m.HardwareDecodeStatus) HardwareDecodeText = m.HardwareDecodeStatus;
         
-        string compositionState = m.IsDwmCompositionEnabled ? "Optimized" : "Disabled";
+        string compositionState = !m.IsDwmCompositionAvailable
+            ? "Unavailable"
+            : m.IsDwmCompositionEnabled ? "Optimized" : "Disabled";
         if (DwmCompositionText != compositionState) DwmCompositionText = compositionState;
 
         string workerWState = m.IsWorkerWAttached ? "Yes" : "No";
