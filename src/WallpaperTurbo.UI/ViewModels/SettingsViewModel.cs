@@ -73,12 +73,9 @@ public partial class SettingsViewModel : ObservableObject
             _pauseOnFullscreen = settings.PauseOnMaximized;
             _muteWallpaperAudio = settings.MuteAudio;
             _selectedGpuPreference = settings.GpuPreference;
-<<<<<<< HEAD
             _autoStartWallpaperEngine = settings.AutoStartWallpaperEngine;
             _rememberLastWallpaper = settings.RememberLastWallpaper;
-=======
             _batterySaverEnabled = settings.BatterySaverEnabled;
->>>>>>> 3bf17cd (WIP: save power management and UI fixes before branch switch)
         }
         finally
         {
