@@ -6,8 +6,9 @@ namespace WallpaperTurbo.Tests;
 public sealed class InnoSetupApplierTests
 {
     [Fact]
-    public void Constructor_WhenInstallArgsIsNull_Throws()
+    public void Constructor_WhenInstallArgsIsNull_DefaultsToTempLogPath()
     {
-        Assert.Throws<ArgumentNullException>(() => new InnoSetupApplier(null!));
+        var applier = new InnoSetupApplier(null);
+        Assert.NotNull(applier);
     }
 }

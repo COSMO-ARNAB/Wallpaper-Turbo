@@ -9,9 +9,15 @@ public sealed class InnoSetupApplier : IUpdateApplier
     private readonly string _installArgs;
     private bool _disposed;
 
-    public InnoSetupApplier(string installArgs = "/LOG=\"%TEMP%\\WallpaperTurbo_Install.log\"")
+    private static string GetDefaultInstallArgs()
     {
-        _installArgs = installArgs ?? throw new ArgumentNullException(nameof(installArgs));
+        var tempLogPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "WallpaperTurbo_Install.log");
+        return $"/LOG=\"{tempLogPath}\"";
+    }
+
+    public InnoSetupApplier(string? installArgs = null)
+    {
+        _installArgs = installArgs ?? GetDefaultInstallArgs();
     }
 
     public void ApplyUpdate(string installerFilePath)
