@@ -679,10 +679,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
-        "Implemented intelligent Battery Saver mode to pause playback when running on battery power",
-        "Added battery-aware auto-start guard to save power on unplugged Windows boot",
-        "Added automatic wallpaper resume when charger/AC power is re-plugged",
-        "Refined Minimal Glass layout with polished specular edge highlights and hover elevation"
+        "v1.5.1 Auto-Updater verification release",
+        "Dynamically resolved installer log paths to eliminate UAC elevation errors",
+        "Enhanced UTF-8 BOM safety across updater network providers",
+        "Includes full battery saver auto-pause and auto-resume capabilities"
     };
 
     private void CheckForVersionUpdate()
