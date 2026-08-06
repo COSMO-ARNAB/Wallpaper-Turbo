@@ -158,7 +158,8 @@ $outputDir = Split-Path -Parent $OutputPath
 if (-not [string]::IsNullOrEmpty($outputDir) -and -not (Test-Path -LiteralPath $outputDir)) {
     New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 }
-Set-Content -LiteralPath $OutputPath -Value $json -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($OutputPath, $json, $utf8NoBom)
 
 # ---------------------------------------------------------------------------
 # Step 8: read-back sanity log

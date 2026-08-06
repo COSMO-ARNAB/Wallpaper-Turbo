@@ -166,13 +166,16 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
         }
 
         var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-        var document = JsonDocument.Parse(bytes);
-
-        string json = System.Text.Encoding.UTF8.GetString(bytes);
-        if (json.StartsWith('\uFEFF'))
+        
+        // Strip UTF-8 BOM (0xEF, 0xBB, 0xBF) if present to prevent JsonReaderException
+        ReadOnlyMemory<byte> jsonBytes = bytes;
+        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
         {
-            json = json.Substring(1);
+            jsonBytes = bytes.AsMemory(3);
         }
+        var document = JsonDocument.Parse(jsonBytes);
+
+        string json = System.Text.Encoding.UTF8.GetString(jsonBytes.Span);
 
         var responseEtag = response.Headers.ETag?.ToString();
         if (string.IsNullOrWhiteSpace(responseEtag) && response.Headers.TryGetValues("ETag", out var headerValues))
@@ -308,7 +311,7 @@ public sealed class GitHubReleaseProvider : IUpdateSourceProvider
             RemoteUpdateManifest? remote;
             try
             {
-                remote = JsonSerializer.Deserialize<RemoteUpdateManifest>(document.RootElement.GetRawText(), ManifestJsonOptions);
+                remote = JsonSerializer.Deserialize<RemoteUpdateManifest>(document.RootElement, ManifestJsonOptions);
             }
             catch (JsonException ex)
             {
