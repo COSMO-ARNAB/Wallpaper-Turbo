@@ -679,10 +679,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
-        "Update installer now launches visibly instead of hiding in the background",
-        "Kept the installer wizard interactive with the normal finish-page launch checkbox",
-        "Fixed the startup update loop with a one-shot skip after installation",
-        "Improved update check reliability with conditional requests and safer release handling"
+        "Implemented intelligent Battery Saver mode to pause playback when running on battery power",
+        "Added battery-aware auto-start guard to save power on unplugged Windows boot",
+        "Added automatic wallpaper resume when charger/AC power is re-plugged",
+        "Refined Minimal Glass layout with polished specular edge highlights and hover elevation"
     };
 
     private void CheckForVersionUpdate()
