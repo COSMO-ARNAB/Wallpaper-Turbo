@@ -5,13 +5,15 @@ interface DownloadProps {
   release: ReleaseInfo | null;
 }
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
 function formatDate(iso: string): string {
   const date = new Date(iso);
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  if (Number.isNaN(date.getTime())) return "";
+  return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
 }
 
 export function Download({ release }: DownloadProps) {
