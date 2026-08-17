@@ -1,13 +1,13 @@
 export function Footer() {
   return (
-    <footer className="mx-auto max-w-[1400px] px-6 py-12 lg:px-8">
-      <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
-        <div className="flex flex-col gap-1">
+    <footer className="border-t border-border">
+      <div className="mx-auto flex max-w-[1400px] flex-col items-start justify-between gap-6 px-6 py-12 sm:flex-row sm:items-center lg:px-8">
+        <div>
           <p className="text-sm text-foreground-muted">
             © {new Date().getFullYear()} Wallpaper Turbo
           </p>
-          <p className="text-xs text-foreground-muted/80">
-            Open Source under MIT License · Free &amp; Private (No tracking)
+          <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-foreground-muted/70">
+            Built with .NET 8 · Open Source · No Tracking · Windows 10 / 11
           </p>
         </div>
 

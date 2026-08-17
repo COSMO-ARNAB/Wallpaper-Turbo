@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   },
   description:
     "Wallpaper Turbo is a lightweight, hardware-accelerated live wallpaper engine for Windows 10 and Windows 11.",
+  alternates: {
+    canonical: "/",
+  },
   keywords: [
     "live wallpaper",
     "windows 10",

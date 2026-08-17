@@ -28,11 +28,15 @@ const LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHU
 const DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download/${INSTALLER_FILENAME}`;
 const RELEASES_PAGE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
 
+const FALLBACK_RELEASE: ReleaseInfo = {
+  version: "v1.5.1",
+  publishedAt: "2026-08-06T17:26:55Z",
+  checksum: "076d567392c98c5bd9df30ee3b3d0c8b104975db5adcd464da37f4e8279c4d2c",
+  downloadUrl: DOWNLOAD_URL,
+  releaseUrl: RELEASES_PAGE_URL,
+};
+
 function extractSha256(text: string, filename: string): string | null {
-  // Match common checksum formats:
-  // <hash>  filename
-  // <hash> *filename
-  // SHA256: <hash>
   const escaped = filename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   const paired = new RegExp(
@@ -58,6 +62,7 @@ async function fetchChecksumsText(assets: GitHubAsset[]): Promise<string | null>
     if (!checksumAsset) return null;
 
     const res = await fetch(checksumAsset.browser_download_url, {
+      headers: { "User-Agent": "Wallpaper-Turbo-Website" },
       next: { revalidate: 3600 },
     });
 
@@ -78,14 +83,18 @@ function extractDigestChecksum(assets: GitHubAsset[]): string | null {
   return match ? match[1].toLowerCase() : null;
 }
 
-export async function getLatestRelease(): Promise<ReleaseInfo | null> {
+export async function getLatestRelease(): Promise<ReleaseInfo> {
   try {
     const res = await fetch(LATEST_RELEASE_URL, {
+      headers: {
+        "User-Agent": "Wallpaper-Turbo-Website",
+        Accept: "application/vnd.github.v3+json",
+      },
       next: { revalidate: 3600 },
     });
 
     if (!res.ok) {
-      return null;
+      return FALLBACK_RELEASE;
     }
 
     const release: GitHubRelease = await res.json();
@@ -108,11 +117,11 @@ export async function getLatestRelease(): Promise<ReleaseInfo | null> {
     return {
       version: release.tag_name,
       publishedAt: release.published_at,
-      checksum,
+      checksum: checksum ?? FALLBACK_RELEASE.checksum,
       downloadUrl: DOWNLOAD_URL,
       releaseUrl: RELEASES_PAGE_URL,
     };
   } catch {
-    return null;
+    return FALLBACK_RELEASE;
   }
 }

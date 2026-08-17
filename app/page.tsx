@@ -1,6 +1,8 @@
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
+import { Ticker } from "@/components/Ticker";
 import { Features } from "@/components/Features";
+import { Engine } from "@/components/Engine";
 import { Download } from "@/components/Download";
 import { Footer } from "@/components/Footer";
 import { getLatestRelease } from "@/lib/github";
@@ -12,8 +14,13 @@ export default async function Home() {
     <>
       <Navbar />
       <main id="main-content">
-        <Hero />
+        <Hero
+          version={release?.version ?? null}
+          releaseUrl={release?.releaseUrl}
+        />
+        <Ticker />
         <Features />
+        <Engine />
         <Download release={release} />
       </main>
       <Footer />
