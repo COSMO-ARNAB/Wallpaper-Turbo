@@ -1,23 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const sansFont = Plus_Jakarta_Sans({
+  variable: "--font-sans-main",
   subsets: ["latin"],
   display: "swap",
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const monoFont = JetBrains_Mono({
+  variable: "--font-mono-main",
   subsets: ["latin"],
   display: "swap",
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://cosmo-arnab.github.io/Wallpaper-Turbo"),
   title: {
-    default: "Wallpaper Turbo — Lightweight live wallpapers for Windows",
+    default: "Wallpaper Turbo · Lightweight Live Wallpapers for Windows",
     template: "%s | Wallpaper Turbo",
   },
   description:
@@ -38,7 +40,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Wallpaper Turbo Team" }],
   openGraph: {
-    title: "Wallpaper Turbo — Lightweight live wallpapers for Windows",
+    title: "Wallpaper Turbo · Lightweight Live Wallpapers for Windows",
     description:
       "Lightweight, hardware-accelerated live wallpaper engine for Windows 10 and Windows 11.",
     url: "https://cosmo-arnab.github.io/Wallpaper-Turbo",
@@ -56,7 +58,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Wallpaper Turbo — Lightweight live wallpapers for Windows",
+    title: "Wallpaper Turbo · Lightweight Live Wallpapers for Windows",
     description:
       "Lightweight, hardware-accelerated live wallpaper engine for Windows 10 and Windows 11.",
     images: ["/screenshot.png"],
@@ -84,8 +86,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
-      <body className="min-h-screen antialiased" suppressHydrationWarning>{children}</body>
+    <html lang="en" className={`${sansFont.variable} ${monoFont.variable}`} suppressHydrationWarning>
+      <body className="min-h-screen antialiased bg-background text-foreground" suppressHydrationWarning>{children}</body>
     </html>
   );
 }

@@ -1,18 +1,17 @@
 const specs = [
-  "DirectX 11",
-  "NVDEC",
-  "QuickSync",
-  "LibVLC",
-  "WebView2",
-  "WebGL",
-  "4K / 8K",
-  "240 Hz",
-  "Multi-DPI",
-  "Multi-Monitor",
-  "0.18 GB RAM idle",
-  ".NET 8",
-  "Smart audio",
-  "SHA-256 verified",
+  "DirectX 11 Native",
+  "NVDEC HW Decode",
+  "Intel QuickSync",
+  "LibVLC Media Core",
+  "WebView2 Runtime",
+  "WebGL & HTML5",
+  "4K / 8K Displays",
+  "240 Hz High Refresh",
+  "Per-Monitor DPI",
+  "184 MB Idle RAM",
+  ".NET 8 Native",
+  "Process Isolation",
+  "SHA-256 Verified",
 ];
 
 function TickerRow({ ariaHidden }: { ariaHidden?: boolean }) {
@@ -39,7 +38,7 @@ function TickerRow({ ariaHidden }: { ariaHidden?: boolean }) {
 export function Ticker() {
   return (
     <div
-      className="ticker overflow-hidden border-y border-border bg-surface/60 py-3.5"
+      className="ticker overflow-hidden border-y border-border bg-surface-sunken py-3"
       aria-label="Technical specifications"
     >
       <div className="ticker-track flex w-max">

@@ -1,5 +1,4 @@
 import { CopyButton } from "./CopyButton";
-import { Reveal } from "./Reveal";
 import type { ReleaseInfo } from "@/lib/github";
 
 interface DownloadProps {
@@ -16,7 +15,7 @@ function formatDate(iso: string): string {
 }
 
 export function Download({ release }: DownloadProps) {
-  const version = release?.version ?? "v?.?.?";
+  const version = release?.version ?? "v1.0.0";
   const published = release?.publishedAt ? formatDate(release.publishedAt) : null;
   const checksum = release?.checksum;
   const releasesPage =
@@ -26,52 +25,105 @@ export function Download({ release }: DownloadProps) {
   return (
     <section
       id="download"
-      className="relative overflow-hidden border-t border-border"
+      className="relative border-t border-border bg-background"
       aria-labelledby="download-heading"
     >
-      {/* Subtle accent glow behind the glass panel */}
-      <div
-        aria-hidden="true"
-        className="absolute left-1/2 top-1/2 h-[520px] w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/10 blur-[140px]"
-      />
-
       <div className="relative mx-auto max-w-[1400px] px-6 py-24 lg:px-8">
-        <Reveal>
-          <div className="glass max-w-3xl rounded-2xl p-8 sm:p-10">
-            <h2
-              id="download-heading"
-              className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
-            >
-              Download Wallpaper Turbo
-            </h2>
+        <div>
+          <div className="tactile-card mx-auto max-w-3xl rounded-xl p-8 sm:p-10">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
+              <div>
+                <h2
+                  id="download-heading"
+                  className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
+                >
+                  Download Wallpaper Turbo
+                </h2>
+                <p className="mt-1 text-sm text-foreground-muted">
+                  Offline installer with automatic background updates.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded border border-border-bright bg-surface-sunken px-2.5 py-1 font-mono text-xs font-semibold text-accent-bright">
+                  {version}
+                </span>
+                <span className="rounded border border-border bg-surface-sunken px-2.5 py-1 font-mono text-xs text-foreground-muted">
+                  x64 Native
+                </span>
+              </div>
+            </div>
 
-            <p className="mt-4 font-mono text-sm text-foreground-muted">
-              {version} {published && `· ${published}`} · Windows 10/11 · x64
-            </p>
+            <div className="mt-8 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+              <div>
+                <p className="text-base font-medium text-foreground">
+                  Official Installer Package
+                </p>
+                <p className="mt-1 font-mono text-xs text-foreground-muted">
+                  Windows 10 / 11 · 64-bit {published && `· Published ${published}`}
+                </p>
+              </div>
 
-            <a
-              href={release?.downloadUrl ?? "#"}
-              className="mt-8 inline-flex h-12 min-w-[16rem] items-center justify-center rounded-md bg-accent px-8 text-base font-semibold text-accent-foreground transition-colors hover:bg-accent/90 active:scale-[0.98]"
-            >
-              Download Wallpaper_Turbo_Setup.exe
-            </a>
+              <a
+                href={release?.downloadUrl ?? "#"}
+                className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-accent px-8 text-sm font-bold text-accent-foreground shadow-sm transition-all hover:bg-accent/90 active:scale-[0.98] sm:w-auto"
+              >
+                <span>Download Setup.exe</span>
+              </a>
+            </div>
 
-            <div className="mt-8">
+            {/* SHA-256 Checksum Container */}
+            <div className="mt-8 rounded-xl border border-border bg-surface-sunken p-4">
               {checksum ? (
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">
-                      SHA-256
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-foreground-muted">
+                      Cryptographic SHA-256 Checksum
                     </p>
-                    <code className="mt-1 block break-all font-mono text-sm text-foreground">
+                    <code className="mt-1 block truncate font-mono text-xs text-foreground">
                       {checksum}
                     </code>
                   </div>
                   <CopyButton text={checksum} />
                 </div>
               ) : (
-                <p className="text-sm text-foreground-muted">
-                  Checksum unavailable right now. Verify the file on{" "}
+                <p className="text-xs text-foreground-muted">
+                  Verify the latest cryptographic checksum directly on{" "}
+                  <a
+                    href={releasesPage}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-foreground underline underline-offset-2 hover:text-accent-bright"
+                  >
+                    GitHub Releases
+                  </a>
+                  .
+                </p>
+              )}
+            </div>
+
+            <div className="mt-10 grid grid-cols-1 gap-6 border-t border-border pt-8 sm:grid-cols-2">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+                  System Requirements
+                </h3>
+                <ul className="mt-2.5 space-y-1.5 text-sm text-foreground-muted">
+                  <li className="flex items-center gap-2">
+                    <span className="h-1 w-1 rounded-full bg-accent-bright" />
+                    <span>Windows 10 (Build 19041+) or Windows 11</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="h-1 w-1 rounded-full bg-accent-bright" />
+                    <span>GPU with hardware video decoding (DirectX 11)</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+                  Open Source & Verification
+                </h3>
+                <p className="mt-2.5 text-sm leading-relaxed text-foreground-muted">
+                  100% telemetry-free and offline-first. Review full source code and previous versions on{" "}
                   <a
                     href={releasesPage}
                     target="_blank"
@@ -82,33 +134,10 @@ export function Download({ release }: DownloadProps) {
                   </a>
                   .
                 </p>
-              )}
+              </div>
             </div>
-
-            <div className="mt-10 border-t border-border/60 pt-8">
-              <h3 className="text-sm font-semibold text-foreground">
-                System requirements
-              </h3>
-              <ul className="mt-3 space-y-1 text-sm text-foreground-muted">
-                <li>Windows 10 or Windows 11 (64-bit)</li>
-                <li>A GPU with hardware video decoding support recommended</li>
-              </ul>
-            </div>
-
-            <p className="mt-8 text-sm text-foreground-muted">
-              Looking for an older version?{" "}
-              <a
-                href={releasesPage}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-foreground underline underline-offset-2 hover:text-accent-bright"
-              >
-                Previous releases on GitHub
-              </a>
-              .
-            </p>
           </div>
-        </Reveal>
+        </div>
       </div>
     </section>
   );

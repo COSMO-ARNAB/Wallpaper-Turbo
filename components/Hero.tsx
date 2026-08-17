@@ -1,8 +1,4 @@
-"use client";
-
 import Image from "next/image";
-import { useRef } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 
 interface HeroProps {
   version?: string | null;
@@ -12,121 +8,105 @@ interface HeroProps {
 const stats = [
   { label: "CPU", value: "0.7%" },
   { label: "GPU", value: "11.9%" },
-  { label: "RAM", value: "0.18 GB" },
+  { label: "RAM", value: "184 MB" },
+  { label: "ENGINE", value: "DirectX 11" },
 ];
 
 export function Hero({
   version = null,
   releaseUrl = "https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases",
 }: HeroProps = {}) {
-  const reduceMotion = useReducedMotion();
-  const sectionRef = useRef<HTMLElement>(null);
-
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start start", "end start"],
-  });
-  const backdropY = useTransform(scrollYProgress, [0, 1], ["0%", "14%"]);
-
   return (
     <section
-      ref={sectionRef}
       id="top"
       className="relative flex min-h-[100dvh] items-center overflow-hidden"
       aria-label="Wallpaper Turbo hero"
     >
-      {/* Full-bleed desktop scene: the real app rendering a live wallpaper */}
-      <motion.div
+      {/* Full-bleed desktop scene */}
+      <div
         aria-hidden="true"
-        className="absolute inset-0 scale-[1.06]"
-        style={reduceMotion ? undefined : { y: backdropY }}
+        className="absolute inset-0"
       >
         <Image
           src="/hero-desktop.png"
-          alt=""
+          alt="Wallpaper Turbo running live on Windows desktop"
           fill
           priority
           sizes="100vw"
           className="object-cover object-center"
         />
-      </motion.div>
+      </div>
 
-      {/* Scrims: right side for text legibility, bottom to blend into page */}
+      {/* Dark scrims for high-contrast readability */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-[linear-gradient(to_right,color-mix(in_srgb,var(--background)_25%,transparent)_0%,color-mix(in_srgb,var(--background)_72%,transparent)_52%,color-mix(in_srgb,var(--background)_94%,transparent)_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(to_right,rgba(9,9,11,0.4)_0%,rgba(9,9,11,0.85)_55%,rgba(9,9,11,0.98)_100%)]"
       />
       <div
         aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(to_top,var(--background),transparent)]"
+        className="absolute inset-x-0 bottom-0 h-44 bg-[linear-gradient(to_top,var(--background),transparent)]"
       />
       <div
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(to_bottom,color-mix(in_srgb,var(--background)_70%,transparent),transparent)]"
+        className="absolute inset-x-0 top-0 h-28 bg-[linear-gradient(to_bottom,rgba(9,9,11,0.8),transparent)]"
       />
 
-      {/* Entrance animation is CSS-driven (.hero-enter-*), so SSR output is
-          never hidden for reduced-motion users. */}
       <div className="relative z-10 mx-auto flex w-full max-w-[1400px] justify-end px-6 pt-24 pb-24 lg:px-8">
         <div className="max-w-xl">
-          <a
-            href={releaseUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="glass hero-enter hero-enter-1 inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-mono text-xs tracking-wide text-foreground transition-colors hover:border-accent-bright/60"
-          >
-            <span
-              aria-hidden="true"
-              className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-accent-bright"
-            />
-            {version ? `${version} — LATEST STABLE` : "LATEST STABLE"}
-          </a>
+          <div className="flex items-center gap-2">
+            <span className="rounded border border-border-bright bg-surface-raised px-2 py-0.5 font-mono text-[11px] font-semibold text-accent-bright">
+              {version ? version : "v1.0.0"}
+            </span>
+            <span className="font-mono text-xs text-foreground-muted">
+              Windows 10 / 11 · 64-bit
+            </span>
+          </div>
 
-          <h1 className="hero-enter hero-enter-2 mt-6 text-5xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-6xl">
-            Your desktop,
+          <h1 className="mt-5 text-5xl font-bold leading-[1.08] tracking-tight text-foreground sm:text-6xl">
+            Live wallpapers.
             <br />
-            <em className="text-accent-bright">rendered live.</em>
+            <span className="text-accent-bright">Zero compromise.</span>
           </h1>
 
-          <p className="hero-enter hero-enter-3 mt-5 max-w-[46ch] text-lg leading-relaxed text-foreground-muted">
-            Lightweight, hardware-accelerated live wallpapers for Windows.
-            Pauses itself when you play.
+          <p className="mt-5 max-w-[46ch] text-lg leading-relaxed text-foreground-muted">
+            A native, hardware-accelerated desktop wallpaper engine for Windows.
+            Suspends rendering automatically whenever a full-screen game starts.
           </p>
 
-          <div className="hero-enter hero-enter-4 mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <a
               href="#download"
-              className="inline-flex h-11 items-center justify-center rounded-md bg-accent px-6 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/90 active:scale-[0.98]"
+              className="inline-flex h-11 items-center justify-center rounded-md bg-accent px-6 text-sm font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-accent/90"
             >
-              Download for Windows
+              Download Installer (.exe)
             </a>
             <a
               href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo"
               target="_blank"
               rel="noopener noreferrer"
-              className="glass inline-flex h-11 items-center justify-center rounded-md px-6 text-sm font-semibold text-foreground transition-colors hover:border-accent-bright/60 active:scale-[0.98]"
+              className="tactile-raised inline-flex h-11 items-center justify-center rounded-md px-5 text-sm font-semibold text-foreground transition-colors hover:border-border-bright"
             >
-              View on GitHub
+              View Source on GitHub
             </a>
           </div>
         </div>
       </div>
 
-      {/* Live engine telemetry, echoing the app's own status bar */}
-      <div className="hero-enter hero-enter-5 absolute bottom-8 left-6 z-10 hidden items-center gap-2 md:flex lg:left-8">
-        <div className="glass flex items-center gap-2 rounded-full px-4 py-2 font-mono text-xs text-foreground">
+      {/* Live engine telemetry dock */}
+      <div className="absolute bottom-8 left-6 z-10 hidden items-center gap-1.5 rounded-lg border border-border bg-surface-sunken/95 p-1.5 shadow-xl md:flex lg:left-8">
+        <div className="flex items-center gap-2 rounded bg-surface px-3 py-1 font-mono text-[11px] font-medium text-foreground">
           <span
             aria-hidden="true"
-            className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-accent-bright"
+            className="status-indicator"
           />
-          ENGINE ON
+          TELEMETRY
         </div>
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="glass rounded-full px-4 py-2 font-mono text-xs text-foreground-muted"
+            className="rounded bg-surface/40 px-2.5 py-1 font-mono text-[11px] text-foreground-muted"
           >
-            {stat.label} <span className="text-foreground">{stat.value}</span>
+            {stat.label} <span className="font-semibold text-foreground">{stat.value}</span>
           </div>
         ))}
       </div>

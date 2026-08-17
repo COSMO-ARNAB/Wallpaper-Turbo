@@ -15,7 +15,7 @@ export function CopyButton({ text }: CopyButtonProps) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fail silently — the checksum is still visible and selectable.
+      // Fallback silently: user can still highlight and copy the code text
     }
   };
 
@@ -23,11 +23,19 @@ export function CopyButton({ text }: CopyButtonProps) {
     <button
       type="button"
       onClick={handleCopy}
-      aria-label={copied ? "Checksum copied" : "Copy checksum to clipboard"}
+      aria-label={copied ? "Checksum copied to clipboard" : "Copy checksum to clipboard"}
       aria-live="polite"
-      className="inline-flex h-11 min-w-[4.5rem] items-center justify-center rounded-md border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:bg-foreground/5 active:scale-[0.98]"
+      className={`inline-flex h-9 min-w-[5rem] items-center justify-center gap-1.5 rounded-md border font-mono text-xs font-semibold transition-all active:scale-[0.97] ${
+        copied
+          ? "border-accent-bright bg-accent/20 text-accent-bright"
+          : "border-border bg-surface text-foreground hover:border-border-bright hover:bg-surface-raised"
+      }`}
     >
-      {copied ? "Copied" : "Copy"}
+      {copied ? (
+        <span>Copied</span>
+      ) : (
+        <span>Copy SHA</span>
+      )}
     </button>
   );
 }
