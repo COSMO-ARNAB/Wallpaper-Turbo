@@ -140,21 +140,32 @@ public sealed class HardwareDecodePipeline
                 //
                 // Continuous playback.
                 //
-                "--loop"
+                "--loop",
+
+                //
+                // Performance & dGPU/iGPU power optimizations.
+                // Suppress Sub-Picture Unit (SPU), subtitle text shaders, and OSD blending.
+                //
+                "--no-spu",
+                "--no-sub-autodetect-file",
+                "--direct3d11-hw-blending",
+                "--no-stats",
+                "--no-snapshot-preview",
+                "--deinterlace=0",
+                "--video-filter=",
+                "--drop-late-frames",
+                "--skip-frames",
+                "--file-caching=300",
+                "--live-caching=300",
+                "--disc-caching=300",
+                "--network-caching=300"
             };
 
             if (_useSoftwareDecode)
             {
                 argsList.AddRange(new[]
                 {
-                    "--avcodec-threads=1",
-                    "--file-caching=200",
-                    "--network-caching=200",
-                    "--live-caching=200",
-                    "--disc-caching=200",
-                    "--no-stats",
-                    "--no-sub-autodetect-file",
-                    "--no-snapshot-preview"
+                    "--avcodec-threads=1"
                 });
             }
 
@@ -287,6 +298,8 @@ public sealed class HardwareDecodePipeline
 
         // Reduce compositor disruptions.
         media.AddOption(":no-video-title-show");
+        media.AddOption(":no-spu");
+        media.AddOption(":no-sub-autodetect-file");
 
         return media;
     }
