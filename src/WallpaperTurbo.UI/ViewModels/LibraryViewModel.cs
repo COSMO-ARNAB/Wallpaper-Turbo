@@ -146,28 +146,41 @@ public partial class LibraryViewModel : ObservableObject
     private async Task PlayWallpaperAsync(WallpaperEntry? wp)
     {
         if (wp == null) return;
-        int index = _allWallpapers.IndexOf(wp) + 1;
-        if (index > 0)
+
+        // Launch via background detached model
+        var mainVm = App.GetService<MainViewModel>();
+        await mainVm.RunWallpaperTransitionAsync(async () =>
         {
-            // Launch via background detached model
+            int index = _allWallpapers.IndexOf(wp) + 1;
+            if (index <= 0)
+            {
+                return false;
+            }
+
             await _wallpaperService.LaunchWallpaperAsync(index);
 
             // Update main status details
-            var mainVm = App.GetService<MainViewModel>();
             mainVm.UpdateEngineStatus();
             mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
-        }
+            return true;
+        });
     }
 
     [RelayCommand]
     private async Task TripleClickPlayWallpaperAsync(WallpaperEntry? wp)
     {
         if (wp == null) return;
-        int index = _allWallpapers.IndexOf(wp) + 1;
-        if (index > 0)
+
+        var mainVm = App.GetService<MainViewModel>();
+        await mainVm.RunWallpaperTransitionAsync(async () =>
         {
+            int index = _allWallpapers.IndexOf(wp) + 1;
+            if (index <= 0)
+            {
+                return false;
+            }
+
             // 1. Force close any previous wallpaper completely first
-            var mainVm = App.GetService<MainViewModel>();
             if (mainVm.IsEngineRunning)
             {
                 await _wallpaperService.StopPlaybackAsync();
@@ -180,7 +193,8 @@ public partial class LibraryViewModel : ObservableObject
             // 3. Update main status details
             mainVm.UpdateEngineStatus();
             mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
-        }
+            return true;
+        });
     }
 
     [RelayCommand]

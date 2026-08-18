@@ -106,6 +106,18 @@ public class LibraryViewModelDeletionCoordinationTests
         public void ShutdownCurrentProcessGracefully() { }
     }
 
+    private sealed class NoOpWallpaperVisibilityMonitor : IWallpaperVisibilityMonitor
+    {
+        public bool IsWallpaperVisible => false;
+        public event EventHandler? WallpaperLost;
+        public event EventHandler<bool>? VisibilityChanged;
+        public void SetEngineExpected(bool expected) { }
+        public bool IsEngineExpected => false;
+        public Task<bool> WaitForVisibleAsync(TimeSpan timeout, CancellationToken ct = default) => Task.FromResult(true);
+        public void Start() { }
+        public void Stop() { }
+    }
+
     [Fact]
     public async Task DeleteWallpaperAsync_WhenLastWallpaperDeleted_ResetsDashboardAndMainViewModel()
     {
@@ -153,7 +165,8 @@ public class LibraryViewModelDeletionCoordinationTests
             libraryVm,
             settingsVm,
             layoutHostVm,
-            presentation);
+            presentation,
+            new NoOpWallpaperVisibilityMonitor());
 
         services.AddSingleton(mainVm);
         services.AddSingleton(dashboardVm);

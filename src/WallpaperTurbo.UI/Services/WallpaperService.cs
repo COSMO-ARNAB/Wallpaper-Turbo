@@ -344,6 +344,19 @@ public class WallpaperService
         public WallpaperSessionEventArgs? ActiveSession { get; private set; }
         public event EventHandler<WallpaperSessionEventArgs>? SessionStateChanged;
 
+        /// <summary>
+        /// Raised immediately before an intentional engine restart (e.g. a GPU-preference
+        /// switch). Lets observers such as the visibility watchdog pause loss-detection so a
+        /// temporary window disappearance during the restart is not mistaken for a crash and
+        /// relaunched mid-restart (which collides with the restart itself).
+        /// </summary>
+        public event EventHandler? EngineRestarting;
+
+        /// <summary>
+        /// Raised when an intentional engine restart finishes (whether it succeeded or not).
+        /// </summary>
+        public event EventHandler? EngineRestartCompleted;
+
         public int LastActiveWallpaperIndex => _lastActiveWallpaperIndex;
 
         private string _activePauseProfile = "Maximized";
@@ -999,22 +1012,34 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
         await _gpuApplySemaphore.WaitAsync();
         try
         {
-            // 1. Write GPU routing to Registry
-            _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, mode);
+            // Signal observers (the watchdog) that an intentional restart is about to drop
+            // the wallpaper window, so they don't fire "lost" and collide with the restart.
+            EngineRestarting?.Invoke(this, EventArgs.Empty);
 
-            // 2. Restart engine if currently running
-            if (IsEngineRunning() && _activeWallpaperIndex > 0)
+            try
             {
-                int activeIndex = _activeWallpaperIndex;
-                await StopPlaybackAsync();
+                // 1. Write GPU routing to Registry
+                _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, mode);
 
-                // Wait for the AppRunner process to fully release its GPU handle
-                await WaitForEngineExitAsync(2500);
+                // 2. Restart engine if currently running
+                if (IsEngineRunning() && _activeWallpaperIndex > 0)
+                {
+                    int activeIndex = _activeWallpaperIndex;
+                    await StopPlaybackAsync();
 
-                // Brief additional cooldown before relaunching
-                await Task.Delay(300);
+                    // Wait for the AppRunner process to fully release its GPU handle
+                    await WaitForEngineExitAsync(2500);
 
-                await LaunchWallpaperAsync(activeIndex);
+                    // Brief additional cooldown before relaunching
+                    await Task.Delay(300);
+
+                    await LaunchWallpaperAsync(activeIndex);
+                }
+            }
+            finally
+            {
+                // Re-arm observers regardless of outcome; they re-evaluate running state.
+                EngineRestartCompleted?.Invoke(this, EventArgs.Empty);
             }
         }
         finally

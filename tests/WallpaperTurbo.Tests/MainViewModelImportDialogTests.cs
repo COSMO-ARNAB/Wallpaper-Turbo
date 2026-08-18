@@ -37,7 +37,8 @@ public class MainViewModelImportDialogTests
             PauseOnMaximized = _settings.PauseOnMaximized,
             MuteAudio = _settings.MuteAudio,
             GpuPreference = _settings.GpuPreference,
-            LastRunVersion = _settings.LastRunVersion
+            LastRunVersion = _settings.LastRunVersion,
+            LastActiveWallpaperId = _settings.LastActiveWallpaperId
         };
 
         public void Save(AppSettings settings)
@@ -85,6 +86,37 @@ public class MainViewModelImportDialogTests
         public void SaveLayout(LayoutMode layoutMode) { }
     }
 
+    private sealed class FakeWallpaperVisibilityMonitor : IWallpaperVisibilityMonitor
+    {
+        public bool IsWallpaperVisible { get; set; }
+        public bool WaitForVisibleResult { get; set; } = true;
+        public int WaitForVisibleCalls { get; set; }
+        public List<bool> ExpectedStates { get; } = new();
+
+        public event EventHandler? WallpaperLost;
+        public event EventHandler<bool>? VisibilityChanged;
+
+        public void SetEngineExpected(bool expected)
+        {
+            ExpectedStates.Add(expected);
+            IsEngineExpected = expected;
+        }
+
+        public bool IsEngineExpected { get; private set; }
+
+        public Task<bool> WaitForVisibleAsync(TimeSpan timeout, CancellationToken ct = default)
+        {
+            WaitForVisibleCalls++;
+            return Task.FromResult(WaitForVisibleResult);
+        }
+
+        public void Start() { }
+        public void Stop() { }
+
+        public void RaiseWallpaperLost() => WallpaperLost?.Invoke(this, EventArgs.Empty);
+        public void RaiseVisibilityChanged(bool visible) => VisibilityChanged?.Invoke(this, visible);
+    }
+
     private sealed class FakeUpdaterSettingsStore : IUpdaterSettingsStore
     {
         private UpdaterSettings _settings = new();
@@ -128,6 +160,7 @@ public class MainViewModelImportDialogTests
         public FakeGpuPreferenceService GpuService { get; } = new();
         public FakeWallpaperLibraryService LibraryService { get; } = new();
         public FakeLayoutPreferenceStore LayoutStore { get; } = new();
+        public FakeWallpaperVisibilityMonitor WallpaperVisibility { get; } = new();
         public FakeUpdaterSettingsStore UpdaterSettingsStore { get; } = new();
         public NoOpDownloadManager DownloadManager { get; } = new();
         public AlwaysValidSignatureValidator SignatureValidator { get; } = new();
@@ -146,7 +179,7 @@ public class MainViewModelImportDialogTests
         public PresentationManager PresentationManager { get; }
         public MainViewModel MainViewModel { get; }
 
-        public MainViewModelFixture(AppSettings? initialSettings = null)
+        public MainViewModelFixture(AppSettings? initialSettings = null, string? appRunnerExePath = null)
         {
             if (initialSettings != null)
                 SettingsStore.Save(initialSettings);
@@ -161,7 +194,13 @@ public class MainViewModelImportDialogTests
             TelemetryService = new TelemetryService();
             UpdaterViewModel = new UpdaterViewModel(Coordinator, UpdaterSettingsStore);
             LayoutHostViewModel = new LayoutHostViewModel(LayoutStore);
-            WallpaperService = new WallpaperService(LibraryService, SettingsStore, GpuService);
+
+            // Nonexistent AppRunner path by default so no test ever spawns a real engine process.
+            WallpaperService = new WallpaperService(
+                LibraryService,
+                SettingsStore,
+                GpuService,
+                appRunnerExePath ?? Path.Combine(Path.GetTempPath(), "WallpaperTurbo.Tests", "missing", "WallpaperTurbo.AppRunner.exe"));
 
             SettingsViewModel = new SettingsViewModel(
                 WallpaperService,
@@ -187,7 +226,8 @@ public class MainViewModelImportDialogTests
                 LibraryViewModel,
                 SettingsViewModel,
                 LayoutHostViewModel,
-                PresentationManager);
+                PresentationManager,
+                WallpaperVisibility);
         }
 
         public void Dispose()
@@ -223,6 +263,148 @@ public class MainViewModelImportDialogTests
         Assert.NotNull(fixture.MainViewModel.WhatsNewHighlights);
         Assert.NotEmpty(fixture.MainViewModel.WhatsNewHighlights);
         Assert.Equal(fixture.UpdaterViewModel.CurrentVersion, fixture.MainViewModel.WhatsNewVersion);
+    }
+
+    [Fact]
+    public async Task RunWallpaperTransitionAsync_SetsBusyStateBeforeAwaitingAndClearsItOnCompletion()
+    {
+        using var fixture = new MainViewModelFixture();
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var transition = fixture.MainViewModel.RunWallpaperTransitionAsync(async () =>
+        {
+            await release.Task;
+            return true;
+        });
+
+        Assert.True(fixture.MainViewModel.IsApplyingWallpaper);
+
+        release.SetResult();
+        bool result = await transition;
+
+        Assert.False(fixture.MainViewModel.IsApplyingWallpaper);
+        Assert.True(result);
+        Assert.Equal(1, fixture.WallpaperVisibility.WaitForVisibleCalls);
+        Assert.True(fixture.WallpaperVisibility.ExpectedStates[^1]);
+    }
+
+    [Fact]
+    public async Task RunWallpaperTransitionAsync_SkipsVisibilityWait_WhenNothingLaunched()
+    {
+        using var fixture = new MainViewModelFixture();
+
+        bool result = await fixture.MainViewModel.RunWallpaperTransitionAsync(() => Task.FromResult(false));
+
+        Assert.False(result);
+        Assert.Equal(0, fixture.WallpaperVisibility.WaitForVisibleCalls);
+        Assert.False(fixture.MainViewModel.IsApplyingWallpaper);
+    }
+
+    [Fact]
+    public async Task RunWallpaperTransitionAsync_SetsRetryState_WhenVisibilityTimesOut()
+    {
+        using var fixture = new MainViewModelFixture();
+        fixture.WallpaperVisibility.WaitForVisibleResult = false;
+
+        bool result = await fixture.MainViewModel.RunWallpaperTransitionAsync(() => Task.FromResult(true));
+
+        Assert.False(result);
+        Assert.True(fixture.MainViewModel.IsEngineStartupTimedOut);
+        Assert.NotEmpty(fixture.MainViewModel.EngineStartupMessage);
+    }
+
+    // ── Watchdog recovery policy ─────────────────────────────────────────────
+
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(25);
+        }
+    }
+
+    [Fact]
+    public async Task OnWallpaperLost_RecoversByRelaunchingLastConfirmedWallpaper()
+    {
+        using var fixture = new MainViewModelFixture();
+        fixture.SettingsStore.Save(new AppSettings { LastActiveWallpaperId = "wp-2" });
+        fixture.LibraryService.Wallpapers.Add(new WallpaperEntry { Id = "wp-1", Title = "First", Video = "a.mp4" });
+        fixture.LibraryService.Wallpapers.Add(new WallpaperEntry { Id = "wp-2", Title = "Last", Video = "b.mp4" });
+        fixture.MainViewModel.IsEngineRunning = true;
+        fixture.WallpaperVisibility.SetEngineExpected(true);
+
+        fixture.WallpaperVisibility.RaiseWallpaperLost();
+
+        await WaitUntilAsync(() => fixture.MainViewModel.ActiveWallpaperTitle == "Last", TimeSpan.FromSeconds(5));
+
+        Assert.Equal(1, fixture.MainViewModel.RecoveryAttempts);
+        Assert.False(fixture.MainViewModel.IsApplyingWallpaper);
+        Assert.False(fixture.MainViewModel.IsEngineStartupTimedOut);
+        Assert.True(fixture.WallpaperVisibility.ExpectedStates[^1]);
+        Assert.Equal(1, fixture.WallpaperVisibility.WaitForVisibleCalls);
+        Assert.Equal("Last", fixture.MainViewModel.ActiveWallpaperTitle);
+    }
+
+    [Fact]
+    public async Task OnWallpaperLost_GivesUpAfterMaxAttempts_AndShowsRetryBanner()
+    {
+        using var fixture = new MainViewModelFixture();
+        fixture.SettingsStore.Save(new AppSettings { LastActiveWallpaperId = "wp-1" });
+        fixture.LibraryService.Wallpapers.Add(new WallpaperEntry { Id = "wp-1", Title = "Only", Video = "a.mp4" });
+        fixture.MainViewModel.IsEngineRunning = true;
+        fixture.WallpaperVisibility.WaitForVisibleResult = false;
+        fixture.MainViewModel.RecoveryRetryDelay = TimeSpan.FromMilliseconds(20);
+        fixture.WallpaperVisibility.SetEngineExpected(true);
+
+        fixture.WallpaperVisibility.RaiseWallpaperLost();
+
+        await WaitUntilAsync(() => fixture.MainViewModel.EngineStartupMessage.Contains("could not be recovered"), TimeSpan.FromSeconds(5));
+
+        Assert.Equal(3, fixture.MainViewModel.RecoveryAttempts);
+        Assert.True(fixture.MainViewModel.IsEngineStartupTimedOut);
+        Assert.Contains("could not be recovered", fixture.MainViewModel.EngineStartupMessage);
+        Assert.Equal("No Active Wallpaper", fixture.MainViewModel.ActiveWallpaperTitle);
+        Assert.False(fixture.WallpaperVisibility.ExpectedStates[^1]);
+        Assert.False(fixture.MainViewModel.IsApplyingWallpaper);
+    }
+
+    [Fact]
+    public async Task OnWallpaperLost_IgnoresLoss_WhenUserAlreadyStoppedEngine()
+    {
+        using var fixture = new MainViewModelFixture();
+        fixture.MainViewModel.IsEngineRunning = false;
+
+        fixture.WallpaperVisibility.RaiseWallpaperLost();
+        await Task.Delay(100);
+
+        Assert.Equal(0, fixture.MainViewModel.RecoveryAttempts);
+        Assert.False(fixture.MainViewModel.IsApplyingWallpaper);
+    }
+
+    [Fact]
+    public async Task WallpaperVisibleAgain_ResetsRecoveryAttempts()
+    {
+        using var fixture = new MainViewModelFixture();
+        fixture.SettingsStore.Save(new AppSettings { LastActiveWallpaperId = "wp-1" });
+        fixture.LibraryService.Wallpapers.Add(new WallpaperEntry { Id = "wp-1", Title = "Only", Video = "a.mp4" });
+        fixture.MainViewModel.IsEngineRunning = true;
+        fixture.WallpaperVisibility.WaitForVisibleResult = false;
+        fixture.MainViewModel.RecoveryRetryDelay = TimeSpan.FromMilliseconds(20);
+        fixture.WallpaperVisibility.SetEngineExpected(true);
+
+        fixture.WallpaperVisibility.RaiseWallpaperLost();
+        await WaitUntilAsync(() => fixture.MainViewModel.EngineStartupMessage.Contains("could not be recovered"), TimeSpan.FromSeconds(5));
+        Assert.Equal(3, fixture.MainViewModel.RecoveryAttempts);
+
+        fixture.WallpaperVisibility.RaiseVisibilityChanged(true);
+
+        Assert.Equal(0, fixture.MainViewModel.RecoveryAttempts);
     }
 
     [Fact]
@@ -262,5 +444,49 @@ public class MainViewModelImportDialogTests
         {
             Assert.Contains(highlight, techieMessage);
         }
+    }
+
+    // ── Startup watchdog arming ─────────────────────────────────────────────
+
+    [Fact]
+    public void ApplyStartupResult_EngineRunningWithWallpaper_ArmsWatchdog()
+    {
+        using var fixture = new MainViewModelFixture();
+        var wallpaper = new WallpaperEntry
+        {
+            Id = "wp-1",
+            Title = "Test",
+            Video = "test.mp4",
+            Resolution = "1920x1080",
+            Fps = "60 FPS"
+        };
+
+        fixture.MainViewModel.ApplyStartupResult(new StartupResult
+        {
+            IsEngineRunning = true,
+            ActiveWallpaper = wallpaper,
+            TimedOut = false
+        });
+
+        // The watchdog must be armed so a lost startup wallpaper is auto-recovered.
+        Assert.Contains(true, fixture.WallpaperVisibility.ExpectedStates);
+    }
+
+    [Fact]
+    public void ApplyStartupResult_NoWallpaper_DisarmsWatchdog()
+    {
+        using var fixture = new MainViewModelFixture();
+
+        // Timed-out startup: engine never confirmed up — must NOT arm recovery.
+        fixture.MainViewModel.ApplyStartupResult(new StartupResult
+        {
+            IsEngineRunning = false,
+            ActiveWallpaper = null,
+            TimedOut = true,
+            ErrorMessage = "still starting"
+        });
+
+        Assert.DoesNotContain(true, fixture.WallpaperVisibility.ExpectedStates);
+        Assert.Contains(false, fixture.WallpaperVisibility.ExpectedStates);
     }
 }

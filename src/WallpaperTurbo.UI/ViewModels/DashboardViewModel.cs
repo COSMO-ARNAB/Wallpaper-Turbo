@@ -603,10 +603,11 @@ public partial class DashboardViewModel : ObservableObject
     {
         if (wp == null) return;
 
+        var mainVm = App.GetService<MainViewModel>();
+
         // If the wallpaper is already active and playing, toggle it off by stopping playback
         if (ActiveWallpaper != null && wp.Id == ActiveWallpaper.Id)
         {
-            var mainVm = App.GetService<MainViewModel>();
             if (mainVm != null)
             {
                 await mainVm.StopCommand.ExecuteAsync(null);
@@ -614,33 +615,45 @@ public partial class DashboardViewModel : ObservableObject
             return;
         }
 
-        var list = await _wallpaperService.GetWallpapersAsync();
-        int index = list.IndexOf(wp) + 1;
-        if (index > 0)
+        await mainVm.RunWallpaperTransitionAsync(async () =>
         {
+            var list = await _wallpaperService.GetWallpapersAsync();
+            int index = list.IndexOf(wp) + 1;
+            if (index <= 0)
+            {
+                return false;
+            }
+
             RegisterPlayedWallpaper(wp);
             LastDisplayedWallpaper = wp;
             await _wallpaperService.LaunchWallpaperAsync(index, PauseOnMaximized ? "Maximized" : "None");
             ActiveWallpaper = wp;
 
             // Notify MainViewModel of active wallpaper details
-            App.GetService<MainViewModel>().SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
-        }
+            mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
+            return true;
+        });
     }
 
     [RelayCommand]
     private async Task TripleClickPlayWallpaperAsync(WallpaperEntry? wp)
     {
         if (wp == null) return;
-        var list = await _wallpaperService.GetWallpapersAsync();
-        int index = list.IndexOf(wp) + 1;
-        if (index > 0)
+
+        var mainVm = App.GetService<MainViewModel>();
+        await mainVm.RunWallpaperTransitionAsync(async () =>
         {
+            var list = await _wallpaperService.GetWallpapersAsync();
+            int index = list.IndexOf(wp) + 1;
+            if (index <= 0)
+            {
+                return false;
+            }
+
             RegisterPlayedWallpaper(wp);
             LastDisplayedWallpaper = wp;
-            
+
             // 1. Force close any previous wallpaper completely first
-            var mainVm = App.GetService<MainViewModel>();
             if (mainVm.IsEngineRunning)
             {
                 await _wallpaperService.StopPlaybackAsync();
@@ -654,7 +667,8 @@ public partial class DashboardViewModel : ObservableObject
             // 3. Update main status details
             mainVm.UpdateEngineStatus();
             mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
-        }
+            return true;
+        });
     }
 
     // ── Persistent Recently Used History Engine ────────────────────────────────

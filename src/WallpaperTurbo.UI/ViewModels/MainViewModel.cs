@@ -1,10 +1,12 @@
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WallpaperTurbo.Core.Display;
 using WallpaperTurbo.Core.Updates.Models;
+using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
 
 namespace WallpaperTurbo.UI.ViewModels;
@@ -56,6 +58,58 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _isPlaying = true;
+
+    [ObservableProperty]
+    private bool _isApplyingWallpaper;
+
+    private const int MaxRecoveryAttempts = 3;
+
+    /// <summary>Gap between consecutive auto-restart attempts after a wallpaper loss.</summary>
+    internal TimeSpan RecoveryRetryDelay { get; set; } = TimeSpan.FromSeconds(1);
+
+    internal int RecoveryAttempts { get; private set; }
+
+    private bool _isRecovering;
+
+    /// <summary>
+    /// Runs an engine transition operation with the loading state active for its
+    /// full lifetime. The flag is set synchronously before the first await so the
+    /// UI gives feedback immediately, and cleared in a finally so it never sticks.
+    /// The operation returns whether a launch actually happened; when it did, the
+    /// transition completes only once the wallpaper window is confirmed on screen
+    /// (watchdog), with a 10s cap falling back to the "still starting / Retry" state.
+    /// </summary>
+    public async Task<bool> RunWallpaperTransitionAsync(Func<Task<bool>> operation)
+    {
+        IsApplyingWallpaper = true;
+        try
+        {
+            bool launched = await operation();
+            if (!launched)
+            {
+                return false;
+            }
+
+            _wallpaperVisibility.SetEngineExpected(true);
+            bool visible = await _wallpaperVisibility.WaitForVisibleAsync(TimeSpan.FromSeconds(10));
+            if (!visible)
+            {
+                IsEngineStartupTimedOut = true;
+                EngineStartupMessage = "Wallpaper engine is still starting. Please wait or click Retry.";
+            }
+            else
+            {
+                IsEngineStartupTimedOut = false;
+                EngineStartupMessage = string.Empty;
+            }
+
+            return visible;
+        }
+        finally
+        {
+            IsApplyingWallpaper = false;
+        }
+    }
 
     [ObservableProperty]
     private string _engineStatusText = "ENGINE STOPPED";
@@ -137,6 +191,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly LibraryViewModel _libraryViewModel;
     private readonly SettingsViewModel _settingsViewModel;
 
+    // Services
+    private readonly IWallpaperVisibilityMonitor _wallpaperVisibility;
+
     public UpdaterViewModel Updater => _updater;
 
     public LayoutHostViewModel LayoutHost => _layoutHostViewModel;
@@ -154,7 +211,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         LibraryViewModel libraryViewModel,
         SettingsViewModel settingsViewModel,
         LayoutHostViewModel layoutHostViewModel,
-        PresentationManager presentation)
+        PresentationManager presentation,
+        IWallpaperVisibilityMonitor wallpaperVisibility)
     {
         StartupDiagnostics.Log("MainViewModel constructor ENTRY");
         _wallpaperService = wallpaperService;
@@ -167,8 +225,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _settingsViewModel = settingsViewModel;
         _layoutHostViewModel = layoutHostViewModel;
         Presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
+        _wallpaperVisibility = wallpaperVisibility ?? throw new ArgumentNullException(nameof(wallpaperVisibility));
 
         _libraryService.MetadataChanged += OnWallpaperMetadataChanged;
+
+        // Watchdog: watch for the wallpaper actually disappearing from the desktop
+        // and auto-recover it. Runs as long as the app lives.
+        _wallpaperVisibility.VisibilityChanged += OnWallpaperVisibilityChanged;
+        _wallpaperVisibility.WallpaperLost += OnWallpaperLost;
+        _wallpaperVisibility.Start();
+
+        // Intentional engine restarts (GPU-preference switch) must pause the watchdog so it
+        // does not mistake the temporary window disappearance for a crash and relaunch mid-restart.
+        _wallpaperService.EngineRestarting += OnEngineRestarting;
+        _wallpaperService.EngineRestartCompleted += OnEngineRestartCompleted;
 
         _currentPageViewModel = _dashboardViewModel;
         StartupDiagnostics.Log("CurrentPageViewModel assigned: DashboardViewModel");
@@ -276,6 +346,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         if (IsEngineRunning)
         {
+            // Intentional stop — the watchdog must not auto-restart.
+            _wallpaperVisibility.SetEngineExpected(false);
             await _wallpaperService.StopPlaybackAsync();
             ActiveWallpaperTitle = "No Active Wallpaper";
         }
@@ -284,36 +356,185 @@ public partial class MainViewModel : ObservableObject, IDisposable
             // Start engine with the last genuinely active wallpaper.
             // LastActiveWallpaperId is the one source of truth for restore (written only
             // when AppRunner confirms playback) — never the recent-history fallback.
-            var list = await _wallpaperService.GetWallpapersAsync();
-            if (list.Any())
+            await RunWallpaperTransitionAsync(async () =>
             {
-                var lastActiveId = _settingsStore.Load().LastActiveWallpaperId;
-                var wallpaperToLaunch = !string.IsNullOrEmpty(lastActiveId)
-                    ? list.FirstOrDefault(w => w.Id == lastActiveId)
-                    : null;
-
-                // Fall back to the dashboard's current wallpaper only if no persisted ID resolves
+                var wallpaperToLaunch = await ResolveWallpaperToLaunchAsync();
                 if (wallpaperToLaunch == null)
                 {
-                    var preferredWallpaper = _dashboardViewModel.CurrentWallpaper;
-                    wallpaperToLaunch = preferredWallpaper != null
-                        ? list.FirstOrDefault(w => w.Id == preferredWallpaper.Id || w.Title == preferredWallpaper.Title)
-                        : null;
+                    return false;
                 }
 
-                wallpaperToLaunch ??= list[0];
-
+                var list = await _wallpaperService.GetWallpapersAsync();
                 int index = list.IndexOf(wallpaperToLaunch) + 1;
-                if (index > 0)
+                if (index <= 0)
                 {
-                    await _wallpaperService.LaunchWallpaperAsync(index);
-                    ActiveWallpaperTitle = wallpaperToLaunch.Title;
-                    ActiveWallpaperSpecs = $"{wallpaperToLaunch.Resolution} • {wallpaperToLaunch.Fps}";
-                    _dashboardViewModel.LastDisplayedWallpaper = wallpaperToLaunch;
+                    return false;
                 }
-            }
+
+                await _wallpaperService.LaunchWallpaperAsync(index);
+                SetActiveWallpaperInfo(wallpaperToLaunch.Title, $"{wallpaperToLaunch.Resolution} • {wallpaperToLaunch.Fps}");
+                _dashboardViewModel.LastDisplayedWallpaper = wallpaperToLaunch;
+                return true;
+            });
         }
         UpdateEngineStatus();
+    }
+
+    /// <summary>
+    /// Resolves which wallpaper a start/recovery should launch: the engine-confirmed
+    /// LastActiveWallpaperId first, falling back to the dashboard's current wallpaper,
+    /// then the first library entry. Null when the library is empty.
+    /// </summary>
+    private async Task<WallpaperEntry?> ResolveWallpaperToLaunchAsync()
+    {
+        var list = await _wallpaperService.GetWallpapersAsync();
+        if (!list.Any())
+        {
+            return null;
+        }
+
+        var lastActiveId = _settingsStore.Load().LastActiveWallpaperId;
+        var wallpaperToLaunch = !string.IsNullOrEmpty(lastActiveId)
+            ? list.FirstOrDefault(w => w.Id == lastActiveId)
+            : null;
+
+        // Fall back to the dashboard's current wallpaper only if no persisted ID resolves
+        if (wallpaperToLaunch == null)
+        {
+            var preferredWallpaper = _dashboardViewModel.CurrentWallpaper;
+            wallpaperToLaunch = preferredWallpaper != null
+                ? list.FirstOrDefault(w => w.Id == preferredWallpaper.Id || w.Title == preferredWallpaper.Title)
+                : null;
+        }
+
+        return wallpaperToLaunch ?? list[0];
+    }
+
+    // ── Watchdog recovery ────────────────────────────────────────────────────
+
+    private void OnWallpaperVisibilityChanged(object? sender, bool visible)
+    {
+        // A visible wallpaper means the engine recovered — reset the failure counter.
+        if (visible)
+        {
+            RecoveryAttempts = 0;
+        }
+    }
+
+    private void OnEngineRestarting(object? sender, EventArgs e)
+    {
+        // An intentional restart is about to drop the wallpaper window; disarm the watchdog
+        // so it doesn't fire WallpaperLost and collide with the restart.
+        _wallpaperVisibility.SetEngineExpected(false);
+    }
+
+    private void OnEngineRestartCompleted(object? sender, EventArgs e)
+    {
+        // Re-arm only if the engine is actually running again (the restart succeeded).
+        if (_wallpaperService.IsEngineRunning())
+        {
+            _wallpaperVisibility.SetEngineExpected(true);
+        }
+    }
+
+    private async void OnWallpaperLost(object? sender, EventArgs e)
+    {
+        try
+        {
+            await TryRecoverWallpaperAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[MainViewModel] Wallpaper recovery failed: {ex.Message}");
+            // A recovery failure must never spiral into a relaunch loop. Disarm the
+            // watchdog and surface a non-fatal retry state so the user can recover manually.
+            try
+            {
+                _wallpaperVisibility.SetEngineExpected(false);
+            }
+            catch
+            {
+                // Ignoring — we are already in a failure path.
+            }
+
+            IsEngineStartupTimedOut = true;
+            EngineStartupMessage = "The wallpaper engine lost its display window and recovery failed. Click Retry to try again.";
+            UpdateEngineStatus();
+        }
+    }
+
+    /// <summary>
+    /// Auto-restart policy: relaunch the last confirmed wallpaper, waiting (with the
+    /// loading state active) until the watchdog confirms it is back on screen. Up to
+    /// <see cref="MaxRecoveryAttempts"/> attempts spaced <see cref="RecoveryRetryDelay"/>
+    /// apart; after that, surface the retry banner and mark the engine stopped.
+    /// </summary>
+    private async Task TryRecoverWallpaperAsync()
+    {
+        // Also bail if the watchdog has been disarmed (engine intentionally stopped/off).
+        // This guards against a WallpaperLost event that was already queued on the
+        // dispatcher before a stop completed, which would otherwise relaunch the engine
+        // the user just turned off.
+        if (_isRecovering || IsApplyingWallpaper || !IsEngineRunning || !_wallpaperVisibility.IsEngineExpected)
+        {
+            return;
+        }
+
+        _isRecovering = true;
+        try
+        {
+            while (RecoveryAttempts < MaxRecoveryAttempts && IsEngineRunning)
+            {
+                RecoveryAttempts++;
+                bool recovered = await RunWallpaperTransitionAsync(async () =>
+                {
+                    var wallpaperToLaunch = await ResolveWallpaperToLaunchAsync();
+                    if (wallpaperToLaunch == null)
+                    {
+                        return false;
+                    }
+
+                    var list = await _wallpaperService.GetWallpapersAsync();
+                    int index = list.IndexOf(wallpaperToLaunch) + 1;
+                    if (index <= 0)
+                    {
+                        return false;
+                    }
+
+                    await _wallpaperService.LaunchWallpaperAsync(index);
+                    SetActiveWallpaperInfo(wallpaperToLaunch.Title, $"{wallpaperToLaunch.Resolution} • {wallpaperToLaunch.Fps}");
+                    return true;
+                });
+
+                if (recovered)
+                {
+                    return;
+                }
+
+                if (RecoveryAttempts >= MaxRecoveryAttempts)
+                {
+                    break;
+                }
+
+                await Task.Delay(RecoveryRetryDelay);
+            }
+
+            if (!IsEngineRunning)
+            {
+                return;
+            }
+
+            _wallpaperVisibility.SetEngineExpected(false);
+            ActiveWallpaperTitle = "No Active Wallpaper";
+            ActiveWallpaperSpecs = "None";
+            IsEngineStartupTimedOut = true;
+            EngineStartupMessage = "The wallpaper engine lost its display window and could not be recovered automatically. Click Retry to try again.";
+            UpdateEngineStatus();
+        }
+        finally
+        {
+            _isRecovering = false;
+        }
     }
 
     /// <summary>
@@ -322,6 +543,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// </summary>
     public void ApplyStartupResult(StartupResult result)
     {
+        // Arm the watchdog's auto-recovery for the startup wallpaper, but ONLY when
+        // a wallpaper is genuinely running. If the engine isn't actually up (timeout
+        // or no active wallpaper) we explicitly disarm it so the watchdog never tries
+        // to "recover" a wallpaper that was never started — which would spawn a
+        // spurious AppRunner process. Stop/pause/delete paths later call
+        // SetEngineExpected(false) themselves, and OnWallpaperLost is additionally
+        // gated on IsEngineRunning, so a stuck-true state cannot trigger recovery.
+        bool engineExpected = !result.TimedOut && result.IsEngineRunning && result.ActiveWallpaper != null;
+        _wallpaperVisibility.SetEngineExpected(engineExpected);
+
         if (result.TimedOut)
         {
             IsEngineStartupTimedOut = true;
@@ -384,6 +615,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         if (IsEngineRunning)
         {
+            // Intentional stop — the watchdog must not auto-restart.
+            _wallpaperVisibility.SetEngineExpected(false);
             await _wallpaperService.StopPlaybackAsync();
             ActiveWallpaperTitle = "No Active Wallpaper";
             ActiveWallpaperSpecs = "None";
@@ -567,6 +800,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Unsubscribe from telemetry events to prevent reference leak
         _telemetryService.MetricsUpdated -= OnMetricsUpdated;
         _libraryService.MetadataChanged -= OnWallpaperMetadataChanged;
+        _wallpaperVisibility.VisibilityChanged -= OnWallpaperVisibilityChanged;
+        _wallpaperVisibility.WallpaperLost -= OnWallpaperLost;
+        _wallpaperService.EngineRestarting -= OnEngineRestarting;
+        _wallpaperService.EngineRestartCompleted -= OnEngineRestartCompleted;
+        _wallpaperVisibility.Stop();
     }
 
     #endregion

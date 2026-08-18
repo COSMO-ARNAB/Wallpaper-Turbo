@@ -89,6 +89,9 @@ public partial class App : Application
         // Startup Coordinator
         services.AddSingleton<Services.WallpaperStartupCoordinator>();
 
+        // Wallpaper visibility watchdog (desktop window truth)
+        services.AddSingleton<Services.IWallpaperVisibilityMonitor, Services.WallpaperVisibilityWatchdog>();
+
         // Presentation Management
         services.AddSingleton<Services.PresentationManager>();
 
