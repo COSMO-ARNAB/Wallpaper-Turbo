@@ -9,15 +9,13 @@ public sealed class InnoSetupApplier : IUpdateApplier
     private readonly string _installArgs;
     private bool _disposed;
 
-    private static string GetDefaultInstallArgs()
-    {
-        var tempLogPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "WallpaperTurbo_Install.log");
-        return $"/LOG=\"{tempLogPath}\"";
-    }
-
     public InnoSetupApplier(string? installArgs = null)
     {
-        _installArgs = installArgs ?? GetDefaultInstallArgs();
+        // Let Inno Setup resolve its own elevated user's TEMP directory. A fixed
+        // path such as %TEMP%\WallpaperTurbo_Install.log is not expanded by
+        // Inno Setup's /LOG="filename" parameter and can abort setup before the
+        // wizard is shown.
+        _installArgs = installArgs ?? "/LOG";
     }
 
     public void ApplyUpdate(string installerFilePath)
