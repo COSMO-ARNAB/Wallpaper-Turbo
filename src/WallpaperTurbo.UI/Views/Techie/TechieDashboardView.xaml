@@ -760,48 +760,104 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             
-                            <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center" Margin="4,0,12,0">
-                                <Ellipse.Style>
-                                    <Style TargetType="Ellipse">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                                <Setter Property="Fill" Value="{StaticResource ActiveGreenBrush}" />
-                                                <Setter Property="Effect">
-                                                    <Setter.Value>
-                                                        <DropShadowEffect Color="{StaticResource ActiveGreenColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.8" />
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                <Setter Property="Fill" Value="{StaticResource WarningRedBrush}" />
-                                                <Setter Property="Effect">
-                                                    <Setter.Value>
-                                                        <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.8" />
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Ellipse.Style>
-                            </Ellipse>
+                             <Grid Grid.Column="0" Width="14" Height="14" VerticalAlignment="Center" Margin="4,0,12,0">
+                                 <!-- Status Dot -->
+                                 <Ellipse Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                     <Ellipse.Style>
+                                         <Style TargetType="Ellipse">
+                                             <Setter Property="Fill" Value="{StaticResource WarningRedBrush}" />
+                                             <Setter Property="Effect">
+                                                 <Setter.Value>
+                                                     <DropShadowEffect Color="{StaticResource WarningRedColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.8" />
+                                                 </Setter.Value>
+                                             </Setter>
+                                             <Setter Property="Opacity" Value="1" />
+                                             <Style.Triggers>
+                                                 <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                     <Setter Property="Fill" Value="{StaticResource ActiveGreenBrush}" />
+                                                     <Setter Property="Effect">
+                                                         <Setter.Value>
+                                                             <DropShadowEffect Color="{StaticResource ActiveGreenColor}" BlurRadius="8" ShadowDepth="0" Opacity="0.8" />
+                                                         </Setter.Value>
+                                                     </Setter>
+                                                 </DataTrigger>
+                                                 <DataTrigger Binding="{Binding DataContext.IsApplyingWallpaper, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                     <Setter Property="Opacity" Value="0" />
+                                                 </DataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </Ellipse.Style>
+                                 </Ellipse>
+                                 <!-- Loading Arc -->
+                                 <Path Stroke="{StaticResource ActiveCyanBrush}" StrokeThickness="1.5"
+                                       StrokeDashArray="1 3" StrokeEndLineCap="Round" StrokeStartLineCap="Round"
+                                       Width="14" Height="14"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       RenderTransformOrigin="0.5,0.5">
+                                     <Path.Data>
+                                         <EllipseGeometry Center="7,7" RadiusX="5.5" RadiusY="5.5" />
+                                     </Path.Data>
+                                     <Path.RenderTransform>
+                                         <RotateTransform Angle="0" />
+                                     </Path.RenderTransform>
+                                     <Path.Style>
+                                         <Style TargetType="Path">
+                                             <Setter Property="Opacity" Value="0" />
+                                             <Style.Triggers>
+                                                 <DataTrigger Binding="{Binding DataContext.IsApplyingWallpaper, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                     <Setter Property="Opacity" Value="1" />
+                                                     <DataTrigger.EnterActions>
+                                                         <BeginStoryboard>
+                                                             <Storyboard>
+                                                                 <DoubleAnimation Storyboard.TargetProperty="(Path.RenderTransform).(RotateTransform.Angle)"
+                                                                                  From="0" To="360" Duration="0:0:1.5" RepeatBehavior="Forever" />
+                                                             </Storyboard>
+                                                         </BeginStoryboard>
+                                                     </DataTrigger.EnterActions>
+                                                     <DataTrigger.ExitActions>
+                                                         <BeginStoryboard>
+                                                             <Storyboard>
+                                                                 <DoubleAnimation Storyboard.TargetProperty="(Path.RenderTransform).(RotateTransform.Angle)"
+                                                                                  To="0" Duration="0:0:0.15" />
+                                                             </Storyboard>
+                                                         </BeginStoryboard>
+                                                     </DataTrigger.ExitActions>
+                                                 </DataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </Path.Style>
+                                 </Path>
+                             </Grid>
 
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock FontSize="11" FontWeight="Bold" Foreground="#FFFFFF">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                                    <Setter Property="Text" Value="ENGINE RUNNING" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                    <Setter Property="Text" Value="ENGINE OFFLINE" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <TextBlock Text="VLC (D3D11VA)" FontSize="8" Foreground="{StaticResource MutedTextBrush}" Margin="0,1,0,0" />
-                            </StackPanel>
+                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                 <TextBlock FontSize="11" FontWeight="Bold" Foreground="#FFFFFF">
+                                     <TextBlock.Style>
+                                         <Style TargetType="TextBlock">
+                                             <Setter Property="Text" Value="ENGINE OFFLINE" />
+                                             <Style.Triggers>
+                                                 <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                     <Setter Property="Text" Value="ENGINE RUNNING" />
+                                                 </DataTrigger>
+                                                 <DataTrigger Binding="{Binding DataContext.IsApplyingWallpaper, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                     <Setter Property="Text" Value="ENGINE STARTING" />
+                                                 </DataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </TextBlock.Style>
+                                 </TextBlock>
+                                 <TextBlock FontSize="8" Foreground="{StaticResource MutedTextBrush}" Margin="0,1,0,0">
+                                     <TextBlock.Style>
+                                         <Style TargetType="TextBlock">
+                                             <Setter Property="Text" Value="VLC (D3D11VA)" />
+                                             <Style.Triggers>
+                                                 <DataTrigger Binding="{Binding DataContext.IsApplyingWallpaper, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                     <Setter Property="Text" Value="Applying wallpaper..." />
+                                                 </DataTrigger>
+                                             </Style.Triggers>
+                                         </Style>
+                                     </TextBlock.Style>
+                                 </TextBlock>
+                             </StackPanel>
                         </Grid>
                     </Border>
 
@@ -885,16 +941,29 @@
                                 <ui:Button.Style>
                                     <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                                <Setter Property="Content" Value="STOP BACKEND ENGINE" />
-                                                <Setter Property="Background" Value="{StaticResource WarningRedBrush}" />
-                                                <Setter Property="Foreground" Value="#FFFFFF" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                <Setter Property="Content" Value="START BACKEND ENGINE" />
-                                                <Setter Property="Background" Value="{StaticResource ActiveCyanBrush}" />
-                                                <Setter Property="Foreground" Value="#000000" />
-                                            </DataTrigger>
+                                             <DataTrigger Binding="{Binding DataContext.IsApplyingWallpaper, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                 <Setter Property="Content" Value="APPLYING..." />
+                                                 <Setter Property="Background" Value="{StaticResource ActiveCyanBrush}" />
+                                                 <Setter Property="Foreground" Value="#000000" />
+                                             </DataTrigger>
+                                             <MultiDataTrigger>
+                                                 <MultiDataTrigger.Conditions>
+                                                     <Condition Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                                                     <Condition Binding="{Binding DataContext.IsApplyingWallpaper, RelativeSource={RelativeSource AncestorType=Window}}" Value="False" />
+                                                 </MultiDataTrigger.Conditions>
+                                                 <Setter Property="Content" Value="STOP BACKEND ENGINE" />
+                                                 <Setter Property="Background" Value="{StaticResource WarningRedBrush}" />
+                                                 <Setter Property="Foreground" Value="#FFFFFF" />
+                                             </MultiDataTrigger>
+                                             <MultiDataTrigger>
+                                                 <MultiDataTrigger.Conditions>
+                                                     <Condition Binding="{Binding DataContext.IsEngineRunning, RelativeSource={RelativeSource AncestorType=Window}}" Value="False" />
+                                                     <Condition Binding="{Binding DataContext.IsApplyingWallpaper, RelativeSource={RelativeSource AncestorType=Window}}" Value="False" />
+                                                 </MultiDataTrigger.Conditions>
+                                                 <Setter Property="Content" Value="START BACKEND ENGINE" />
+                                                 <Setter Property="Background" Value="{StaticResource ActiveCyanBrush}" />
+                                                 <Setter Property="Foreground" Value="#000000" />
+                                             </MultiDataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </ui:Button.Style>

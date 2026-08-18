@@ -1,8 +1,10 @@
 using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using WallpaperTurbo.UI.Services;
 using WallpaperTurbo.UI.ViewModels;
 
@@ -15,6 +17,99 @@ public partial class DashboardView : UserControl
         StartupDiagnostics.StartTimer("DashboardView initialization");
         InitializeComponent();
         StartupDiagnostics.StopTimerWithMemory("DashboardView initialization");
+
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
+    }
+
+    private MainViewModel? _mainVm;
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this)?.DataContext is MainViewModel vm)
+        {
+            _mainVm = vm;
+            _mainVm.PropertyChanged += OnMainVmPropertyChanged;
+            ApplyPhotonState(vm.IsApplyingWallpaper);
+        }
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (_mainVm != null)
+        {
+            _mainVm.PropertyChanged -= OnMainVmPropertyChanged;
+        }
+
+        StopPhotons();
+        _mainVm = null;
+    }
+
+    private void OnMainVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.IsApplyingWallpaper))
+        {
+            ApplyPhotonState(_mainVm?.IsApplyingWallpaper ?? false);
+        }
+    }
+
+    private void ApplyPhotonState(bool applying)
+    {
+        if (applying)
+        {
+            BeginPhotons();
+        }
+        else
+        {
+            StopPhotons();
+        }
+    }
+
+    /// <summary>
+    /// Starts the photon stream storyboards. These are begun from code-behind (rather than a
+    /// Style DataTrigger) because the storyboards contain a Binding to the button's ActualWidth,
+    /// and Storyboards that contain bindings cannot be frozen inside a Style — that throws a
+    /// XamlParseException ("Cannot freeze this Storyboard timeline tree") on every render pass.
+    /// </summary>
+    private void BeginPhotons()
+    {
+        if (PhotonCanvas == null)
+        {
+            return;
+        }
+
+        PhotonCanvas.Opacity = 1;
+        BeginPhoton("Photon1SB");
+        BeginPhoton("Photon2SB");
+        BeginPhoton("Photon3SB");
+        BeginPhoton("Photon4SB");
+    }
+
+    private void BeginPhoton(string key)
+    {
+        if (PhotonCanvas.Resources[key] is Storyboard sb)
+        {
+            // 'this' resolves the Storyboard.TargetName (Photon1..4) in the view's namescope.
+            sb.Begin(this, true);
+        }
+    }
+
+    private void StopPhotons()
+    {
+        if (PhotonCanvas == null)
+        {
+            return;
+        }
+
+        foreach (var key in new[] { "Photon1SB", "Photon2SB", "Photon3SB", "Photon4SB" })
+        {
+            if (PhotonCanvas.Resources[key] is Storyboard sb)
+            {
+                sb.Stop(this);
+            }
+        }
+
+        PhotonCanvas.Opacity = 0;
     }
 
     private void OnCardMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
