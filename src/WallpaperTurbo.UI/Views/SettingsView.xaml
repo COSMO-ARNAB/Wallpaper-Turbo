@@ -360,7 +360,7 @@
                             <ui:ToggleSwitch Grid.Column="2" IsChecked="{Binding UseHardwareAcceleration}" Content="" VerticalAlignment="Center"/>
                         </Grid>
 
-                        <!-- GPU Preference -->
+                        <!-- GPU Preference & Auto Hardware Detection -->
                         <StackPanel Margin="0,0,0,16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -393,6 +393,41 @@
                                        Foreground="{StaticResource AccentBrush}"
                                        Margin="28,4,0,0"
                                        Visibility="{Binding IsGpuSwitching, Converter={StaticResource BoolToVisConverter}}" />
+
+                            <!-- Detected GPU(s) and Driver details -->
+                            <Border Margin="28,8,0,0" Padding="10,8" Background="#12FFFFFF" CornerRadius="6"
+                                    Visibility="{Binding HasDetectedGpus, Converter={StaticResource BoolToVisConverter}}">
+                                <StackPanel>
+                                    <ItemsControl ItemsSource="{Binding DetectedGpus}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,3">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <ui:SymbolIcon Symbol="Desktop20" FontSize="13" Foreground="{StaticResource AccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding Name}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding FormattedDriverInfo}" FontSize="10.5" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="6,0,0,0"
+                                                                   Visibility="{Binding HasDriverInfo, Converter={StaticResource BoolToVisConverter}}"/>
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1" Padding="6,2" CornerRadius="4" Background="#18FFFFFF" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding TypeLabel}" FontSize="9.5" FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    </Border>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <!-- Dual GPU recommendation tip -->
+                                    <TextBlock Text="{Binding DualGpuRecommendation}"
+                                               FontSize="10.5"
+                                               Foreground="{StaticResource AccentBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,6,0,0"
+                                               Visibility="{Binding IsDualGpuSystem, Converter={StaticResource BoolToVisConverter}}" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
 
                         <!-- Battery Saver -->

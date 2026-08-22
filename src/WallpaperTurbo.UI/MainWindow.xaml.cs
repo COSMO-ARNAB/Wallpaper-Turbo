@@ -41,7 +41,9 @@ public partial class MainWindow : Window
         // Hard safety guard: force-cancel any active preview when window loses focus or minimizes.
         // Prevents ghost preview sessions accumulating while the user is in another app.
         Deactivated  += OnWindowDeactivated;
+        Activated    += OnWindowActivated;
         StateChanged += OnWindowStateChanged;
+        SourceInitialized += OnSourceInitialized;
 
         // Load the highest quality frame from the .ico file for the Taskbar Icon and crop any transparent padding
         try
@@ -122,6 +124,21 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[MainWindow] Window deactivated → preview force-stopped.");
     }
 
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        // HWND is guaranteed valid here — apply backdrop as early as possible.
+        // This covers the case where PresentationManager fired before Loaded.
+        ApplyBackdropAttributes();
+    }
+
+    private void OnWindowActivated(object? sender, EventArgs e)
+    {
+        // Re-apply after activation: DWM can drop/reset the backdrop after
+        // minimize/restore, monitor/DPI changes, or theme transitions.
+        // Without this, the window can stay stuck on a grey/fallback frame.
+        ApplyBackdropAttributes();
+    }
+
     private void OnWindowStateChanged(object? sender, EventArgs e)
     {
         if (WindowState == WindowState.Minimized)
@@ -129,6 +146,12 @@ public partial class MainWindow : Window
             // Force-stop preview when minimized to release decoder and compositor resources
             _ = _previewService.StopPreviewAsync();
             System.Diagnostics.Debug.WriteLine("[MainWindow] Window minimized → preview force-stopped.");
+        }
+        else
+        {
+            // Restored from minimized/maximized toggle — DWM may have reset
+            // DWMWA_SYSTEMBACKDROP_TYPE to Auto. Re-apply without changing colors.
+            ApplyBackdropAttributes();
         }
     }
 
@@ -147,17 +170,51 @@ public partial class MainWindow : Window
 
     private void UpdateSystemBackdrop()
     {
+        // Thin wrapper kept for the PresentationManager.PropertyChanged path.
+        // Delegates to the single authoritative helper so ordering/HRESULT handling is consistent.
+        ApplyBackdropAttributes();
+    }
+
+    /// <summary>
+    /// Authoritative DWM backdrop applicator — preserves all existing colors/features.
+    /// Order matters: DWMWA_USE_IMMERSIVE_DARK_MODE (20) must be set before
+    /// DWMWA_SYSTEMBACKDROP_TYPE (38) so Mica/Tabbed renders with the dark tint
+    /// instead of a light-grey fallback ("mica acts odd").
+    /// Also checks HRESULTs — previous code swallowed failures, leaving a grey frame.
+    /// </summary>
+    private void ApplyBackdropAttributes()
+    {
         try
         {
             IntPtr hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero) return;
-            
-            int backdropType = (int)_presentation.BackdropMode;
-            DwmSetWindowAttribute(hwnd, 38, ref backdropType, sizeof(int));
+            if (hwnd == IntPtr.Zero)
+            {
+                // Handle not yet created (e.g., PropertyChanged fired between
+                // MainWindow construction and SourceInitialized). Defer exactly once.
+                Dispatcher.BeginInvoke(new Action(() => ApplyBackdropAttributes()),
+                    System.Windows.Threading.DispatcherPriority.Loaded);
+                return;
+            }
+
+            // 1) Immersive dark mode first — affects how Mica/Tabbed tints.
+            int darkMode = 1; // DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            int hrDark = DwmSetWindowAttribute(hwnd, 20, ref darkMode, sizeof(int));
+            if (hrDark != 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] DwmSetWindowAttribute(20, darkMode) failed hr=0x{hrDark:X8}");
+            }
+
+            // 2) System backdrop — no color change, just re-assert current mode.
+            int backdropType = (int)_presentation.BackdropMode; // DWMWA_SYSTEMBACKDROP_TYPE = 38
+            int hrBackdrop = DwmSetWindowAttribute(hwnd, 38, ref backdropType, sizeof(int));
+            if (hrBackdrop != 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] DwmSetWindowAttribute(38, backdrop={backdropType}) failed hr=0x{hrBackdrop:X8} — window may appear grey");
+            }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to update backdrop type: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Failed to apply backdrop attributes: {ex.Message}");
         }
     }
 
@@ -165,21 +222,7 @@ public partial class MainWindow : Window
     {
         Services.StartupDiagnostics.LogWithMemory("MainWindow.Loaded event");
         Services.StartupDiagnostics.StartHeartbeat(Dispatcher);
-        try
-        {
-            IntPtr hwnd = new WindowInteropHelper(this).Handle;
-            
-            // Enable Immersive Dark Mode for Win11 titlebar (DWMWA_USE_IMMERSIVE_DARK_MODE = 20, Value = 1)
-            int darkMode = 1;
-            DwmSetWindowAttribute(hwnd, 20, ref darkMode, sizeof(int));
-            
-            // Set initial backdrop
-            UpdateSystemBackdrop();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Failed to apply initial backdrop: {ex.Message}");
-        }
+        ApplyBackdropAttributes();
     }
 
     private void Header_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

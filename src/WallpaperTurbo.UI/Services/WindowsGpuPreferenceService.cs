@@ -14,29 +14,40 @@ public class WindowsGpuPreferenceService : IGpuPreferenceService
     public void SetGpuPreference(string exePath, GpuPreference mode)
     {
         if (string.IsNullOrEmpty(exePath)) return;
+        SetGpuPreferences(new[] { exePath }, mode);
+    }
+
+    public void SetGpuPreferences(IEnumerable<string> exePaths, GpuPreference mode)
+    {
+        if (exePaths == null) return;
 
         try
         {
             using var key = Registry.CurrentUser.CreateSubKey(RegistryKeyPath);
             if (key == null) return;
 
-            switch (mode)
+            foreach (var exePath in exePaths)
             {
-                case GpuPreference.Integrated:
-                    key.SetValue(exePath, "GpuPreference=1;");
-                    break;
-                case GpuPreference.Dedicated:
-                    key.SetValue(exePath, "GpuPreference=2;");
-                    break;
-                case GpuPreference.Auto:
-                default:
-                    key.DeleteValue(exePath, throwOnMissingValue: false);
-                    break;
+                if (string.IsNullOrWhiteSpace(exePath)) continue;
+
+                switch (mode)
+                {
+                    case GpuPreference.Integrated:
+                        key.SetValue(exePath, "GpuPreference=1;");
+                        break;
+                    case GpuPreference.Dedicated:
+                        key.SetValue(exePath, "GpuPreference=2;");
+                        break;
+                    case GpuPreference.Auto:
+                    default:
+                        key.DeleteValue(exePath, throwOnMissingValue: false);
+                        break;
+                }
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[WindowsGpuPreferenceService] Failed to set GPU preference registry value: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[WindowsGpuPreferenceService] Failed to set GPU preference registry values: {ex.Message}");
         }
     }
 

@@ -786,7 +786,7 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
                         var registryPref = _gpuPreferenceService.GetGpuPreference(_appRunnerExePath);
                         if (registryPref != syncSettings.GpuPreference)
                         {
-                            _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, syncSettings.GpuPreference);
+                            SyncGpuPreferences(syncSettings.GpuPreference);
                         }
                     }
                     catch (Exception ex)
@@ -1018,8 +1018,8 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
 
             try
             {
-                // 1. Write GPU routing to Registry
-                _gpuPreferenceService.SetGpuPreference(_appRunnerExePath, mode);
+                // 1. Write GPU routing to Registry for both AppRunner and UI executables across all configurations
+                SyncGpuPreferences(mode);
 
                 // 2. Restart engine if currently running
                 if (IsEngineRunning() && _activeWallpaperIndex > 0)
@@ -1045,6 +1045,70 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
         finally
         {
             _gpuApplySemaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Synchronizes the DirectX UserGpuPreferences registry configuration for both the
+    /// background Wallpaper Engine (AppRunner) and the primary UI process to ensure all
+    /// child processes strictly adhere to the chosen GPU preference.
+    /// </summary>
+    public void SyncGpuPreferences(GpuPreference? explicitMode = null)
+    {
+        var mode = explicitMode ?? _settingsStore.Load().GpuPreference;
+        var pathsToSync = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Primary AppRunner executable path
+        if (!string.IsNullOrEmpty(_appRunnerExePath) && File.Exists(_appRunnerExePath))
+        {
+            pathsToSync.Add(_appRunnerExePath);
+        }
+
+        // 2. Probed candidate paths for AppRunner and UI executables across build configurations
+        try
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string srcPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", ".."));
+            var candidates = new[]
+            {
+                Path.Combine(baseDir, "WallpaperTurbo.AppRunner.exe"),
+                Path.Combine(baseDir, "WallpaperTurbo.UI.exe"),
+                Path.Combine(baseDir, "WallpaperTurbo.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows", "WallpaperTurbo.AppRunner.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Debug", "net8.0-windows", "win-x64", "WallpaperTurbo.AppRunner.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Release", "net8.0-windows", "WallpaperTurbo.AppRunner.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "Release", "net8.0-windows", "win-x64", "WallpaperTurbo.AppRunner.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "x64", "Debug", "net8.0-windows", "WallpaperTurbo.AppRunner.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "x64", "Debug", "net8.0-windows", "win-x64", "WallpaperTurbo.AppRunner.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "x64", "Release", "net8.0-windows", "WallpaperTurbo.AppRunner.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.AppRunner", "bin", "x64", "Release", "net8.0-windows", "win-x64", "WallpaperTurbo.AppRunner.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.UI", "bin", "Debug", "net8.0-windows", "WallpaperTurbo.UI.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.UI", "bin", "Release", "net8.0-windows", "WallpaperTurbo.UI.exe"),
+                Path.Combine(srcPath, "WallpaperTurbo.UI", "bin", "x64", "Release", "net8.0-windows", "win-x64", "WallpaperTurbo.UI.exe")
+            };
+
+            var currentExe = Process.GetCurrentProcess().MainModule?.FileName;
+            if (!string.IsNullOrEmpty(currentExe) && File.Exists(currentExe))
+            {
+                pathsToSync.Add(currentExe);
+            }
+
+            foreach (var candidate in candidates)
+            {
+                if (File.Exists(candidate))
+                {
+                    pathsToSync.Add(candidate);
+                }
+            }
+
+            if (pathsToSync.Count > 0)
+            {
+                _gpuPreferenceService.SetGpuPreferences(pathsToSync, mode);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[WallpaperService] GPU preference synchronization encountered an issue: {ex.Message}");
         }
     }
 

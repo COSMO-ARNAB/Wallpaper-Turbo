@@ -40,6 +40,7 @@ public partial class App : Application
         services.AddSingleton<Services.IWallpaperLibraryService, Services.WallpaperLibraryService>();
         services.AddSingleton<Services.ISettingsStore, Services.JsonSettingsStore>();
         services.AddSingleton<Services.IGpuPreferenceService, Services.WindowsGpuPreferenceService>();
+        services.AddSingleton<WallpaperTurbo.Core.Hardware.IHardwareDetector, WallpaperTurbo.Core.Hardware.WindowsHardwareDetector>();
         services.AddSingleton<Services.WallpaperService>();
         services.AddSingleton<Services.PowerManagementService>();
         services.AddSingleton<Services.TelemetryService>();
@@ -230,6 +231,10 @@ public partial class App : Application
             Console.WriteLine("DEBUG: Starting startup update check");
             _ = updater.RunStartupCheckAsync();
         }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+        // Synchronize DirectX GPU preference registry keys for all AppRunner & UI executables
+        var wallpaperService = _serviceProvider.GetRequiredService<Services.WallpaperService>();
+        wallpaperService.SyncGpuPreferences();
 
         // Start wallpaper engine coordination after UI is shown
         var startupCoordinator = _serviceProvider.GetRequiredService<Services.WallpaperStartupCoordinator>();

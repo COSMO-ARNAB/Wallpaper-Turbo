@@ -2043,7 +2043,13 @@ internal static class Program
                 $"  Vendor     : {gpu.Vendor}");
 
             Console.WriteLine(
-                $"  Dedicated  : {gpu.IsDedicated}");
+                $"  Type       : {gpu.TypeLabel}");
+
+            if (!string.IsNullOrWhiteSpace(gpu.DriverVersion))
+            {
+                Console.WriteLine(
+                    $"  Driver     : {gpu.DriverVersion}{(string.IsNullOrWhiteSpace(gpu.DriverDate) ? "" : $" ({gpu.DriverDate})")}");
+            }
 
             Console.WriteLine(
                 $"  VRAM       : {FormatBytes(gpu.VramBytes)}");

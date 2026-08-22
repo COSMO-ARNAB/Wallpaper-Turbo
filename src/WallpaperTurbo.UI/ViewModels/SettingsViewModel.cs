@@ -1,10 +1,11 @@
-using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WallpaperTurbo.Core.Hardware;
+using WallpaperTurbo.Core.Hardware.Models;
 using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
@@ -15,6 +16,7 @@ public partial class SettingsViewModel : ObservableObject
 {
     private readonly WallpaperService _wallpaperService;
     private readonly UpdaterViewModel _updaterViewModel;
+    private readonly IHardwareDetector _hardwareDetector;
     private CancellationTokenSource? _gpuSwitchCts;
     private readonly LayoutHostViewModel _layoutHostViewModel;
     private readonly ISettingsStore _settingsStore;
@@ -45,6 +47,14 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _performanceMode = "Balanced";
     [ObservableProperty] private bool _batterySaverEnabled = false;
 
+    // ── Auto GPU & Driver Detection ─────────────────────────────────────────
+    [ObservableProperty] private ObservableCollection<GpuInfo> _detectedGpus = new();
+    [ObservableProperty] private string _gpuDetectionSummary = "Detecting GPUs...";
+    [ObservableProperty] private bool _hasDetectedGpus = false;
+    [ObservableProperty] private bool _isDualGpuSystem = false;
+    [ObservableProperty] private string _dualGpuRecommendation = string.Empty;
+    [ObservableProperty] private bool _isDetectingGpus = false;
+
     public UpdaterViewModel Updater => _updaterViewModel;
     public LayoutHostViewModel LayoutHost => _layoutHostViewModel;
 
@@ -52,12 +62,14 @@ public partial class SettingsViewModel : ObservableObject
         WallpaperService wallpaperService, 
         UpdaterViewModel updaterViewModel, 
         LayoutHostViewModel layoutHostViewModel,
-        ISettingsStore settingsStore)
+        ISettingsStore settingsStore,
+        IHardwareDetector? hardwareDetector = null)
     {
         _wallpaperService = wallpaperService;
         _updaterViewModel = updaterViewModel;
         _layoutHostViewModel = layoutHostViewModel;
         _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
+        _hardwareDetector = hardwareDetector ?? new WindowsHardwareDetector();
         _useHardwareAcceleration = !_wallpaperService.UseSoftwareDecoding;
 
         // Hydrate from settings store
@@ -95,6 +107,7 @@ public partial class SettingsViewModel : ObservableObject
         _settingsStore.SettingsChanged += OnSettingsStoreChanged;
 
         _ = LoadLogsAsync();
+        _ = DetectGpusAsync();
     }
 
     private void OnSettingsStoreChanged(object? sender, AppSettings newSettings)
@@ -482,6 +495,68 @@ public partial class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to open URL: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    public async Task DetectGpusAsync()
+    {
+        if (IsDetectingGpus) return;
+        IsDetectingGpus = true;
+
+        try
+        {
+            var gpus = (await _hardwareDetector.GetGpusAsync()).ToList();
+
+            var dispatcher = App.Current?.Dispatcher;
+            Action updateAction = () =>
+            {
+                DetectedGpus.Clear();
+                foreach (var gpu in gpus)
+                {
+                    DetectedGpus.Add(gpu);
+                }
+
+                HasDetectedGpus = DetectedGpus.Count > 0;
+                bool hasDedicated = DetectedGpus.Any(g => g.IsDedicated);
+                bool hasIntegrated = DetectedGpus.Any(g => !g.IsDedicated && g.Vendor != GpuVendor.Unknown);
+                IsDualGpuSystem = hasDedicated && hasIntegrated;
+
+                if (IsDualGpuSystem)
+                {
+                    DualGpuRecommendation = "Hybrid GPU system detected: Integrated GPU mode is recommended for battery savings and lower power draw.";
+                }
+                else if (hasDedicated)
+                {
+                    DualGpuRecommendation = "Dedicated GPU active with Direct3D 11 hardware decoding.";
+                }
+                else
+                {
+                    DualGpuRecommendation = "Integrated GPU active with hardware video acceleration.";
+                }
+
+                GpuDetectionSummary = DetectedGpus.Count > 0
+                    ? string.Join(" • ", DetectedGpus.Select(g => g.Name))
+                    : "Standard Display Adapter";
+            };
+
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                await dispatcher.InvokeAsync(updateAction);
+            }
+            else
+            {
+                updateAction();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SettingsViewModel] GPU Detection failed: {ex.Message}");
+            GpuDetectionSummary = "Graphics hardware detection unavailable.";
+        }
+        finally
+        {
+            IsDetectingGpus = false;
         }
     }
 }
