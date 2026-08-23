@@ -340,6 +340,31 @@ public class WallpaperService
         private string? _cachedIpcPipeName;
         private readonly SemaphoreSlim _launchGate = new(1, 1); // Single-flight gate for wallpaper launches
         private int _launchGeneration; // Increments on each launch request to discard stale completions
+        private DateTime _lastProcessCheck = DateTime.MinValue;
+        private bool _lastIsRunning = false;
+        private readonly object _engineProbeLock = new();
+
+        /// <summary>How long a process-table scan result stays valid.</summary>
+        private static readonly TimeSpan ProcessProbeTtl = TimeSpan.FromMilliseconds(200);
+
+        /// <summary>
+        /// The raw "is an AppRunner process alive?" probe. Overridable so tests do not depend on
+        /// whether a real AppRunner happens to be running on the machine — on a dev box it usually
+        /// is. Production always uses the process-table scan below.
+        /// </summary>
+        internal Func<bool> AppRunnerProcessProbe { get; set; } = static () =>
+        {
+            // Fast path: check for named AppRunner process - this is O(1) and non-blocking
+            var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
+            bool alive = runnerProcesses.Length > 0;
+
+            foreach (var p in runnerProcesses)
+            {
+                p.Dispose();
+            }
+
+            return alive;
+        };
 
         public WallpaperSessionEventArgs? ActiveSession { get; private set; }
         public event EventHandler<WallpaperSessionEventArgs>? SessionStateChanged;
@@ -493,6 +518,40 @@ public class WallpaperService
         }
     }
 
+    /// <summary>
+    /// Caches only the expensive part: the process-table scan. Held under a lock because callers
+    /// span the UI thread, the visibility watchdog's 1s poll and the SystemEvents thread.
+    /// </summary>
+    private bool IsAppRunnerProcessAlive()
+    {
+        lock (_engineProbeLock)
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastProcessCheck < ProcessProbeTtl)
+            {
+                return _lastIsRunning;
+            }
+
+            bool alive = AppRunnerProcessProbe();
+
+            _lastProcessCheck = now;
+            _lastIsRunning = alive;
+            return alive;
+        }
+    }
+
+    /// <summary>
+    /// Returns whether the engine is running, and reconciles observable state with that answer.
+    /// </summary>
+    /// <remarks>
+    /// This is not a pure query. It owns <see cref="SyncActiveStateFromFile"/>, the
+    /// <c>_activeWallpaperIndex</c> reset and the only engine-died <see cref="SessionStateChanged"/>
+    /// publish, so the reconciliation below must run on <i>every</i> call. Only the process probe is
+    /// cached (see <see cref="IsAppRunnerProcessAlive"/>); short-circuiting the whole method left
+    /// callers such as <c>ReloadWallpapers</c> reading a stale active index.
+    /// <c>SyncActiveStateFromFile</c> is itself cheap on repeat calls — it early-exits on the
+    /// state file's last-write timestamp.
+    /// </remarks>
     public bool IsEngineRunning()
     {
         if (DebugFlags.SafeDebugMode)
@@ -500,19 +559,7 @@ public class WallpaperService
             return _mockEngineRunning;
         }
 
-        bool isRunning = false;
-
-        // Fast path: check for named AppRunner process - this is O(1) and non-blocking
-        var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
-        if (runnerProcesses.Length > 0)
-        {
-            isRunning = true;
-        }
-
-        foreach (var p in runnerProcesses)
-        {
-            p.Dispose();
-        }
+        bool isRunning = IsAppRunnerProcessAlive();
 
         if (isRunning)
         {
@@ -695,14 +742,14 @@ private void SyncActiveStateFromFile()
                     return false;
                 }
 
-                // Must have recent UpdatedAtUtc (within 5 minutes)
+                // Must have recent UpdatedAtUtc (within 10 minutes - heartbeat is 60s, window extended to avoid stale clears during brief hiccups)
                 if (root.TryGetProperty("UpdatedAtUtc", out var updatedProp))
                 {
                     if (DateTime.TryParse(updatedProp.GetString(), out var updated))
                     {
-                        if (DateTime.UtcNow - updated > TimeSpan.FromMinutes(5))
+                        if (DateTime.UtcNow - updated > TimeSpan.FromMinutes(10))
                         {
-                            Debug.WriteLine($"[WallpaperService] State file older than 5 minutes ({updated}) — stale");
+                            Debug.WriteLine($"[WallpaperService] State file older than 10 minutes ({updated}) — stale");
                             return false;
                         }
                     }
