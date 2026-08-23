@@ -98,6 +98,10 @@ public partial class App : Application
         services.AddSingleton<IThemeResolver, ThemeResolver>();
         services.AddSingleton<IDwmApplier, DwmBackdropApplier>();
 
+        // Power policy (pure decision function) + injectable clock for debouncing power events
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<Services.Power.IBatterySaverPolicy, Services.Power.BatterySaverPolicy>();
+
         // Presentation Management
         services.AddSingleton<Services.PresentationManager>();
 
