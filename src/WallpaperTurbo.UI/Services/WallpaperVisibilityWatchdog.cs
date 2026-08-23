@@ -256,11 +256,14 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
 
     public async Task<bool> WaitForVisibleAsync(TimeSpan timeout, CancellationToken ct = default)
     {
+        var sw = Stopwatch.StartNew();
+        StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible START timeout={timeout.TotalSeconds}s");
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
             if (ct.IsCancellationRequested)
             {
+                StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible CANCELLED after {sw.ElapsedMilliseconds}ms");
                 return false;
             }
 
@@ -272,6 +275,7 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
                 // + plain user32 calls, not Screen.AllScreens) so Task.Run is fine.
                 if (await Task.Run(() => IsOnScreen(_source.GetCandidates())).ConfigureAwait(false))
                 {
+                    StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible SUCCESS in {sw.ElapsedMilliseconds}ms");
                     return true;
                 }
             }
@@ -286,10 +290,12 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
             }
             catch (OperationCanceledException)
             {
+                StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible CANCELLED after {sw.ElapsedMilliseconds}ms");
                 return false;
             }
         }
 
+        StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible TIMEOUT after {sw.ElapsedMilliseconds}ms (budget={timeout.TotalSeconds}s)");
         return false;
     }
 

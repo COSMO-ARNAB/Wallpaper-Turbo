@@ -82,14 +82,15 @@ public static class StartupDiagnostics
                 string threadId = $"[T{Environment.CurrentManagedThreadId}]";
                 string logLine = $"{timestamp} {threadId} {message}";
 
-                // Write and flush immediately
+                // H2 cold-start: avoid synchronous OS flush (Flush(true) does FlushFileBuffers → disk, 5-15ms).
+                // Use buffered Flush() only; OS will lazily flush. Still holds lock for ordering.
+                // If further reduction needed, offload entirely via Task.Run background append.
                 using (var fs = new FileStream(LogFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
                 using (var writer = new StreamWriter(fs))
                 {
                     writer.WriteLine(logLine);
                     writer.Flush();
-                    // Flush to OS disk
-                    fs.Flush(true);
+                    fs.Flush();
                 }
             }
             catch (Exception ex)
