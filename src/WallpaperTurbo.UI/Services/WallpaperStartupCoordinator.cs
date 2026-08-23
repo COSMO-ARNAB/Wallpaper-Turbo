@@ -20,6 +20,19 @@ public class StartupResult
 
 public class WallpaperStartupCoordinator
 {
+    /// <summary>Gap between readiness polls while waiting for the engine to come up.</summary>
+    internal const int ReadinessPollIntervalMs = 100;
+
+    /// <summary>Number of readiness polls before giving up.</summary>
+    internal const int ReadinessMaxAttempts = 100;
+
+    /// <summary>
+    /// Total readiness budget, derived from the poll interval and attempt count so the value used
+    /// in logs can never drift from the value actually waited.
+    /// </summary>
+    internal static readonly TimeSpan ReadinessTimeout =
+        TimeSpan.FromMilliseconds((long)ReadinessPollIntervalMs * ReadinessMaxAttempts);
+
     private readonly IWallpaperLibraryService _libraryService;
     private readonly WallpaperService _wallpaperService;
     private readonly ISettingsStore _settingsStore;
@@ -38,10 +51,12 @@ public class WallpaperStartupCoordinator
 
     public Task<StartupResult> EnsureWallpaperRunningAsync(CancellationToken ct = default)
     {
+        StartupDiagnostics.LogWithMemory("EnsureWallpaperRunningAsync START");
         lock (_startupLock)
         {
             if (_startupTask != null)
             {
+                StartupDiagnostics.LogWithMemory("EnsureWallpaperRunningAsync returning cached task");
                 return _startupTask;
             }
 
@@ -52,7 +67,10 @@ public class WallpaperStartupCoordinator
 
     private async Task<StartupResult> RunStartupAndCacheResultAsync(CancellationToken ct)
     {
+        var swEnsure = Stopwatch.StartNew();
+        StartupDiagnostics.LogWithMemory("RunStartupAndCacheResultAsync START");
         var result = await RunStartupAsync(ct);
+        StartupDiagnostics.LogWithMemory($"RunStartupAndCacheResultAsync END in {swEnsure.ElapsedMilliseconds}ms: running={result.IsEngineRunning}, timeout={result.TimedOut}");
 
         // Only cache a healthy result. On timeout/failure, clear the cached task so a
         // later call (e.g. the UI's Retry button) actually re-runs the startup sequence.
@@ -64,6 +82,7 @@ public class WallpaperStartupCoordinator
             }
         }
 
+        StartupDiagnostics.LogWithMemory($"EnsureWallpaperRunningAsync END in {swEnsure.ElapsedMilliseconds}ms");
         return result;
     }
 
@@ -100,10 +119,16 @@ public class WallpaperStartupCoordinator
 
             // 3. If AppRunner is already running and valid, always adopt it — reflecting a
             // genuinely-running engine is not "starting" it, so this ignores the auto-start gate.
+            // H1 cold-start gate fix: instrument TryAdopt so 30s budget is measurable; already-running
+            // path skips LaunchWithReadinessCheck entirely (no double 10s).
+            var tryAdoptSw = Stopwatch.StartNew();
+            StartupDiagnostics.LogWithMemory("TryAdoptExistingSession START");
             var existingSession = await TryAdoptExistingSessionAsync(wallpapers, ct);
+            StartupDiagnostics.LogWithMemory($"TryAdoptExistingSession END in {tryAdoptSw.ElapsedMilliseconds}ms: {(existingSession != null ? "adopted " + existingSession.Title : "no session")}");
             if (existingSession != null)
             {
                 Log($"Adopted existing session: {existingSession.Title} in {sw.ElapsedMilliseconds}ms");
+                StartupDiagnostics.LogWithMemory($"Startup coordinator adopted existing session in {sw.ElapsedMilliseconds}ms");
                 return new StartupResult
                 {
                     IsEngineRunning = true,
@@ -133,7 +158,10 @@ public class WallpaperStartupCoordinator
                 wallpapers, lastActiveId, rememberLast, GetRecentHistoryPath());
             Log($"Launching wallpaper: {wallpaperToLaunch.Title} (ID: {wallpaperToLaunch.Id})");
 
+            var launchSw = Stopwatch.StartNew();
+            StartupDiagnostics.LogWithMemory($"LaunchWithReadinessCheck START: {wallpaperToLaunch.Title} (ID: {wallpaperToLaunch.Id})");
             var launchResult = await LaunchWithReadinessCheckAsync(wallpaperToLaunch, wallpapers, ct);
+            StartupDiagnostics.LogWithMemory($"LaunchWithReadinessCheck END in {launchSw.ElapsedMilliseconds}ms: running={launchResult.IsEngineRunning}, timeout={launchResult.TimedOut}");
             Log($"Launch completed in {sw.ElapsedMilliseconds}ms: running={launchResult.IsEngineRunning}, timeout={launchResult.TimedOut}");
 
             return launchResult;
@@ -310,9 +338,8 @@ public class WallpaperStartupCoordinator
             };
         }
 
-        // Poll for readiness up to 10 seconds
-        const int maxAttempts = 100; // 100 * 100ms = 10s
-        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        // Poll for readiness (kept at 100*100ms for reliability; cold-start budget saved elsewhere via offloading).
+        for (int attempt = 0; attempt < ReadinessMaxAttempts; attempt++)
         {
             ct.ThrowIfCancellationRequested();
 
@@ -342,11 +369,12 @@ public class WallpaperStartupCoordinator
                 }
             }
 
-            await Task.Delay(100, ct);
+            await Task.Delay(ReadinessPollIntervalMs, ct);
         }
 
         // Timeout — engine is still starting
-        Log("Readiness timeout after 10s");
+        Log($"Readiness timeout after {ReadinessTimeout.TotalSeconds:0}s");
+        StartupDiagnostics.LogWithMemory($"LaunchWithReadinessCheck TIMEOUT after {ReadinessTimeout.TotalSeconds:0}s");
         return new StartupResult
         {
             IsEngineRunning = false,
