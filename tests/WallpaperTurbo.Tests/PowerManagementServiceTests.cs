@@ -67,11 +67,17 @@ public class PowerManagementServiceTests
     {
         public List<PowerInputs> Calls { get; } = new();
 
+        /// <summary>The action <see cref="Decide"/> returns; default None keeps evaluations inert.</summary>
+        public PowerAction Next { get; set; } = PowerAction.None;
+
         public PowerAction Decide(PowerInputs inputs)
         {
             Calls.Add(inputs);
-            return PowerAction.None;
+            return Next;
         }
+
+        public bool SuppressesPlayback(PowerInputs inputs)
+            => inputs.BatterySaverEnabled && inputs.OnBattery;
     }
 
     private static WallpaperService CreateWallpaperService(ISettingsStore store)
@@ -178,6 +184,51 @@ public class PowerManagementServiceTests
         time.Advance(TimeSpan.FromSeconds(5));
 
         Assert.Single(policy.Calls);
+    }
+
+    /// <summary>
+    /// Regression for battery saver acting as a silent off-switch: when startup declines to launch,
+    /// nothing is ever paused, so without this notification the policy would see
+    /// SuppressedByBatterySaver=false and return None on plug-in — leaving the desktop static for
+    /// the rest of the session.
+    /// </summary>
+    [Fact]
+    public void NotifyPlaybackSuppressedAtStartup_IsVisibleToTheNextDecision()
+    {
+        var store = new FakeSettingsStore();
+        var policy = new RecordingPolicy();
+        var time = new FakeTimeProvider();
+
+        using var service = new PowerManagementService(CreateWallpaperService(store), store, policy, time);
+        Assert.False(policy.Calls[0].SuppressedByBatterySaver);
+
+        service.NotifyPlaybackSuppressedAtStartup();
+        service.EvaluatePowerState("test: after startup suppression");
+
+        Assert.True(policy.Calls[^1].SuppressedByBatterySaver);
+    }
+
+    /// <summary>
+    /// Resuming must clear ownership, otherwise every later evaluation would keep resuming.
+    /// LastActiveWallpaperIndex is -1 here, so no process is actually launched.
+    /// </summary>
+    [Fact]
+    public void Resuming_ClearsSuppressionOwnership()
+    {
+        var store = new FakeSettingsStore();
+        var policy = new RecordingPolicy();
+        var time = new FakeTimeProvider();
+
+        using var service = new PowerManagementService(CreateWallpaperService(store), store, policy, time);
+        service.NotifyPlaybackSuppressedAtStartup();
+
+        policy.Next = PowerAction.Resume;
+        service.EvaluatePowerState("test: plugged in");
+        Assert.True(policy.Calls[^1].SuppressedByBatterySaver);
+
+        policy.Next = PowerAction.None;
+        service.EvaluatePowerState("test: steady state");
+        Assert.False(policy.Calls[^1].SuppressedByBatterySaver);
     }
 
     [Fact]

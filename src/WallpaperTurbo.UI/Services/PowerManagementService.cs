@@ -21,7 +21,7 @@ public class PowerManagementService : IDisposable
     private readonly IBatterySaverPolicy _policy;
     private readonly Debouncer _debouncer;
 
-    private bool _pausedByBatterySaver;
+    private bool _suppressedByBatterySaver;
     private bool _disposed;
 
     /// <summary>0 = idle, 1 = an evaluation is in flight. int so it can be used with Interlocked.</summary>
@@ -134,26 +134,26 @@ public class PowerManagementService : IDisposable
                 OnBattery: onBattery,
                 BatterySaverEnabled: settings.BatterySaverEnabled,
                 EngineRunning: engineRunning,
-                PausedByBatterySaver: _pausedByBatterySaver);
+                SuppressedByBatterySaver: _suppressedByBatterySaver);
 
             var action = _policy.Decide(inputs);
 
             Debug.WriteLine(
                 $"[PowerManagementService] EvaluatePowerState ({reason}): OnBattery={onBattery}, " +
                 $"BatterySaverEnabled={settings.BatterySaverEnabled}, EngineRunning={engineRunning}, " +
-                $"PausedByBatterySaver={_pausedByBatterySaver} -> {action}");
+                $"SuppressedByBatterySaver={_suppressedByBatterySaver} -> {action}");
 
             switch (action)
             {
                 case PowerAction.Pause:
                     Debug.WriteLine("[PowerManagementService] Pausing wallpaper playback because system is on battery power.");
-                    _pausedByBatterySaver = true;
+                    _suppressedByBatterySaver = true;
                     _ = _wallpaperService.StopPlaybackAsync();
                     break;
 
                 case PowerAction.Resume:
                     Debug.WriteLine("[PowerManagementService] Resuming wallpaper playback because system is plugged in or Battery Saver was turned off.");
-                    _pausedByBatterySaver = false;
+                    _suppressedByBatterySaver = false;
 
                     int activeIndex = _wallpaperService.ActiveWallpaperIndex >= 0
                         ? _wallpaperService.ActiveWallpaperIndex
@@ -178,6 +178,23 @@ public class PowerManagementService : IDisposable
         {
             Interlocked.Exchange(ref _evalInProgress, 0);
         }
+    }
+
+    /// <summary>
+    /// Records that startup deliberately did not launch the engine because of battery saver.
+    /// </summary>
+    /// <remarks>
+    /// Without this, declining to launch would be indistinguishable from the user having stopped
+    /// playback themselves: <see cref="PowerInputs.SuppressedByBatterySaver"/> would stay false,
+    /// the policy would return <see cref="PowerAction.None"/> on plug-in, and battery saver would
+    /// behave as a silent off-switch for the rest of the session instead of a deferral.
+    /// <see cref="WallpaperStartupCoordinator"/> also records the index it would have launched, so
+    /// the resume below has a target even though nothing ever ran.
+    /// </remarks>
+    public void NotifyPlaybackSuppressedAtStartup()
+    {
+        Debug.WriteLine("[PowerManagementService] Startup declined to launch the engine (battery saver); will resume when plugged in.");
+        _suppressedByBatterySaver = true;
     }
 
     public void Dispose()

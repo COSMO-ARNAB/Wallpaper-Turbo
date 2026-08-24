@@ -384,6 +384,30 @@ public class WallpaperService
 
         public int LastActiveWallpaperIndex => _lastActiveWallpaperIndex;
 
+        /// <summary>
+        /// Records the (1-based) index playback should return to, without starting it.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="_lastActiveWallpaperIndex"/> is otherwise written only by
+        /// <see cref="StopPlaybackAsync"/>, which captures whatever was already playing. When
+        /// startup declines to launch at all (battery saver), nothing ever plays, so that field
+        /// stays -1 and a later resume has no target to relaunch. This lets the startup path
+        /// hand over the index it resolved but chose not to use. Ignores negative values so a
+        /// failed resolution cannot erase a real target.
+        /// </remarks>
+        public void SetDeferredWallpaperIndex(int index)
+        {
+            if (index < 0)
+            {
+                return;
+            }
+
+            lock (_wallpaperLock)
+            {
+                _lastActiveWallpaperIndex = index;
+            }
+        }
+
         private string _activePauseProfile = "Maximized";
         public string ActivePauseProfile
         {

@@ -7,12 +7,14 @@ namespace WallpaperTurbo.UI.Services.Power;
 /// <param name="OnBattery">True when the machine is running unplugged.</param>
 /// <param name="BatterySaverEnabled">The user's BatterySaverEnabled setting.</param>
 /// <param name="EngineRunning">True when the AppRunner engine process is alive.</param>
-/// <param name="PausedByBatterySaver">
-/// True when playback is currently paused *by this feature* (as opposed to stopped by the
-/// user). This is the outcome state that makes the decision idempotent.
+/// <param name="SuppressedByBatterySaver">
+/// True when playback is not running *because of this feature* — either we stopped it, or
+/// startup declined to launch it in the first place. Both must resume when the machine is
+/// plugged back in, and neither may be confused with a stop the user asked for. This is the
+/// outcome state that makes the decision idempotent.
 /// </param>
 public readonly record struct PowerInputs(
     bool OnBattery,
     bool BatterySaverEnabled,
     bool EngineRunning,
-    bool PausedByBatterySaver);
+    bool SuppressedByBatterySaver);

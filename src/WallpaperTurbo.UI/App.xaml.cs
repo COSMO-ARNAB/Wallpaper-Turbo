@@ -292,6 +292,15 @@ public partial class App : Application
             // "Engine is still starting" with a Retry command instead of a silent hang
             var mainVm = _serviceProvider.GetService<ViewModels.MainViewModel>();
             mainVm?.ApplyStartupResult(result);
+
+            // If startup declined to launch because of Battery Saver, tell the power service so it
+            // treats this as *its own* suppression. Otherwise plugging in looks identical to the
+            // user having stopped playback, and the wallpaper stays dead for the whole session.
+            if (result.SuppressedByBatterySaver)
+            {
+                _serviceProvider.GetRequiredService<Services.PowerManagementService>()
+                    .NotifyPlaybackSuppressedAtStartup();
+            }
         }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
         #if DEBUG

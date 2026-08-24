@@ -148,4 +148,32 @@ public class WallpaperServiceEngineStateTests
 
         Assert.True(service.IsEngineRunning());
     }
+
+    /// <summary>
+    /// The resume target for a launch that never happened. Only StopPlaybackAsync writes this
+    /// field normally, and it captures whatever was playing — which is nothing when startup
+    /// declined to launch at all.
+    /// </summary>
+    [Fact]
+    public void SetDeferredWallpaperIndex_RecordsATargetWithoutStartingPlayback()
+    {
+        var service = CreateService();
+        Assert.Equal(-1, service.LastActiveWallpaperIndex);
+
+        service.SetDeferredWallpaperIndex(2);
+
+        Assert.Equal(2, service.LastActiveWallpaperIndex);
+        Assert.Equal(-1, service.ActiveWallpaperIndex);
+    }
+
+    [Fact]
+    public void SetDeferredWallpaperIndex_IgnoresNegativeValues_SoAFailedResolutionCannotEraseATarget()
+    {
+        var service = CreateService();
+        service.SetDeferredWallpaperIndex(2);
+
+        service.SetDeferredWallpaperIndex(-1);
+
+        Assert.Equal(2, service.LastActiveWallpaperIndex);
+    }
 }

@@ -10,7 +10,7 @@ public class BatterySaverPolicyTests
             OnBattery: onBattery,
             BatterySaverEnabled: saverEnabled,
             EngineRunning: engineRunning,
-            PausedByBatterySaver: alreadyPaused));
+            SuppressedByBatterySaver: alreadyPaused));
 
     // Exhaustive truth table over all four inputs. The policy is pure, so this is the whole
     // specification.
@@ -83,5 +83,60 @@ public class BatterySaverPolicyTests
     {
         // Engine down on AC power, but not by our hand: leave it alone.
         Assert.Equal(PowerAction.None, Decide(onBattery: false, saverEnabled: false, engineRunning: false, alreadyPaused: false));
+    }
+
+    private static bool Suppresses(bool onBattery, bool saverEnabled)
+        => new BatterySaverPolicy().SuppressesPlayback(new PowerInputs(
+            OnBattery: onBattery,
+            BatterySaverEnabled: saverEnabled,
+            EngineRunning: false,
+            SuppressedByBatterySaver: false));
+
+    /// <summary>
+    /// The pre-launch gate. Only both conditions together suppress playback, and unlike
+    /// <see cref="BatterySaverPolicy.Decide"/> this must not depend on anything already running —
+    /// callers ask it precisely because nothing is running yet.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public void SuppressesPlayback_RequiresBothBatteryAndSaver(bool onBattery, bool saverEnabled, bool expected)
+    {
+        Assert.Equal(expected, Suppresses(onBattery, saverEnabled));
+    }
+
+    /// <summary>
+    /// The two entry points must agree, or the startup gate drifts away from the pause decision and
+    /// we are back to launching a wallpaper only to stop it 500ms later. Whenever the gate
+    /// suppresses a launch, an engine that <i>did</i> come up under the same conditions must be
+    /// paused — and vice versa.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void SuppressesPlayback_AgreesWithDecide(bool onBattery, bool saverEnabled)
+    {
+        var wouldPause = Decide(onBattery, saverEnabled, engineRunning: true, alreadyPaused: false) == PowerAction.Pause;
+
+        Assert.Equal(Suppresses(onBattery, saverEnabled), wouldPause);
+    }
+
+    /// <summary>
+    /// Regression for battery saver behaving as a silent off-switch: a launch declined at startup
+    /// is recorded as our suppression, so plugging in must resume it even though playback never
+    /// ran and therefore was never "paused".
+    /// </summary>
+    [Fact]
+    public void Decide_ResumesALaunchThatWasDeclinedAtStartup()
+    {
+        // Startup declined: nothing running, and we own that fact.
+        Assert.Equal(PowerAction.None, Decide(onBattery: true, saverEnabled: true, engineRunning: false, alreadyPaused: true));
+
+        // Plugged in: resume, despite the engine never having started this session.
+        Assert.Equal(PowerAction.Resume, Decide(onBattery: false, saverEnabled: true, engineRunning: false, alreadyPaused: true));
     }
 }
