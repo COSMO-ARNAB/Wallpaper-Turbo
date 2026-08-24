@@ -89,6 +89,10 @@ public class WallpaperStartupCoordinatorBatterySaverTests
         var wallpaperService = new WallpaperService(library, store, new FakeGpuPreferenceService());
         wallpaperService.AppRunnerProcessProbe = static () => false;
 
+        // Belt and braces alongside the LaunchPlayback seam below: nothing here may reach the real
+        // named pipe, which belongs to whatever engine is running on the developer's machine.
+        wallpaperService.IpcCommandOverride = static _ => Task.FromResult("error");
+
         var launched = new List<int>();
 
         var coordinator = new WallpaperStartupCoordinator(library, wallpaperService, store)

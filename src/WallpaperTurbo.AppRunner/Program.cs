@@ -36,6 +36,18 @@ internal static class Program
     private static ForegroundWindowWatcher? _foregroundWatcher;
     private static bool _muteAudio = true;
 
+    /// <summary>
+    /// True while the UI has explicitly frozen playback over IPC (battery saver, or the user
+    /// pressing pause), as opposed to the automatic freeze the foreground watcher performs.
+    /// </summary>
+    /// <remarks>
+    /// The two pause sources used to be unable to collide, because battery saver killed this whole
+    /// process instead of pausing it. Now that it freezes us, they overlap: closing a maximized
+    /// window while on battery would fire the watcher's resume and start decoding again behind the
+    /// UI's back. Volatile because the watcher raises its events off a thread of its own.
+    /// </remarks>
+    private static volatile bool _pausedByHost;
+
     // Snapshot of a wallpaper session's state, captured before teardown so
     // recovery can restore per-monitor wallpaper assignments after shell restart.
     private readonly struct SessionSnapshot
@@ -1215,6 +1227,14 @@ internal static class Program
                 }
                 else
                 {
+                    // A host freeze outranks the watcher: while battery saver (or the user) holds
+                    // playback down, the desktop becoming visible must not start decoding again.
+                    if (_pausedByHost)
+                    {
+                        Console.WriteLine("[Performance] Desktop is now visible, but playback is frozen by the app. Staying paused.");
+                        return;
+                    }
+
                     Console.WriteLine("[Performance] Desktop is now visible. Resuming playback...");
                     if (_sessionManager != null)
                     {
@@ -1676,6 +1696,7 @@ internal static class Program
             case "pause":
                 if (sessionManager != null)
                 {
+                    _pausedByHost = true;
                     foreach (var s in sessionManager.Sessions)
                     {
                         s.Pause();
@@ -1687,6 +1708,11 @@ internal static class Program
                         activeTitle = wallpapers[_finalWallpaperIndex - 1].Title;
                     }
                     UpdateActiveStateFile(_finalWallpaperIndex, activeTitle, false);
+
+                    // A host pause lasts as long as the user stays on battery, so give back the
+                    // working set the decoder no longer needs. Same trim the watcher's pause does.
+                    TrimProcessMemory(runEmptyWorkingSet: false);
+                    LogMemory("ipc.paused");
                     return "success";
                 }
                 return "error: session manager not initialized";
@@ -1694,6 +1720,7 @@ internal static class Program
             case "play":
                 if (sessionManager != null)
                 {
+                    _pausedByHost = false;
                     foreach (var s in sessionManager.Sessions)
                     {
                         s.Play();

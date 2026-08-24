@@ -146,9 +146,9 @@ public class PowerManagementService : IDisposable
             switch (action)
             {
                 case PowerAction.Pause:
-                    Debug.WriteLine("[PowerManagementService] Pausing wallpaper playback because system is on battery power.");
+                    Debug.WriteLine("[PowerManagementService] Freezing wallpaper playback because system is on battery power.");
                     _suppressedByBatterySaver = true;
-                    _ = _wallpaperService.StopPlaybackAsync();
+                    _ = FreezePlaybackAsync();
                     break;
 
                 case PowerAction.Resume:
@@ -159,10 +159,7 @@ public class PowerManagementService : IDisposable
                         ? _wallpaperService.ActiveWallpaperIndex
                         : _wallpaperService.LastActiveWallpaperIndex;
 
-                    if (activeIndex >= 0 && !engineRunning)
-                    {
-                        _ = _wallpaperService.LaunchWallpaperAsync(activeIndex);
-                    }
+                    _ = ThawPlaybackAsync(activeIndex, engineRunning);
                     break;
 
                 case PowerAction.None:
@@ -177,6 +174,52 @@ public class PowerManagementService : IDisposable
         finally
         {
             Interlocked.Exchange(ref _evalInProgress, 0);
+        }
+    }
+
+    /// <summary>
+    /// Stops the engine decoding without tearing it down, leaving the last frame on the desktop.
+    /// </summary>
+    /// <remarks>
+    /// This used to call <see cref="WallpaperService.StopPlaybackAsync"/>, which terminates
+    /// AppRunner outright. Unplugging therefore blanked the desktop — indistinguishable from the
+    /// wallpaper having crashed — threw away the process, its GPU context and its decoder setup,
+    /// and made plugging back in cost a full cold launch. A frozen engine spends no CPU or GPU
+    /// decode time, so it still meets the point of battery saver.
+    ///
+    /// The stop survives as a fallback only: if the engine will not answer IPC we cannot know it
+    /// has stopped decoding, and an unresponsive process draining the battery is worse than a
+    /// blank desktop.
+    /// </remarks>
+    private async Task FreezePlaybackAsync()
+    {
+        if (await _wallpaperService.PausePlaybackAsync())
+        {
+            return;
+        }
+
+        Debug.WriteLine("[PowerManagementService] Engine did not answer the IPC pause; stopping playback instead.");
+        await _wallpaperService.StopPlaybackAsync();
+    }
+
+    /// <summary>
+    /// Undoes <see cref="FreezePlaybackAsync"/>, launching instead when there is nothing frozen.
+    /// </summary>
+    /// <remarks>
+    /// Both paths are reachable. Normally the engine is still alive and only needs unfreezing, which
+    /// is instant. But a startup that declined to launch on battery, or a freeze that had to fall
+    /// back to a stop, leaves no process at all — there the recorded index is the only way back.
+    /// </remarks>
+    private async Task ThawPlaybackAsync(int activeIndex, bool engineRunning)
+    {
+        if (engineRunning && await _wallpaperService.ResumePlaybackAsync())
+        {
+            return;
+        }
+
+        if (activeIndex >= 0)
+        {
+            await _wallpaperService.LaunchWallpaperAsync(activeIndex);
         }
     }
 

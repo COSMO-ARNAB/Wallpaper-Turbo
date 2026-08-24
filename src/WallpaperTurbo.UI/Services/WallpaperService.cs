@@ -1297,8 +1297,20 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
         return _cachedIpcPipeName;
     }
 
+    /// <summary>
+    /// Sends a raw command to the running engine over IPC. Overridable so tests never reach the
+    /// real named pipe, which belongs to whatever AppRunner is alive on the developer's machine —
+    /// an unpinned test would pause, swap or stop their actual wallpaper.
+    /// </summary>
+    internal Func<string, Task<string>>? IpcCommandOverride { get; set; }
+
     private async Task<string> SendIpcCommandAsync(string command)
     {
+        if (IpcCommandOverride != null)
+        {
+            return await IpcCommandOverride(command);
+        }
+
         try
         {
             string pipeName = GetIpcPipeName();

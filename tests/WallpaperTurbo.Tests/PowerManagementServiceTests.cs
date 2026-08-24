@@ -80,15 +80,56 @@ public class PowerManagementServiceTests
             => inputs.BatterySaverEnabled && inputs.OnBattery;
     }
 
-    private static WallpaperService CreateWallpaperService(ISettingsStore store)
+    /// <summary>
+    /// Stands in for a live AppRunner on the other end of the named pipe, recording what the power
+    /// service actually asked it to do.
+    /// </summary>
+    private sealed class FakeEngineIpc
+    {
+        /// <summary>Commands received, in order.</summary>
+        public List<string> Commands { get; } = new();
+
+        /// <summary>What the engine answers. Anything but "success" reads as unanswered.</summary>
+        public string Reply { get; set; } = "success";
+
+        public Task<string> Handle(string command)
+        {
+            Commands.Add(command);
+            return Task.FromResult(Reply);
+        }
+    }
+
+    private static WallpaperService CreateWallpaperService(
+        ISettingsStore store,
+        FakeEngineIpc? ipc = null,
+        bool engineAlive = false)
     {
         var service = new WallpaperService(new FakeWallpaperLibraryService(), store, new FakeGpuPreferenceService());
 
         // A real AppRunner is usually alive on a dev machine. Left unpinned, IsEngineRunning would
         // sync from the live state file and publish an *active* session, which legitimately
         // schedules an extra evaluation and makes these call counts machine-dependent.
-        service.AppRunnerProcessProbe = static () => false;
+        service.AppRunnerProcessProbe = () => engineAlive;
+
+        // Left unpinned, pause/play/swap would travel down the real named pipe and change the
+        // wallpaper the developer is actually running. Tests that pass no recorder get an engine
+        // that refuses everything, which keeps them inert.
+        var engine = ipc ?? new FakeEngineIpc { Reply = "error" };
+        service.IpcCommandOverride = engine.Handle;
         return service;
+    }
+
+    /// <summary>
+    /// Freeze and thaw are started fire-and-forget, so there is no task to await. The fake engine
+    /// answers synchronously, so this is normally satisfied on the first check.
+    /// </summary>
+    private static void WaitForCommands(FakeEngineIpc ipc, int count)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (ipc.Commands.Count < count && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(5);
+        }
     }
 
     private static void RaiseSessionStateChanged(WallpaperService service, WallpaperSessionEventArgs args)
@@ -229,6 +270,82 @@ public class PowerManagementServiceTests
         policy.Next = PowerAction.None;
         service.EvaluatePowerState("test: steady state");
         Assert.False(policy.Calls[^1].SuppressedByBatterySaver);
+    }
+
+    /// <summary>
+    /// Regression for unplugging wiping the wallpaper: battery saver used to call
+    /// StopPlaybackAsync, which spawns <c>AppRunner --stop</c> and kills the engine. The desktop
+    /// went black — users read that as a crash, not a pause — and plugging back in cost a full cold
+    /// launch. It must send the IPC pause instead, which freezes decoding and leaves the last frame
+    /// up.
+    /// </summary>
+    [Fact]
+    public void Pausing_FreezesTheEngineOverIpc_InsteadOfKillingTheProcess()
+    {
+        var store = new FakeSettingsStore();
+        var policy = new RecordingPolicy();
+        var time = new FakeTimeProvider();
+        var ipc = new FakeEngineIpc();
+
+        using var service = new PowerManagementService(
+            CreateWallpaperService(store, ipc, engineAlive: true), store, policy, time);
+
+        policy.Next = PowerAction.Pause;
+        service.EvaluatePowerState("test: on battery");
+        WaitForCommands(ipc, 1);
+
+        // Exactly one command, and it is a freeze. A stop would have shown up as no command at all
+        // (it spawns a process), and a relaunch would have shown up as a "swap".
+        Assert.Equal(new[] { "pause" }, ipc.Commands);
+    }
+
+    /// <summary>
+    /// The engine survives a freeze, so plugging back in must unfreeze it rather than start a second
+    /// one. Relaunching would spawn a duplicate process on top of the one already holding the
+    /// desktop window.
+    /// </summary>
+    [Fact]
+    public void Resuming_UnfreezesTheRunningEngine_RatherThanLaunchingAnother()
+    {
+        var store = new FakeSettingsStore();
+        var policy = new RecordingPolicy();
+        var time = new FakeTimeProvider();
+        var ipc = new FakeEngineIpc();
+
+        using var service = new PowerManagementService(
+            CreateWallpaperService(store, ipc, engineAlive: true), store, policy, time);
+
+        policy.Next = PowerAction.Resume;
+        service.EvaluatePowerState("test: plugged back in");
+        WaitForCommands(ipc, 1);
+
+        Assert.Equal(new[] { "play" }, ipc.Commands);
+    }
+
+    /// <summary>
+    /// The other half: when nothing is running there is nothing to unfreeze. That is the startup
+    /// case — booting on battery declines to launch at all — so resume has to fall back to launching
+    /// the index the coordinator recorded.
+    /// </summary>
+    [Fact]
+    public void Resuming_LaunchesTheRecordedWallpaper_WhenNoEngineIsRunning()
+    {
+        var store = new FakeSettingsStore();
+        var policy = new RecordingPolicy();
+        var time = new FakeTimeProvider();
+        var ipc = new FakeEngineIpc();
+        var wallpaperService = CreateWallpaperService(store, ipc, engineAlive: false);
+
+        using var service = new PowerManagementService(wallpaperService, store, policy, time);
+        wallpaperService.SetDeferredWallpaperIndex(2);
+
+        policy.Next = PowerAction.Resume;
+        service.EvaluatePowerState("test: plugged back in");
+        WaitForCommands(ipc, 1);
+
+        // No "play" first: asking a dead engine to unfreeze would waste a pipe timeout on every
+        // plug-in. The launch is visible here as its live-swap attempt, which the fake accepts.
+        Assert.Equal(new[] { "swap 2" }, ipc.Commands);
     }
 
     [Fact]
