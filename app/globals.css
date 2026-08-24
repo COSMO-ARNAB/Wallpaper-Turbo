@@ -11,7 +11,7 @@
   --border: #26262e;
   --border-subtle: #1a1a20;
   --border-bright: #3a3a46;
-  --accent: #0284c7;
+  --accent: #0369a1;
   --accent-bright: #38bdf8;
   --accent-foreground: #ffffff;
   --focus-ring: #38bdf8;
@@ -91,6 +91,28 @@ body {
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
+/* --- Status indicator (live engine dot) --------------------------------- */
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0);
+  }
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background-color: var(--accent-bright);
+  animation: status-pulse 2.4s ease-in-out infinite;
+}
+
 /* --- Spec ticker marquee (Right-to-Left) ------------------------------ */
 @keyframes ticker-scroll {
   from {
@@ -110,77 +132,14 @@ body {
   animation-play-state: paused;
 }
 
-/* --- Status pulse -------------------------------------------------------- */
-@keyframes pulse-dot {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.35;
-    transform: scale(0.85);
-  }
-}
-
-.pulse-dot {
-  animation: pulse-dot 2.4s ease-in-out infinite;
-}
-
-/* --- Hero entrance (SSR-safe) ---------------------------------------------
-   Applied only when the user allows motion, so server-rendered markup is
-   never stuck hidden for reduced-motion users (no hydration mismatch). */
-@keyframes hero-rise {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .hero-enter {
-    opacity: 0;
-    animation: hero-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  .hero-enter-1 {
-    animation-delay: 0.1s;
-  }
-
-  .hero-enter-2 {
-    animation-delay: 0.18s;
-  }
-
-  .hero-enter-3 {
-    animation-delay: 0.26s;
-  }
-
-  .hero-enter-4 {
-    animation-delay: 0.34s;
-  }
-
-  .hero-enter-5 {
-    animation-delay: 0.5s;
-  }
-}
-
 /* --- Reduced motion ------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
 
-  .pulse-dot {
+  .status-indicator {
     animation: none;
-  }
-
-  .reveal-force-visible {
-    opacity: 1 !important;
-    transform: none !important;
   }
 }
 

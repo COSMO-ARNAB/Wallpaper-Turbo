@@ -6,7 +6,6 @@ const sansFont = Plus_Jakarta_Sans({
   variable: "--font-sans-main",
   subsets: ["latin"],
   display: "swap",
-  preload: false,
 });
 
 const monoFont = JetBrains_Mono({
@@ -87,25 +86,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${sansFont.variable} ${monoFont.variable}`} suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                var observer = new MutationObserver(function(mutations) {
-                  for (var i = 0; i < mutations.length; i++) {
-                    var m = mutations[i];
-                    if (m.type === 'attributes' && m.attributeName === 'bis_skin_checked') {
-                      m.target.removeAttribute('bis_skin_checked');
-                    }
-                  }
-                });
-                observer.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['bis_skin_checked'] });
-              } catch(e) {}
-            `,
-          }}
-        />
-      </head>
       <body className="min-h-screen antialiased bg-background text-foreground" suppressHydrationWarning>{children}</body>
     </html>
   );
