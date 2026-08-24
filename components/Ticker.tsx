@@ -6,7 +6,6 @@ const specs = [
   "WebView2 Runtime",
   "WebGL & HTML5",
   "4K / 8K Displays",
-  "240 Hz High Refresh",
   "Per-Monitor DPI",
   "184 MB Idle RAM",
   ".NET 8 Native",

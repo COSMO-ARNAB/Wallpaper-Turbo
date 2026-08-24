@@ -27,11 +27,7 @@ export function Navbar() {
         Skip to content
       </a>
       <nav
-        className={`fixed top-0 z-50 w-full transition-all duration-200 ${
-          scrolled
-            ? "tactile-nav"
-            : "border-b border-transparent bg-transparent"
-        }`}
+        className="tactile-nav fixed top-0 z-50 w-full"
         aria-label="Primary"
       >
         <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between px-6 lg:px-8">

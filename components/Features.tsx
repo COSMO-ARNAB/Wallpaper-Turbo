@@ -17,8 +17,9 @@ export function Features() {
       id="features"
       className="mx-auto max-w-[1400px] px-6 py-24 lg:px-8"
       aria-labelledby="features-heading"
+      suppressHydrationWarning
     >
-      <div className="max-w-2xl">
+      <div className="max-w-2xl" suppressHydrationWarning>
         <h2
           id="features-heading"
           className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl"
@@ -187,12 +188,12 @@ export function Features() {
                 key={item.src}
                 className="overflow-hidden rounded-lg border border-border bg-surface-sunken"
               >
-                <div className="aspect-[4/3] w-full overflow-hidden">
+                <div className="aspect-[16/10] w-full overflow-hidden bg-surface">
                   <Image
                     src={item.src}
                     alt={item.title}
                     width={800}
-                    height={600}
+                    height={500}
                     className="h-full w-full object-cover"
                   />
                 </div>
@@ -200,9 +201,9 @@ export function Features() {
                   <p className="truncate text-xs font-semibold text-foreground">
                     {item.title}
                   </p>
-                  <p className="font-mono text-[10px] text-foreground-muted">
+                  <span className="mt-1 inline-block rounded border border-border/80 bg-surface-raised px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wider text-accent-bright">
                     {item.desc}
-                  </p>
+                  </span>
                 </div>
               </div>
             ))}

@@ -40,3 +40,8 @@ pnpm-debug.log*
 Thumbs.db
 *.tsbuildinfo
 preview-*.png
+
+# Local media artifacts
+*.mp4
+*.mov
+*.webm

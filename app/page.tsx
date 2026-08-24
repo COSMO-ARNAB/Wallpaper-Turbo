@@ -13,7 +13,7 @@ export default async function Home() {
   return (
     <>
       <Navbar />
-      <main id="main-content">
+      <main id="main-content" suppressHydrationWarning>
         <Hero
           version={release?.version ?? null}
           releaseUrl={release?.releaseUrl}

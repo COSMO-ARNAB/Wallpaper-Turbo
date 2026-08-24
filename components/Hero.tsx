@@ -19,7 +19,7 @@ export function Hero({
   return (
     <section
       id="top"
-      className="relative flex min-h-[100dvh] items-center overflow-hidden"
+      className="relative flex min-h-[100dvh] flex-col justify-between overflow-hidden"
       aria-label="Wallpaper Turbo hero"
     >
       {/* Full-bleed desktop scene */}
@@ -51,7 +51,11 @@ export function Hero({
         className="absolute inset-x-0 top-0 h-28 bg-[linear-gradient(to_bottom,rgba(9,9,11,0.8),transparent)]"
       />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-[1400px] justify-end px-6 pt-24 pb-24 lg:px-8">
+      {/* Spacer for top navbar balance */}
+      <div className="h-16 shrink-0" aria-hidden="true" />
+
+      {/* Main Hero Content */}
+      <div className="relative z-10 mx-auto flex w-full max-w-[1400px] justify-end px-6 py-20 lg:px-8">
         <div className="max-w-xl">
           <div className="flex items-center gap-2">
             <span className="rounded border border-border-bright bg-surface-raised px-2 py-0.5 font-mono text-[11px] font-semibold text-accent-bright">
@@ -89,26 +93,26 @@ export function Hero({
               View Source on GitHub
             </a>
           </div>
-        </div>
-      </div>
 
-      {/* Live engine telemetry dock */}
-      <div className="absolute bottom-8 left-6 z-10 hidden items-center gap-1.5 rounded-lg border border-border bg-surface-sunken/95 p-1.5 shadow-xl md:flex lg:left-8">
-        <div className="flex items-center gap-2 rounded bg-surface px-3 py-1 font-mono text-[11px] font-medium text-foreground">
-          <span
-            aria-hidden="true"
-            className="status-indicator"
-          />
-          TELEMETRY
-        </div>
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded bg-surface/40 px-2.5 py-1 font-mono text-[11px] text-foreground-muted"
-          >
-            {stat.label} <span className="font-semibold text-foreground">{stat.value}</span>
+          {/* Live engine telemetry metrics */}
+          <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-border/60 pt-6">
+            <div className="flex items-center gap-2 rounded border border-border bg-surface-raised px-2.5 py-1 font-mono text-[11px] font-medium text-foreground">
+              <span
+                aria-hidden="true"
+                className="status-indicator"
+              />
+              TELEMETRY
+            </div>
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded border border-border/80 bg-surface/80 px-2.5 py-1 font-mono text-[11px] text-foreground-muted"
+              >
+                {stat.label} <span className="font-semibold text-foreground">{stat.value}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </section>
   );
