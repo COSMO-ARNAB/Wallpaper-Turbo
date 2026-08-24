@@ -71,6 +71,15 @@ public class WallpaperStartupCoordinator
         return pids;
     };
 
+    /// <summary>
+    /// Starts playback for a 1-based AppRunner index. Overridable because the real launch path is
+    /// not inert: before it checks whether the AppRunner exe exists, it sends an IPC
+    /// <c>swap {index}</c> to whatever engine is live on the machine — which would change the
+    /// developer's visible wallpaper while running tests that are only about the decisions taken
+    /// *before* a launch.
+    /// </summary>
+    internal Func<int, Task<bool>> LaunchPlayback { get; set; }
+
     public WallpaperStartupCoordinator(
         IWallpaperLibraryService libraryService,
         WallpaperService wallpaperService,
@@ -81,6 +90,7 @@ public class WallpaperStartupCoordinator
         _wallpaperService = wallpaperService ?? throw new ArgumentNullException(nameof(wallpaperService));
         _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
         _batterySaverPolicy = batterySaverPolicy ?? new BatterySaverPolicy();
+        LaunchPlayback = index => _wallpaperService.LaunchWallpaperAsync(index);
     }
 
     public Task<StartupResult> EnsureWallpaperRunningAsync(CancellationToken ct = default)
@@ -392,7 +402,7 @@ public class WallpaperStartupCoordinator
         var index = ResolveLaunchIndex(wallpapers, wallpaperToLaunch);
 
         // Launch the wallpaper
-        var launched = await _wallpaperService.LaunchWallpaperAsync(index);
+        var launched = await LaunchPlayback(index);
         if (!launched)
         {
             return new StartupResult
