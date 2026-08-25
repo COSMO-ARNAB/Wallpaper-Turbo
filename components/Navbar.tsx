@@ -36,7 +36,7 @@ export function Navbar() {
         Skip to content
       </a>
 
-      {/* Fluid Island — floating pill, not edge-to-edge */}
+      {/* Fluid Island - floating pill, not edge-to-edge */}
       <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-6">
         <nav
           aria-label="Primary"
@@ -78,11 +78,11 @@ export function Navbar() {
             >
               <span>GitHub</span>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[10px] leading-none transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-                ↗
+                -
               </span>
             </a>
 
-            {/* Hamburger — morph to X */}
+            {/* Hamburger - morph to X */}
             <button
               type="button"
               aria-label={open ? "Close menu" : "Open menu"}
@@ -101,7 +101,7 @@ export function Navbar() {
         </nav>
       </div>
 
-      {/* Expanded overlay — glass morph */}
+      {/* Expanded overlay - glass morph */}
       <div
         aria-hidden={!open}
         className={`fixed inset-0 z-40 flex flex-col bg-[#050507]/85 backdrop-blur-3xl transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] ${open ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`}
@@ -142,7 +142,7 @@ export function Navbar() {
             aria-label="View source on GitHub"
             className={`mt-8 inline-flex h-12 w-full items-center justify-center rounded-full bg-white font-display text-sm font-bold text-black transition-all duration-700 ${open ? "translate-y-0 opacity-100 delay-500" : "translate-y-8 opacity-0"}`}
           >
-            View source on GitHub — ↗
+            View source on GitHub - -
           </a>
 
           <p className={`mt-6 font-mono text-xs text-foreground-muted transition-all duration-700 ${open ? "opacity-100 delay-700" : "opacity-0"}`}>

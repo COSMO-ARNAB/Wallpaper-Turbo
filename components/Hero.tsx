@@ -61,7 +61,7 @@ export function Hero({
       className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-background"
       aria-label="Wallpaper Turbo hero"
     >
-      {/* Subtle mesh glow — OLED, not flat */}
+      {/* Subtle mesh glow - OLED, not flat */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-32 left-1/2 h-[700px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(56,189,248,0.08),transparent_60%)] blur-3xl"
@@ -75,8 +75,8 @@ export function Hero({
       <div className="h-24 shrink-0" aria-hidden="true" />
 
       {/* Editorial Split: left type, right hardware */}
-      <div className="relative z-10 mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-12 px-6 pb-10 pt-6 lg:flex-row lg:items-center lg:gap-8 lg:px-8 lg:pb-16">
-        {/* Left — massive type */}
+      <div className="relative z-10 mx-auto flex w-full max-w-[1840px] flex-1 flex-col gap-12 px-6 pb-10 pt-6 lg:flex-row lg:items-center lg:gap-8 lg:px-8 lg:pb-16">
+        {/* Left - massive type */}
         <div className="flex-1 py-4">
           <Reveal>
             <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ export function Hero({
               >
                 <span>Download Wallpaper Turbo</span>
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-white transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-                  ↗
+                  -
                 </span>
               </a>
               <a
@@ -133,7 +133,7 @@ export function Hero({
               >
                 <span>View source</span>
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-[10px] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-                  ↗
+                  -
                 </span>
               </a>
             </div>
@@ -142,7 +142,7 @@ export function Hero({
 
         </div>
 
-        {/* Right — Double-Bezel hardware preview */}
+        {/* Right - Double-Bezel hardware preview */}
         <Reveal delay={180} className="flex-1 lg:max-w-[560px]">
           <div className="bezel-shell">
             <div className="bezel-core overflow-hidden">
@@ -174,19 +174,19 @@ export function Hero({
                 <span className="font-mono text-[10px] uppercase tracking-widest text-foreground-muted">
                   Native Win32 · DirectX 11 · LibVLC
                 </span>
-                <span className="font-mono text-[10px] text-accent-bright">● Live Preview</span>
+                <span className="font-mono text-[10px] text-accent-bright">- Live Preview</span>
               </div>
             </div>
           </div>
           <p className="mt-3 text-center font-mono text-[11px] text-foreground-muted">
-            Injected into WorkerW — icons stay native, wallpaper never captures clicks
+            Injected into WorkerW - icons stay native, wallpaper never captures clicks
           </p>
         </Reveal>
       </div>
 
-      {/* Status bar — desktop metaphor */}
+      {/* Status bar - desktop metaphor */}
       <div className="relative z-10 border-t border-border/60 bg-background/60 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3 lg:px-8">
+        <div className="mx-auto flex max-w-[1840px] flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3 lg:px-8">
           <div className="flex items-center gap-2 font-mono text-[11px] font-semibold text-foreground">
             <span aria-hidden="true" className="status-indicator" />
             WALLPAPER TURBO

@@ -33,7 +33,7 @@ export function Download({ release }: DownloadProps) {
     >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(56,189,248,0.06),transparent_60%)]" />
 
-      <div className="relative mx-auto max-w-[1400px] px-6 lg:px-8">
+      <div className="relative mx-auto max-w-[1840px] px-6 lg:px-8">
         <Reveal>
           <div className="mx-auto max-w-3xl text-center">
             <div className="eyebrow mx-auto">Download · SHA-256 verified</div>
@@ -72,7 +72,7 @@ export function Download({ release }: DownloadProps) {
               <div className="mt-6 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
                 <div>
                   <p className="font-display text-sm font-semibold text-foreground">Wallpaper_Turbo_Setup.exe</p>
-                  <p className="mt-1 font-mono text-xs text-foreground-muted">Direct download via GitHub Releases — no telemetry</p>
+                  <p className="mt-1 font-mono text-xs text-foreground-muted">Direct download via GitHub Releases - no telemetry</p>
                 </div>
 
                 <a
@@ -81,7 +81,7 @@ export function Download({ release }: DownloadProps) {
                 >
                   <span>Download Wallpaper Turbo</span>
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black text-white transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-                    ↗
+                    -
                   </span>
                 </a>
               </div>

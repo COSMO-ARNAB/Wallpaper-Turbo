@@ -16,7 +16,7 @@ export function Engine() {
     >
       <div className="pointer-events-none absolute -left-32 top-20 h-96 w-96 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(56,189,248,0.05),transparent_65%)] blur-2xl" aria-hidden="true" />
 
-      <div className="mx-auto grid max-w-[1400px] grid-cols-1 items-center gap-12 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
+      <div className="mx-auto grid max-w-[1840px] grid-cols-1 items-center gap-12 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
         <Reveal>
           <div>
             <h2 id="engine-heading" className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -40,7 +40,7 @@ export function Engine() {
           </div>
         </Reveal>
 
-        {/* Z-Axis Cascade — overlapping cards with subtle rotation */}
+        {/* Z-Axis Cascade - overlapping cards with subtle rotation */}
         <Reveal delay={120}>
           <div className="bezel-shell">
             <div className="bezel-core p-6 sm:p-8">

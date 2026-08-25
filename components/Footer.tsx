@@ -3,7 +3,7 @@ import Link from "next/link";
 export function Footer() {
   return (
     <footer className="border-t border-border bg-surface-sunken">
-      <div className="mx-auto flex max-w-[1400px] flex-col items-start justify-between gap-6 px-6 py-12 sm:flex-row sm:items-center lg:px-8">
+      <div className="mx-auto flex max-w-[1840px] flex-col items-start justify-between gap-6 px-6 py-12 sm:flex-row sm:items-center lg:px-8">
         <div>
           <p className="text-sm font-medium text-foreground">
             © {new Date().getFullYear()} Wallpaper Turbo

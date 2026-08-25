@@ -22,7 +22,7 @@ export function Features() {
   return (
     <section
       id="features"
-      className="mx-auto max-w-[1400px] px-6 py-24 lg:px-8"
+      className="mx-auto max-w-[1840px] px-6 py-24 lg:px-8"
       aria-labelledby="features-heading"
     >
       <Reveal>
@@ -41,13 +41,13 @@ export function Features() {
 
       {/* Asymmetrical Bento */}
       <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-6">
-        {/* 01 — Gaming Suspension — large */}
+        {/* 01 - Gaming Suspension - large */}
         <Reveal delay={80} className="lg:col-span-7">
           <div className="bezel-shell h-full">
             <div className="bezel-core flex h-full flex-col p-6 sm:p-7">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">01 — GAMING</span>
+                  <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">01 - GAMING</span>
                   <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-foreground">
                     Automatic Gaming Suspension
                   </h3>
@@ -82,11 +82,11 @@ export function Features() {
           </div>
         </Reveal>
 
-        {/* 02 — Multi-Monitor */}
+        {/* 02 - Multi-Monitor */}
         <Reveal delay={140} className="lg:col-span-5">
           <div className="bezel-shell h-full">
             <div className="bezel-core flex h-full flex-col p-6 sm:p-7">
-              <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">02 — MULTI-MONITOR</span>
+              <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">02 - MULTI-MONITOR</span>
               <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-foreground">Multi-Monitor & High Refresh</h3>
               <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
                 Mixed refresh up to 240 Hz, independent DPI, three topologies.
@@ -96,20 +96,20 @@ export function Features() {
                 {monitorMode === "span" && (
                   <div className="flex h-full w-full gap-1.5">
                     <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-accent/20 font-mono text-[11px] font-semibold text-accent-bright">
-                      Display 1 — Span
+                      Display 1 - Span
                     </div>
                     <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-accent/20 font-mono text-[11px] font-semibold text-accent-bright">
-                      Display 2 — Span
+                      Display 2 - Span
                     </div>
                   </div>
                 )}
                 {monitorMode === "clone" && (
                   <div className="flex h-full w-full gap-1.5">
                     <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-accent/25 font-mono text-[11px] font-semibold text-accent-bright">
-                      Display 1 — Mirrored
+                      Display 1 - Mirrored
                     </div>
                     <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-accent/25 font-mono text-[11px] font-semibold text-accent-bright">
-                      Display 2 — Mirrored
+                      Display 2 - Mirrored
                     </div>
                   </div>
                 )}
@@ -144,20 +144,20 @@ export function Features() {
           </div>
         </Reveal>
 
-        {/* 03 — Process Isolation */}
+        {/* 03 - Process Isolation */}
         <Reveal delay={100} className="lg:col-span-5">
           <div className="bezel-shell h-full">
             <div className="bezel-core flex h-full flex-col p-6 sm:p-7">
-              <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">03 — ISOLATION</span>
+              <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">03 - ISOLATION</span>
               <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-foreground">Isolated Process Architecture</h3>
               <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
-                Render engine lives in AppRunner. Close the UI — wallpaper never blinks.
+                Render engine lives in AppRunner. Close the UI - wallpaper never blinks.
               </p>
 
               <div className="mt-6 space-y-2.5 font-mono text-xs">
                 <div className="flex items-center justify-between rounded-xl border border-dashed border-border bg-surface-sunken/40 px-4 py-3">
                   <span className="text-foreground-muted">WallpaperTurbo.UI.exe</span>
-                  <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-foreground-muted">Config — Closed</span>
+                  <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-foreground-muted">Config - Closed</span>
                 </div>
                 <div className="flex items-center justify-between rounded-xl border border-accent-bright/30 bg-accent/10 px-4 py-3 shadow-[inset_0_1px_1px_rgba(56,189,248,0.15)]">
                   <div className="flex items-center gap-2">
@@ -171,11 +171,11 @@ export function Features() {
           </div>
         </Reveal>
 
-        {/* 04 — Dual Pipeline — large */}
+        {/* 04 - Dual Pipeline - large */}
         <Reveal delay={160} className="lg:col-span-7">
           <div className="bezel-shell h-full">
             <div className="bezel-core flex h-full flex-col p-6 sm:p-7">
-              <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">04 — PIPELINE</span>
+              <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">04 - PIPELINE</span>
               <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-foreground">Dual Render Pipeline</h3>
               <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
                 Two engines, one roof: LibVLC for hardware video, WebView2 for HTML5, CSS and WebGL shaders.

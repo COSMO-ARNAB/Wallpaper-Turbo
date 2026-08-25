@@ -7,7 +7,7 @@ const wallpapers = [
     title: "Aurora Borealis",
     tech: "4K 60FPS Video",
     engine: "LibVLC",
-    code: `// HLSL — aurora.frag
+    code: `// HLSL - aurora.frag
 float4 aurora(float2 uv){
   float t = _Time.y * 0.06;
   float a = sin(uv.y*6. + t);
@@ -19,7 +19,7 @@ float4 aurora(float2 uv){
     title: "Bioluminescent Tide",
     tech: "Interactive WebGL",
     engine: "WebView2",
-    code: `// WebView2 — tide.html
+    code: `// WebView2 - tide.html
 <canvas id="tide"></canvas>
 <script>import { Tide }
 from './tide.frag'</script>`,
@@ -29,7 +29,7 @@ from './tide.frag'</script>`,
     title: "Volcanic Rift",
     tech: "HLSL Shader",
     engine: "WebView2",
-    code: `// HLSL — rift.hlsl
+    code: `// HLSL - rift.hlsl
 uniform float time;
 void main(out float4 c
 : SV_Target){ c = ember
@@ -44,7 +44,7 @@ export function Gallery() {
       className="border-y border-border bg-surface-sunken/60 py-24"
       aria-labelledby="gallery-heading"
     >
-      <div className="mx-auto max-w-[1400px] px-6 lg:px-8">
+      <div className="mx-auto max-w-[1840px] px-6 lg:px-8">
         <Reveal>
           <div className="max-w-2xl">
             <h2 id="gallery-heading" className="font-display text-4xl font-bold tracking-tighter text-foreground sm:text-5xl">
@@ -55,8 +55,10 @@ export function Gallery() {
             </p>
           </div>
         </Reveal>
+      </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="mx-auto mt-12 max-w-[1840px] px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {wallpapers.map((item, i) => (
             <Reveal key={item.src} delay={80 + i * 100}>
               <div className="bezel-shell">
@@ -76,7 +78,7 @@ export function Gallery() {
                     <div className="relative aspect-[4/3] overflow-hidden bg-surface">
                       <Image
                         src={item.src}
-                        alt={`${item.title} — ${item.tech} live wallpaper`}
+                        alt={`${item.title} - ${item.tech} live wallpaper`}
                         fill
                         sizes="(min-width: 768px) 20vw, 100vw"
                         className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
