@@ -102,9 +102,7 @@ export function Hero({
             <h1 className="mt-6 font-display text-6xl font-bold leading-[0.88] tracking-tighter text-foreground sm:text-7xl lg:text-[84px]">
               Live wallpapers.
               <br />
-              <span className="bg-gradient-to-r from-accent-bright to-sky-300 bg-clip-text text-transparent">
-                Zero compromise.
-              </span>
+              <span className="text-accent-bright">Zero compromise.</span>
             </h1>
           </Reveal>
 
@@ -121,7 +119,7 @@ export function Hero({
                 onClick={handleDownloadClick}
                 className="group inline-flex h-[46px] items-center gap-2 rounded-full bg-white px-2 pl-6 font-display text-sm font-semibold text-black transition-all duration-300 hover:bg-white/90 active:scale-[0.98]"
               >
-                <span>Download Installer</span>
+                <span>Download Wallpaper Turbo</span>
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-white transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
                   ↗
                 </span>
@@ -130,9 +128,10 @@ export function Hero({
                 href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="View source on GitHub"
                 className="group inline-flex h-[46px] items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-6 font-display text-sm font-medium text-foreground backdrop-blur transition-all hover:bg-white/[0.10] hover:border-white/15 active:scale-[0.98]"
               >
-                <span>View Source</span>
+                <span>View source</span>
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-[10px] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
                   ↗
                 </span>

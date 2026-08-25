@@ -73,6 +73,7 @@ export function Navbar() {
               href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="View source on GitHub"
               className="group hidden h-8 items-center gap-2 rounded-full bg-white px-4 font-display text-xs font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.97] sm:inline-flex"
             >
               <span>GitHub</span>
@@ -138,9 +139,10 @@ export function Navbar() {
             href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="View source on GitHub"
             className={`mt-8 inline-flex h-12 w-full items-center justify-center rounded-full bg-white font-display text-sm font-bold text-black transition-all duration-700 ${open ? "translate-y-0 opacity-100 delay-500" : "translate-y-8 opacity-0"}`}
           >
-            View on GitHub — ↗
+            View source on GitHub — ↗
           </a>
 
           <p className={`mt-6 font-mono text-xs text-foreground-muted transition-all duration-700 ${open ? "opacity-100 delay-700" : "opacity-0"}`}>

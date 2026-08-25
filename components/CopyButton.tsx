@@ -23,7 +23,7 @@ export function CopyButton({ text }: CopyButtonProps) {
     <button
       type="button"
       onClick={handleCopy}
-      aria-label={copied ? "Checksum copied to clipboard" : "Copy checksum to clipboard"}
+      aria-label={copied ? "SHA-256 checksum copied to clipboard" : "Copy SHA-256 checksum to clipboard"}
       aria-live="polite"
       className={`inline-flex h-9 min-w-[5rem] items-center justify-center gap-1.5 rounded-md border font-mono text-xs font-semibold transition-all active:scale-[0.97] ${
         copied
@@ -34,7 +34,7 @@ export function CopyButton({ text }: CopyButtonProps) {
       {copied ? (
         <span>Copied</span>
       ) : (
-        <span>Copy SHA</span>
+        <span>Copy SHA-256</span>
       )}
     </button>
   );

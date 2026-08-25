@@ -79,7 +79,7 @@ export function Download({ release }: DownloadProps) {
                   href={release?.downloadUrl ?? "#"}
                   className="group inline-flex h-11 w-full items-center justify-between gap-3 rounded-full bg-white pl-6 pr-2 font-display text-sm font-semibold text-black transition-all duration-300 hover:bg-white/90 active:scale-[0.98] sm:w-auto"
                 >
-                  <span>Download Setup.exe</span>
+                  <span>Download Wallpaper Turbo</span>
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black text-white transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
                     ↗
                   </span>
@@ -92,7 +92,7 @@ export function Download({ release }: DownloadProps) {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0 flex-1">
                       <p className="font-mono text-[10px] uppercase tracking-widest text-foreground-muted">
-                        Cryptographic SHA-256 Checksum
+                        SHA-256 checksum
                       </p>
                       <code className="mt-1 block truncate font-mono text-xs text-foreground">{checksum}</code>
                     </div>
