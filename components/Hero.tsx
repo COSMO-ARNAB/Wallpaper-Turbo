@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import { Reveal } from "./Reveal";
 
@@ -18,6 +20,41 @@ export function Hero({
   version = null,
   releaseUrl = "https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases",
 }: HeroProps = {}) {
+  const handleDownloadClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const target = document.getElementById("download");
+    if (!target) {
+      window.location.hash = "download";
+      return;
+    }
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) {
+      target.scrollIntoView({ behavior: "auto", block: "start" });
+      history.pushState(null, "", "#download");
+      return;
+    }
+    const navOffset = 24;
+    const top = target.getBoundingClientRect().top + window.scrollY - navOffset;
+    const start = window.scrollY;
+    const distance = top - start;
+    const duration = 680;
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    let startTime: number | null = null;
+    const step = (ts: number) => {
+      if (startTime === null) startTime = ts;
+      const elapsed = ts - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      window.scrollTo(0, start + distance * ease(progress));
+      if (progress < 1) requestAnimationFrame(step);
+      else {
+        history.pushState(null, "", "#download");
+        target.classList.add("ring-1", "ring-accent-bright/20");
+        window.setTimeout(() => target.classList.remove("ring-1", "ring-accent-bright/20"), 1100);
+      }
+    };
+    requestAnimationFrame(step);
+  };
+
   return (
     <section
       id="top"
@@ -81,6 +118,7 @@ export function Hero({
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <a
                 href="#download"
+                onClick={handleDownloadClick}
                 className="group inline-flex h-[46px] items-center gap-2 rounded-full bg-white px-2 pl-6 font-display text-sm font-semibold text-black transition-all duration-300 hover:bg-white/90 active:scale-[0.98]"
               >
                 <span>Download Installer</span>
