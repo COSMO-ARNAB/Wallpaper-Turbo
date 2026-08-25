@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
 const sansFont = Plus_Jakarta_Sans({
   variable: "--font-sans-main",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const displayFont = Space_Grotesk({
+  variable: "--font-display-main",
   subsets: ["latin"],
   display: "swap",
 });
@@ -85,7 +91,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${sansFont.variable} ${monoFont.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${sansFont.variable} ${displayFont.variable} ${monoFont.variable}`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -93,7 +99,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen antialiased bg-background text-foreground" suppressHydrationWarning>{children}</body>
+      <body className="min-h-screen antialiased bg-background text-foreground" suppressHydrationWarning>
+        <div aria-hidden="true" className="grain-overlay" />
+        {children}
+      </body>
     </html>
   );
 }

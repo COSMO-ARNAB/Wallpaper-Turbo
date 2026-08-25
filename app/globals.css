@@ -36,6 +36,7 @@
   --color-focus-ring: var(--focus-ring);
 
   --font-sans: var(--font-sans-main), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-main), var(--font-sans-main), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono-main), ui-monospace, SFMono-Regular, Menlo,
     Monaco, Consolas, monospace;
 }
@@ -89,6 +90,60 @@ body {
   background-color: var(--surface);
   border: 1px solid var(--border);
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+/* --- Double-Bezel (Doppelrand) — machined hardware depth --------------- */
+.bezel-shell {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 6px;
+  border-radius: 2rem;
+}
+.bezel-core {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(2rem - 6px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+
+/* --- Film grain — fixed, pointer-events-none, never on scroll --------- */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
+}
+
+/* --- Eyebrow pill ------------------------------------------------------ */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background-color: var(--surface-sunken);
+  padding: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--foreground-muted);
+}
+
+/* --- Scroll reveal — IntersectionObserver, GPU only --------------------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  filter: blur(4px);
+  transition: opacity 750ms cubic-bezier(0.32, 0.72, 0, 1), transform 750ms cubic-bezier(0.32, 0.72, 0, 1), filter 750ms cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform, opacity;
+}
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
 }
 
 /* --- Status indicator (live engine dot) --------------------------------- */
