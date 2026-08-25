@@ -86,6 +86,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${sansFont.variable} ${monoFont.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{const r=e=>e.removeAttribute('bis_skin_checked');document.querySelectorAll('[bis_skin_checked]').forEach(r);new MutationObserver(e=>{for(const t of e)if('bis_skin_checked'===t.attributeName)r(t.target)}).observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:['bis_skin_checked']})}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="min-h-screen antialiased bg-background text-foreground" suppressHydrationWarning>{children}</body>
     </html>
   );
