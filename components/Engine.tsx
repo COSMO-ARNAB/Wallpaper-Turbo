@@ -19,8 +19,7 @@ export function Engine() {
       <div className="mx-auto grid max-w-[1400px] grid-cols-1 items-center gap-12 px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
         <Reveal>
           <div>
-            <div className="eyebrow">Win32 Integration · No Overlay Windows</div>
-            <h2 id="engine-heading" className="mt-4 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            <h2 id="engine-heading" className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Injected directly into the Windows desktop tree.
             </h2>
             <p className="mt-4 max-w-[58ch] text-base leading-relaxed text-foreground-muted">

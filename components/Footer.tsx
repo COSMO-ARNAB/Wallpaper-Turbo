@@ -9,7 +9,7 @@ export function Footer() {
             © {new Date().getFullYear()} Wallpaper Turbo
           </p>
           <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-foreground-muted">
-            .NET 8 Native · Open Source · Zero Telemetry · Windows 10 / 11
+            .NET 8 Native | Open Source | Zero Telemetry | Windows 10 / 11
           </p>
         </div>
 

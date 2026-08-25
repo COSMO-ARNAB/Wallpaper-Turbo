@@ -46,15 +46,12 @@ export function Gallery() {
     >
       <div className="mx-auto max-w-[1400px] px-6 lg:px-8">
         <Reveal>
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="eyebrow">Proof, not mockups · Rendered beneath icons</div>
-              <h2 id="gallery-heading" className="mt-4 font-display text-4xl font-bold tracking-tighter text-foreground sm:text-5xl">
-                Runs anything you throw at it.
-              </h2>
-            </div>
-            <p className="max-w-md font-mono text-xs leading-relaxed text-foreground-muted">
-              Video, web, shaders — each shown as <span className="text-foreground">code + result diptych</span> inside hardware bezels. No AI slop, just the engine.
+          <div className="max-w-2xl">
+            <h2 id="gallery-heading" className="font-display text-4xl font-bold tracking-tighter text-foreground sm:text-5xl">
+              Runs anything you throw at it.
+            </h2>
+            <p className="mt-4 max-w-[65ch] text-sm leading-relaxed text-foreground-muted">
+              Video, web and shaders. Each shown as code plus result inside hardware bezels.
             </p>
           </div>
         </Reveal>
@@ -107,7 +104,7 @@ export function Gallery() {
 
         <Reveal delay={200}>
           <p className="mt-6 text-center font-mono text-[11px] text-foreground-muted">
-            Each wallpaper renders <span className="text-foreground">under SHELLDLL_DefView</span> — desktop icons, selection and context menus stay native.
+            Each wallpaper renders <span className="text-foreground">under SHELLDLL_DefView</span>. Desktop icons and context menus stay native.
           </p>
         </Reveal>
       </div>

@@ -146,7 +146,7 @@ export function Navbar() {
           </a>
 
           <p className={`mt-6 font-mono text-xs text-foreground-muted transition-all duration-700 ${open ? "opacity-100 delay-700" : "opacity-0"}`}>
-            Windows 10 / 11 · 64-bit · Open Source · .NET 8 Native
+            Windows 10 / 11 64-bit | Open Source | .NET 8 Native
           </p>
         </div>
       </div>

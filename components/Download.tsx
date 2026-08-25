@@ -36,7 +36,7 @@ export function Download({ release }: DownloadProps) {
       <div className="relative mx-auto max-w-[1400px] px-6 lg:px-8">
         <Reveal>
           <div className="mx-auto max-w-3xl text-center">
-            <div className="eyebrow mx-auto">Download · SHA-256 Verified · Offline Installer</div>
+            <div className="eyebrow mx-auto">Download · SHA-256 verified</div>
             <h2
               id="download-heading"
               className="mt-4 font-display text-4xl font-bold tracking-tighter text-foreground sm:text-5xl"
@@ -56,7 +56,7 @@ export function Download({ release }: DownloadProps) {
                 <div>
                   <h3 className="font-display text-lg font-semibold tracking-tight text-foreground">Official Installer Package</h3>
                   <p className="mt-1 font-mono text-xs text-foreground-muted">
-                    Windows 10 / 11 · 64-bit {published && `· Published ${published}`}
+                    Windows 10 / 11 64-bit {published && `· Published ${published}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

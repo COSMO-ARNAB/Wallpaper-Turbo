@@ -6,12 +6,12 @@ import { Reveal } from "./Reveal";
 const engines = [
   {
     name: "LibVLC Core",
-    formats: "MP4 · MKV · WebM · AVI",
+    formats: "MP4, MKV, WebM, AVI",
     detail: "Hardware decode via NVDEC / QuickSync / DXVA2",
   },
   {
     name: "WebView2 Runtime",
-    formats: "HTML5 · CSS · WebGL",
+    formats: "HTML5, CSS, WebGL",
     detail: "Interactive shader and canvas wallpapers",
   },
 ];
@@ -26,22 +26,15 @@ export function Features() {
       aria-labelledby="features-heading"
     >
       <Reveal>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <div className="eyebrow">Architecture · Performance · Stability</div>
-            <h2
-              id="features-heading"
-              className="mt-4 font-display text-4xl font-bold tracking-tighter text-foreground sm:text-5xl"
-            >
-              Engineered to disappear.
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-foreground-muted">
-              Every architectural decision serves one goal: you should never notice it running. Four pillars, one invisible engine.
-            </p>
-          </div>
-          <p className="hidden max-w-xs font-mono text-xs leading-relaxed text-foreground-muted lg:block">
-            Hardware-accelerated. Process-isolated. <br />
-            Zero FPS tax while you play.
+        <div className="max-w-2xl">
+          <h2
+            id="features-heading"
+            className="font-display text-4xl font-bold tracking-tighter text-foreground sm:text-5xl"
+          >
+            Engineered to disappear.
+          </h2>
+          <p className="mt-4 max-w-[65ch] text-base leading-relaxed text-foreground-muted">
+            Every architectural decision serves one goal: you should never notice it running.
           </p>
         </div>
       </Reveal>

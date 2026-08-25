@@ -95,7 +95,7 @@ export function Hero({
           </Reveal>
 
           <Reveal delay={80}>
-            <div className="eyebrow mt-6">.NET 8 Native · Zero Telemetry · WorkerW Injection</div>
+            <div className="eyebrow mt-6">.NET 8 Native · Zero Telemetry</div>
           </Reveal>
 
           <Reveal delay={140}>
@@ -108,7 +108,7 @@ export function Hero({
 
           <Reveal delay={210}>
             <p className="mt-6 max-w-[52ch] text-[17px] leading-relaxed text-foreground-muted">
-              A native, hardware-accelerated wallpaper engine that renders beneath your desktop icons — and suspends itself the instant a game goes full-screen.
+              A native, hardware-accelerated wallpaper engine that renders beneath your desktop icons and suspends itself the instant a game goes full-screen.
             </p>
           </Reveal>
 
@@ -139,11 +139,7 @@ export function Hero({
             </div>
           </Reveal>
 
-          <Reveal delay={340}>
-            <p className="mt-6 font-mono text-xs text-foreground-muted">
-              Offline installer · Automatic background updates · SHA-256 verified
-            </p>
-          </Reveal>
+
         </div>
 
         {/* Right — Double-Bezel hardware preview */}
