@@ -933,10 +933,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static readonly System.Collections.Generic.List<string> CurrentVersionHighlights = new()
     {
-        "v1.5.1 Auto-Updater verification release",
-        "Dynamically resolved installer log paths to eliminate UAC elevation errors",
-        "Enhanced UTF-8 BOM safety across updater network providers",
-        "Includes full battery saver auto-pause and auto-resume capabilities"
+        "v1.5.2 Power & Performance Optimization Release",
+        "Battery saver auto-pause freezes the engine instantly without cold restarts",
+        "Dynamic UI process adoption and PID re-targeting on UI restarts",
+        "Optimized pause profile synchronization and PauseMode.None support"
     };
 
     private void CheckForVersionUpdate()
