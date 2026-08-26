@@ -19,6 +19,8 @@ build/
 .aicoding-chat-workspace
 .idea/
 .vscode/
+.claude/
+.superpowers/
 *.swp
 *.swo
 
