@@ -72,6 +72,16 @@ public class WallpaperStartupCoordinator
     };
 
     /// <summary>
+    /// Location of the engine's active-state file. Overridable because the real path is
+    /// machine-global: a test exercising adoption would otherwise adopt — or fail to adopt —
+    /// whichever engine happens to be running on the developer's machine.
+    /// </summary>
+    internal Func<string> StateFilePathProvider { get; set; } = static () => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "WallpaperTurbo",
+        "active_state.json");
+
+    /// <summary>
     /// Starts playback for a 1-based AppRunner index. Overridable because the real launch path is
     /// not inert: before it checks whether the AppRunner exe exists, it sends an IPC
     /// <c>swap {index}</c> to whatever engine is live on the machine — which would change the
@@ -296,6 +306,28 @@ public class WallpaperStartupCoordinator
             return null;
         }
 
+        // This engine was launched by an earlier UI, so the PID on its command line is that dead
+        // UI's. Correct it now the pipe has answered, otherwise its foreground watcher stops
+        // recognising our windows and maximizing the app pauses the wallpaper.
+        if (!await _wallpaperService.AnnounceUiProcessIdAsync())
+        {
+            // Not fatal: the engine is playing and adoption should still succeed. The cost is only
+            // that our own windows count as obscuring the desktop until the next relaunch.
+            Log("Engine did not accept the UI process id — its own-window exclusion may be stale");
+        }
+
+        // Synchronize persisted pause and mute settings with the adopted engine in case settings changed.
+        try
+        {
+            var currentSettings = _settingsStore.Load();
+            await _wallpaperService.UpdatePauseProfileAsync(currentSettings.PauseOnMaximized ? "Maximized" : "Disabled");
+            await _wallpaperService.SetMuteAsync(currentSettings.MuteAudio);
+        }
+        catch (Exception ex)
+        {
+            Log($"Failed to synchronize settings with adopted engine: {ex.Message}");
+        }
+
         // Find the wallpaper by index from state
         if (state.ActiveWallpaperIndex > 0 && state.ActiveWallpaperIndex <= wallpapers.Count)
         {
@@ -313,10 +345,7 @@ public class WallpaperStartupCoordinator
     {
         try
         {
-            var appDataDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "WallpaperTurbo");
-            var stateFilePath = Path.Combine(appDataDir, "active_state.json");
+            var stateFilePath = StateFilePathProvider();
 
             if (!File.Exists(stateFilePath))
             {

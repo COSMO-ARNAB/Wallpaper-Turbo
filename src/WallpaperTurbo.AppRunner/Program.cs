@@ -17,6 +17,7 @@ using WallpaperTurbo.Core.Rendering.Host;
 using WallpaperTurbo.Core.Wallpaper;
 using WallpaperTurbo.Core.Services.Stability;
 using WallpaperTurbo.Core.Services.Performance;
+using WallpaperTurbo.Core.Services.Watchdog;
 
 namespace WallpaperTurbo.AppRunner;
 
@@ -1204,7 +1205,12 @@ internal static class Program
             {
                 if (isObscured)
                 {
-                    string reason = pauseMode == PauseMode.Focused 
+                    if (_pauseMode == PauseMode.None)
+                    {
+                        return;
+                    }
+
+                    string reason = _pauseMode == PauseMode.Focused 
                         ? "application focused" 
                         : "fullscreen/maximized window";
                     Console.WriteLine($"[Performance] Desktop obscured by {reason}. Suspending playback...");
@@ -1212,7 +1218,7 @@ internal static class Program
                     {
                         foreach (var s in _sessionManager.Sessions)
                         {
-                            if (pauseMode == PauseMode.Maximized)
+                            if (_pauseMode == PauseMode.Maximized)
                             {
                                 s.Suspend();
                             }
@@ -1240,7 +1246,7 @@ internal static class Program
                     {
                         foreach (var s in _sessionManager.Sessions)
                         {
-                            if (pauseMode == PauseMode.Maximized)
+                            if (_pauseMode == PauseMode.Maximized || _pauseMode == PauseMode.None)
                             {
                                 s.Resume();
                             }
@@ -1769,6 +1775,13 @@ internal static class Program
                         _foregroundWatcher.PauseMode = newMode;
                         Console.WriteLine($"[IPC] Performance pause mode updated in real-time to: {newMode}");
                     }
+                    if (newMode == PauseMode.None && !_pausedByHost && sessionManager != null)
+                    {
+                        foreach (var s in sessionManager.Sessions)
+                        {
+                            s.Resume();
+                        }
+                    }
                     return "success";
                 }
                 else
@@ -1793,6 +1806,27 @@ internal static class Program
                 else
                 {
                     return $"error: invalid mute argument: {args}";
+                }
+
+            // Re-points the foreground watcher's own-window exclusion at a new UI process.
+            // Needed because --ui-pid is only ever read from our command line: when a UI restarts
+            // and adopts this already-running engine, nothing relaunches us, so without this we
+            // keep excluding the dead UI's pid — and every window the live UI opens then counts as
+            // obscuring the desktop and pauses the wallpaper.
+            case "ui-pid":
+                if (int.TryParse(args, out int announcedUiPid) && announcedUiPid > 0)
+                {
+                    _uiPid = announcedUiPid;
+                    if (_foregroundWatcher != null)
+                    {
+                        _foregroundWatcher.ExcludedPid = announcedUiPid;
+                    }
+                    Console.WriteLine($"[IPC] UI process id updated in real-time to: {announcedUiPid}");
+                    return "success";
+                }
+                else
+                {
+                    return $"error: invalid ui pid: {args}";
                 }
 
             default:

@@ -869,6 +869,9 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
                 // Try to swap in real-time over IPC Named Pipe first (skip if fresh launch is forced)
                 if (!forceFreshLaunch && (await SendIpcCommandAsync($"swap {index}")) == "success")
                 {
+                    string targetPauseMode = pauseMode ?? ActivePauseProfile;
+                    _ = UpdatePauseProfileAsync(targetPauseMode);
+
                     string? launchedId = null;
                     lock (_wallpaperLock)
                     {
@@ -1256,6 +1259,23 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
     {
         DiagnosticsService.SetAction($"Wallpaper Service updating mute state to {isMuted} via IPC");
         return (await SendIpcCommandAsync($"mute {isMuted.ToString().ToLowerInvariant()}")) == "success";
+    }
+
+    /// <summary>
+    /// Tells a running engine which process now owns the UI, so its foreground watcher stops
+    /// treating our own windows as something to pause for.
+    /// </summary>
+    /// <remarks>
+    /// The engine otherwise learns this only from the <c>--ui-pid</c> argument it was launched
+    /// with, which is passed exactly once. An engine that outlives a UI restart therefore keeps
+    /// excluding a process id that no longer exists — so maximizing the app paused the very
+    /// wallpaper it was displaying, and worse, a recycled process id could silently grant the
+    /// exclusion to an unrelated program.
+    /// </remarks>
+    public async Task<bool> AnnounceUiProcessIdAsync()
+    {
+        DiagnosticsService.SetAction("Wallpaper Service announcing UI process id via IPC");
+        return (await SendIpcCommandAsync($"ui-pid {Environment.ProcessId}")) == "success";
     }
 
     /// <summary>
