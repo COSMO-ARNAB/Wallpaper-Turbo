@@ -37,7 +37,7 @@ if %ERRORLEVEL% NEQ 0 (
         set "ISCC_CMD=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
     )
 )
-"%ISCC_CMD%" /DMyAppVersion=%RELEASE_VERSION% /S"mysigntool=""%~dp0scripts\sign-uninstaller.bat"" ""$f""" src\WallpaperTurbo.Installer\installer.iss
+"%ISCC_CMD%" /DMyAppVersion=%RELEASE_VERSION% /DUseSignTool /S"mysigntool=""%~dp0scripts\sign-uninstaller.bat"" ""$f""" src\WallpaperTurbo.Installer\installer.iss
 
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Installation build failed! Ensure Inno Setup is installed and ISCC is in system PATH or local Programs folders.

@@ -31,7 +31,9 @@ VersionInfoProductName=Wallpaper Turbo
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoProductVersion={#MyAppVersion}
 VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}
+#ifdef UseSignTool
 SignTool=mysigntool
+#endif
 
 ; Prevent installation if the app is already running
 AppMutex=WallpaperTurbo_AppRunner_Mutex
