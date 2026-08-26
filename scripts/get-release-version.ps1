@@ -35,5 +35,5 @@ foreach ($relativePath in $projectPaths) {
         }
     }
 }
+Write-Output $version
 
-[Console]::Out.WriteLine($version)
