@@ -3,8 +3,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using WallpaperTurbo.Core.Services.Performance;
 
-namespace WallpaperTurbo.Core.Services.Performance;
+namespace WallpaperTurbo.Core.Services.Watchdog;
 
 /// <summary>
 /// Monitors the active foreground window to detect if it is maximized or running in fullscreen mode.
@@ -19,8 +20,24 @@ public sealed class ForegroundWindowWatcher : IDisposable
     private readonly Task _watcherTask;
     private bool _lastState; // true = covered/paused, false = active/playing
     private bool _disposed;
+    private PauseMode _pauseMode = PauseMode.Maximized;
 
-    public PauseMode PauseMode { get; set; }
+    public PauseMode PauseMode
+    {
+        get => _pauseMode;
+        set
+        {
+            if (_pauseMode != value)
+            {
+                _pauseMode = value;
+                if (value == PauseMode.None && _lastState)
+                {
+                    _lastState = false;
+                    VisibilityChanged?.Invoke(false);
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Process ID of the managing UI application. Windows owned by this PID are
@@ -31,7 +48,7 @@ public sealed class ForegroundWindowWatcher : IDisposable
 
     public ForegroundWindowWatcher(PauseMode mode = PauseMode.Maximized)
     {
-        PauseMode = mode;
+        _pauseMode = mode;
         _watcherTask = Task.Run(() => WatchLoopAsync(_cts.Token));
     }
 
@@ -45,22 +62,25 @@ public sealed class ForegroundWindowWatcher : IDisposable
             try
             {
                 bool isObscured = false;
-                if (IsSessionLocked())
+                if (PauseMode != PauseMode.None)
                 {
-                    isObscured = true;
-                }
-                else
-                {
-                    IntPtr fgHwnd = GetForegroundWindow();
-                    if (fgHwnd != IntPtr.Zero)
+                    if (IsSessionLocked())
                     {
-                        isObscured = CheckIfWindowObscuresScreen(fgHwnd);
+                        isObscured = true;
                     }
                     else
                     {
-                        // Maintain the last state during transient focus losses (e.g. alt-tabbing)
-                        // to avoid rapid toggle/flicker.
-                        isObscured = _lastState;
+                        IntPtr fgHwnd = GetForegroundWindow();
+                        if (fgHwnd != IntPtr.Zero)
+                        {
+                            isObscured = CheckIfWindowObscuresScreen(fgHwnd);
+                        }
+                        else
+                        {
+                            // Maintain the last state during transient focus losses (e.g. alt-tabbing)
+                            // to avoid rapid toggle/flicker.
+                            isObscured = _lastState;
+                        }
                     }
                 }
 
@@ -83,9 +103,6 @@ public sealed class ForegroundWindowWatcher : IDisposable
     {
         "WorkerW",
         "Progman",
-        "Windows.UI.Core.CoreWindow",
-        "MultitaskingViewFrame",
-        "XamlExplorerHostIslandWindow",
         "WindowsDashboard",
         "Shell_TrayWnd",
         "Shell_SecondaryTrayWnd",
@@ -156,9 +173,11 @@ public sealed class ForegroundWindowWatcher : IDisposable
             if (GetMonitorInfo(hMonitor, ref monitorInfo))
             {
                 RECT monRect = monitorInfo.rcMonitor;
+                RECT workRect = monitorInfo.rcWork;
                 int monitorWidth = monRect.Right - monRect.Left;
                 int monitorHeight = monRect.Bottom - monRect.Top;
                 long monitorArea = (long)monitorWidth * monitorHeight;
+                long workArea = (long)(workRect.Right - workRect.Left) * (workRect.Bottom - workRect.Top);
 
                 uint currentPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
 
@@ -173,6 +192,12 @@ public sealed class ForegroundWindowWatcher : IDisposable
                     GetWindowThreadProcessId(hwnd, out uint fgOwnerPid);
                     if (fgOwnerPid != currentPid && (ExcludedPid <= 0 || fgOwnerPid != (uint)ExcludedPid))
                     {
+                        // Native Win32 maximized check
+                        if (IsZoomed(hwnd))
+                        {
+                            return true;
+                        }
+
                         if (GetWindowRect(hwnd, out RECT rect))
                         {
                             int w = rect.Right - rect.Left;
@@ -185,9 +210,16 @@ public sealed class ForegroundWindowWatcher : IDisposable
                                 return true;
                             }
 
-                            // Maximized check on this monitor (>= 95% area)
+                            // Work area maximized check
+                            if (rect.Left <= workRect.Left && rect.Top <= workRect.Top &&
+                                rect.Right >= workRect.Right && rect.Bottom >= workRect.Bottom)
+                            {
+                                return true;
+                            }
+
+                            // Maximized area check (>= 85% of work area or monitor area)
                             long windowArea = (long)w * h;
-                            if (windowArea >= monitorArea * 0.95)
+                            if ((workArea > 0 && windowArea >= workArea * 0.85) || windowArea >= monitorArea * 0.85)
                             {
                                 return true;
                             }
@@ -230,6 +262,11 @@ public sealed class ForegroundWindowWatcher : IDisposable
                                 // Exclude UI process (ExcludedPid)
                                 if (ownerPid != currentPid && (ExcludedPid <= 0 || ownerPid != (uint)ExcludedPid))
                                 {
+                                    if (IsZoomed(wnd))
+                                    {
+                                        return true;
+                                    }
+
                                     if (GetWindowRect(wnd, out RECT rect))
                                     {
                                         int w = rect.Right - rect.Left;
@@ -243,8 +280,15 @@ public sealed class ForegroundWindowWatcher : IDisposable
                                             return true;
                                         }
 
-                                        // Maximized check on this monitor (>= 95% area)
-                                        if (windowArea >= monitorArea * 0.95)
+                                        // Work area check on this monitor
+                                        if (rect.Left <= workRect.Left && rect.Top <= workRect.Top &&
+                                            rect.Right >= workRect.Right && rect.Bottom >= workRect.Bottom)
+                                        {
+                                            return true;
+                                        }
+
+                                        // Maximized check on this monitor (>= 85% area)
+                                        if ((workArea > 0 && windowArea >= workArea * 0.85) || windowArea >= monitorArea * 0.85)
                                         {
                                             return true;
                                         }
@@ -286,7 +330,6 @@ public sealed class ForegroundWindowWatcher : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-
         _cts.Cancel();
         try
         {
@@ -367,6 +410,9 @@ public sealed class ForegroundWindowWatcher : IDisposable
 
     [DllImport("user32.dll")]
     private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsZoomed(IntPtr hWnd);
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);

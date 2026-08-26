@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using WallpaperTurbo.Core.Updates.Interfaces;
+using WallpaperTurbo.UI.Services.Theme;
 using WallpaperTurbo.Updater;
 using WallpaperTurbo.Updater.Services;
 
@@ -91,7 +92,19 @@ public partial class App : Application
         services.AddSingleton<Services.WallpaperStartupCoordinator>();
 
         // Wallpaper visibility watchdog (desktop window truth)
-        services.AddSingleton<Services.IWallpaperVisibilityMonitor, Services.WallpaperVisibilityWatchdog>();
+        services.AddSingleton<WallpaperTurbo.Core.Services.Watchdog.IWallpaperVisibilityMonitor>(sp =>
+            new WallpaperTurbo.Core.Services.Watchdog.WallpaperVisibilityWatchdog(
+                new WallpaperTurbo.Core.Services.Watchdog.Win32WindowEnumerator(),
+                1000,
+                action => Application.Current?.Dispatcher?.BeginInvoke(action, System.Windows.Threading.DispatcherPriority.Background)));
+
+        // Theme resolution & DWM backdrop application (must precede PresentationManager/MainWindow)
+        services.AddSingleton<IThemeResolver, ThemeResolver>();
+        services.AddSingleton<IDwmApplier, DwmBackdropApplier>();
+
+        // Power policy (pure decision function) + injectable clock for debouncing power events
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<Services.Power.IBatterySaverPolicy, Services.Power.BatterySaverPolicy>();
 
         // Presentation Management
         services.AddSingleton<Services.PresentationManager>();
@@ -130,16 +143,24 @@ public partial class App : Application
         }
 
         Services.StartupDiagnostics.LogWithMemory("App.OnStartup ENTRY");
+        #if DEBUG
         Console.WriteLine("DEBUG: OnStartup Entry");
+        #endif
         WallpaperTurbo.Updater.UpdaterDiagnostic.Init();
+        #if DEBUG
         Console.WriteLine("DEBUG: UpdaterDiagnostic.Init completed");
+        #endif
         WallpaperTurbo.Updater.UpdaterDiagnostic.Log("App.OnStartup", $"WPF app starting. Repo={UpdateRepoOwner}/{UpdateRepoName} Publisher={UpdatePublisherName}");
+        #if DEBUG
         Console.WriteLine("DEBUG: Mutex creation starting");
+        #endif
         bool createdNew = false;
         for (int retry = 1; retry <= 5; retry++)
         {
             _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out createdNew);
+            #if DEBUG
             Console.WriteLine($"DEBUG: Mutex attempt {retry}. createdNew={createdNew}");
+            #endif
             if (createdNew)
             {
                 break;
@@ -152,13 +173,17 @@ public partial class App : Application
             var status = ActivateExistingInstanceOrCleanUp();
             if (status == InstanceStatus.HealthyInstanceActivated)
             {
+                #if DEBUG
                 Console.WriteLine("DEBUG: Healthy instance activated, shutting down immediately");
+                #endif
                 Application.Current?.Shutdown();
                 return;
             }
             else if (status == InstanceStatus.StuckInstanceKilled)
             {
+                #if DEBUG
                 Console.WriteLine("DEBUG: Cleaned up stuck instance, retrying mutex immediately");
+                #endif
                 _appMutex = new Mutex(true, "WallpaperTurbo_UI_Mutex", out createdNew);
                 if (createdNew)
                 {
@@ -170,19 +195,25 @@ public partial class App : Application
 
             if (retry < 5)
             {
+                #if DEBUG
                 Console.WriteLine("DEBUG: Mutex still busy, sleeping 300ms before retry...");
+                #endif
                 System.Threading.Thread.Sleep(300);
             }
         }
 
         if (!createdNew)
         {
+            #if DEBUG
             Console.WriteLine("DEBUG: Mutex still busy, shutting down");
+            #endif
             Application.Current?.Shutdown();
             return;
         }
 
+        #if DEBUG
         Console.WriteLine("DEBUG: Applying Theme");
+        #endif
         var settingsStore = _serviceProvider.GetRequiredService<Services.ISettingsStore>();
         var settings = settingsStore.Load();
         if (string.Equals(settings.Theme, "Light", StringComparison.OrdinalIgnoreCase))
@@ -202,13 +233,17 @@ public partial class App : Application
         _serviceProvider.GetRequiredService<Services.PowerManagementService>();
 
         Services.StartupDiagnostics.StartTimer("MainWindow resolve");
+        #if DEBUG
         Console.WriteLine("DEBUG: Resolving MainWindow");
+        #endif
         // Resolve and display main window
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
         Services.StartupDiagnostics.StopTimerWithMemory("MainWindow resolve");
 
         Services.StartupDiagnostics.StartTimer("MainWindow.Show");
+        #if DEBUG
         Console.WriteLine("DEBUG: Displaying MainWindow");
+        #endif
         mainWindow.Show();
         Services.StartupDiagnostics.StopTimerWithMemory("MainWindow.Show");
 
@@ -221,39 +256,65 @@ public partial class App : Application
         };
         System.Windows.Media.CompositionTarget.Rendering += renderingHandler;
 
+        #if DEBUG
         Console.WriteLine("DEBUG: Setting up updater run check");
+        #endif
         // Defer the non-blocking startup update check to after the window is shown,
         // so it never interferes with first-frame UI rendering. The check is gated
         // internally by UpdaterViewModel.RunStartupCheckAsync() on CheckOnStartup.
         var updater = _serviceProvider.GetRequiredService<ViewModels.UpdaterViewModel>();
         mainWindow.Dispatcher.BeginInvoke(new System.Action(() =>
         {
+            #if DEBUG
             Console.WriteLine("DEBUG: Starting startup update check");
+            #endif
             _ = updater.RunStartupCheckAsync();
         }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
-        // Synchronize DirectX GPU preference registry keys for all AppRunner & UI executables
+        // H2 cold-start: offload GPU preference registry sync off critical first-frame path.
+        // Previously synchronous before base.OnStartup blocked Rendering by ~ File.Exists + registry IO.
+        // Now fire-and-forget at ApplicationIdle, matching updater/startupCoordinator deferral.
         var wallpaperService = _serviceProvider.GetRequiredService<Services.WallpaperService>();
-        wallpaperService.SyncGpuPreferences();
+        mainWindow.Dispatcher.BeginInvoke(new Action(async () =>
+        {
+            await System.Threading.Tasks.Task.Run(() => wallpaperService.SyncGpuPreferences());
+        }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
         // Start wallpaper engine coordination after UI is shown
         var startupCoordinator = _serviceProvider.GetRequiredService<Services.WallpaperStartupCoordinator>();
         mainWindow.Dispatcher.BeginInvoke(new System.Action(async () =>
         {
+            #if DEBUG
             Console.WriteLine("DEBUG: Starting wallpaper engine coordination");
+            #endif
             var result = await startupCoordinator.EnsureWallpaperRunningAsync();
+            #if DEBUG
             Console.WriteLine($"DEBUG: Wallpaper coordination result: running={result.IsEngineRunning}, timeout={result.TimedOut}");
+            #endif
 
             // Surface the outcome to the UI: on timeout the user gets
             // "Engine is still starting" with a Retry command instead of a silent hang
             var mainVm = _serviceProvider.GetService<ViewModels.MainViewModel>();
             mainVm?.ApplyStartupResult(result);
+
+            // If startup declined to launch because of Battery Saver, tell the power service so it
+            // treats this as *its own* suppression. Otherwise plugging in looks identical to the
+            // user having stopped playback, and the wallpaper stays dead for the whole session.
+            if (result.SuppressedByBatterySaver)
+            {
+                _serviceProvider.GetRequiredService<Services.PowerManagementService>()
+                    .NotifyPlaybackSuppressedAtStartup();
+            }
         }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
+        #if DEBUG
         Console.WriteLine("DEBUG: Calling base.OnStartup");
+        #endif
         base.OnStartup(e);
         Services.StartupDiagnostics.LogWithMemory("App.OnStartup EXIT");
+        #if DEBUG
         Console.WriteLine("DEBUG: OnStartup Exit");
+        #endif
     }
 
     protected override void OnExit(ExitEventArgs e)

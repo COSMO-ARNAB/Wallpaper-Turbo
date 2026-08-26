@@ -340,6 +340,31 @@ public class WallpaperService
         private string? _cachedIpcPipeName;
         private readonly SemaphoreSlim _launchGate = new(1, 1); // Single-flight gate for wallpaper launches
         private int _launchGeneration; // Increments on each launch request to discard stale completions
+        private DateTime _lastProcessCheck = DateTime.MinValue;
+        private bool _lastIsRunning = false;
+        private readonly object _engineProbeLock = new();
+
+        /// <summary>How long a process-table scan result stays valid.</summary>
+        private static readonly TimeSpan ProcessProbeTtl = TimeSpan.FromMilliseconds(200);
+
+        /// <summary>
+        /// The raw "is an AppRunner process alive?" probe. Overridable so tests do not depend on
+        /// whether a real AppRunner happens to be running on the machine — on a dev box it usually
+        /// is. Production always uses the process-table scan below.
+        /// </summary>
+        internal Func<bool> AppRunnerProcessProbe { get; set; } = static () =>
+        {
+            // Fast path: check for named AppRunner process - this is O(1) and non-blocking
+            var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
+            bool alive = runnerProcesses.Length > 0;
+
+            foreach (var p in runnerProcesses)
+            {
+                p.Dispose();
+            }
+
+            return alive;
+        };
 
         public WallpaperSessionEventArgs? ActiveSession { get; private set; }
         public event EventHandler<WallpaperSessionEventArgs>? SessionStateChanged;
@@ -358,6 +383,30 @@ public class WallpaperService
         public event EventHandler? EngineRestartCompleted;
 
         public int LastActiveWallpaperIndex => _lastActiveWallpaperIndex;
+
+        /// <summary>
+        /// Records the (1-based) index playback should return to, without starting it.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="_lastActiveWallpaperIndex"/> is otherwise written only by
+        /// <see cref="StopPlaybackAsync"/>, which captures whatever was already playing. When
+        /// startup declines to launch at all (battery saver), nothing ever plays, so that field
+        /// stays -1 and a later resume has no target to relaunch. This lets the startup path
+        /// hand over the index it resolved but chose not to use. Ignores negative values so a
+        /// failed resolution cannot erase a real target.
+        /// </remarks>
+        public void SetDeferredWallpaperIndex(int index)
+        {
+            if (index < 0)
+            {
+                return;
+            }
+
+            lock (_wallpaperLock)
+            {
+                _lastActiveWallpaperIndex = index;
+            }
+        }
 
         private string _activePauseProfile = "Maximized";
         public string ActivePauseProfile
@@ -493,6 +542,40 @@ public class WallpaperService
         }
     }
 
+    /// <summary>
+    /// Caches only the expensive part: the process-table scan. Held under a lock because callers
+    /// span the UI thread, the visibility watchdog's 1s poll and the SystemEvents thread.
+    /// </summary>
+    private bool IsAppRunnerProcessAlive()
+    {
+        lock (_engineProbeLock)
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastProcessCheck < ProcessProbeTtl)
+            {
+                return _lastIsRunning;
+            }
+
+            bool alive = AppRunnerProcessProbe();
+
+            _lastProcessCheck = now;
+            _lastIsRunning = alive;
+            return alive;
+        }
+    }
+
+    /// <summary>
+    /// Returns whether the engine is running, and reconciles observable state with that answer.
+    /// </summary>
+    /// <remarks>
+    /// This is not a pure query. It owns <see cref="SyncActiveStateFromFile"/>, the
+    /// <c>_activeWallpaperIndex</c> reset and the only engine-died <see cref="SessionStateChanged"/>
+    /// publish, so the reconciliation below must run on <i>every</i> call. Only the process probe is
+    /// cached (see <see cref="IsAppRunnerProcessAlive"/>); short-circuiting the whole method left
+    /// callers such as <c>ReloadWallpapers</c> reading a stale active index.
+    /// <c>SyncActiveStateFromFile</c> is itself cheap on repeat calls — it early-exits on the
+    /// state file's last-write timestamp.
+    /// </remarks>
     public bool IsEngineRunning()
     {
         if (DebugFlags.SafeDebugMode)
@@ -500,19 +583,7 @@ public class WallpaperService
             return _mockEngineRunning;
         }
 
-        bool isRunning = false;
-
-        // Fast path: check for named AppRunner process - this is O(1) and non-blocking
-        var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
-        if (runnerProcesses.Length > 0)
-        {
-            isRunning = true;
-        }
-
-        foreach (var p in runnerProcesses)
-        {
-            p.Dispose();
-        }
+        bool isRunning = IsAppRunnerProcessAlive();
 
         if (isRunning)
         {
@@ -695,14 +766,14 @@ private void SyncActiveStateFromFile()
                     return false;
                 }
 
-                // Must have recent UpdatedAtUtc (within 5 minutes)
+                // Must have recent UpdatedAtUtc (within 10 minutes - heartbeat is 60s, window extended to avoid stale clears during brief hiccups)
                 if (root.TryGetProperty("UpdatedAtUtc", out var updatedProp))
                 {
                     if (DateTime.TryParse(updatedProp.GetString(), out var updated))
                     {
-                        if (DateTime.UtcNow - updated > TimeSpan.FromMinutes(5))
+                        if (DateTime.UtcNow - updated > TimeSpan.FromMinutes(10))
                         {
-                            Debug.WriteLine($"[WallpaperService] State file older than 5 minutes ({updated}) — stale");
+                            Debug.WriteLine($"[WallpaperService] State file older than 10 minutes ({updated}) — stale");
                             return false;
                         }
                     }
@@ -798,6 +869,9 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
                 // Try to swap in real-time over IPC Named Pipe first (skip if fresh launch is forced)
                 if (!forceFreshLaunch && (await SendIpcCommandAsync($"swap {index}")) == "success")
                 {
+                    string targetPauseMode = pauseMode ?? ActivePauseProfile;
+                    _ = UpdatePauseProfileAsync(targetPauseMode);
+
                     string? launchedId = null;
                     lock (_wallpaperLock)
                     {
@@ -1188,6 +1262,23 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
     }
 
     /// <summary>
+    /// Tells a running engine which process now owns the UI, so its foreground watcher stops
+    /// treating our own windows as something to pause for.
+    /// </summary>
+    /// <remarks>
+    /// The engine otherwise learns this only from the <c>--ui-pid</c> argument it was launched
+    /// with, which is passed exactly once. An engine that outlives a UI restart therefore keeps
+    /// excluding a process id that no longer exists — so maximizing the app paused the very
+    /// wallpaper it was displaying, and worse, a recycled process id could silently grant the
+    /// exclusion to an unrelated program.
+    /// </remarks>
+    public async Task<bool> AnnounceUiProcessIdAsync()
+    {
+        DiagnosticsService.SetAction("Wallpaper Service announcing UI process id via IPC");
+        return (await SendIpcCommandAsync($"ui-pid {Environment.ProcessId}")) == "success";
+    }
+
+    /// <summary>
     /// Determines the named pipe name used by the running AppRunner instance.
     /// Reads it from the active state file (written by AppRunner on startup/state updates)
     /// and caches it for subsequent IPC calls.
@@ -1226,8 +1317,20 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
         return _cachedIpcPipeName;
     }
 
+    /// <summary>
+    /// Sends a raw command to the running engine over IPC. Overridable so tests never reach the
+    /// real named pipe, which belongs to whatever AppRunner is alive on the developer's machine —
+    /// an unpinned test would pause, swap or stop their actual wallpaper.
+    /// </summary>
+    internal Func<string, Task<string>>? IpcCommandOverride { get; set; }
+
     private async Task<string> SendIpcCommandAsync(string command)
     {
+        if (IpcCommandOverride != null)
+        {
+            return await IpcCommandOverride(command);
+        }
+
         try
         {
             string pipeName = GetIpcPipeName();

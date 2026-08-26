@@ -8,6 +8,7 @@ using WallpaperTurbo.Core.Display;
 using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
+using WallpaperTurbo.Core.Services.Watchdog;
 
 namespace WallpaperTurbo.UI.ViewModels;
 
@@ -64,6 +65,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private const int MaxRecoveryAttempts = 3;
 
+    /// <summary>
+    /// How long a transition waits for the watchdog to confirm the wallpaper window is on screen
+    /// before falling back to the "still starting / Retry" state.
+    /// </summary>
+    internal static readonly TimeSpan WallpaperVisibilityTimeout = TimeSpan.FromSeconds(10);
+
     /// <summary>Gap between consecutive auto-restart attempts after a wallpaper loss.</summary>
     internal TimeSpan RecoveryRetryDelay { get; set; } = TimeSpan.FromSeconds(1);
 
@@ -77,21 +84,29 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// UI gives feedback immediately, and cleared in a finally so it never sticks.
     /// The operation returns whether a launch actually happened; when it did, the
     /// transition completes only once the wallpaper window is confirmed on screen
-    /// (watchdog), with a 10s cap falling back to the "still starting / Retry" state.
+    /// (watchdog), capped at <see cref="WallpaperVisibilityTimeout"/> before falling back
+    /// to the "still starting / Retry" state.
     /// </summary>
     public async Task<bool> RunWallpaperTransitionAsync(Func<Task<bool>> operation)
     {
+        var timeout = WallpaperVisibilityTimeout;
+        var sw = Stopwatch.StartNew();
+        StartupDiagnostics.LogWithMemory($"RunWallpaperTransitionAsync START (timeout={timeout.TotalSeconds}s) [Stopwatch]");
         IsApplyingWallpaper = true;
         try
         {
             bool launched = await operation();
             if (!launched)
             {
+                StartupDiagnostics.Log($"RunWallpaperTransitionAsync no launch after {sw.ElapsedMilliseconds}ms [Stopwatch]");
                 return false;
             }
 
             _wallpaperVisibility.SetEngineExpected(true);
-            bool visible = await _wallpaperVisibility.WaitForVisibleAsync(TimeSpan.FromSeconds(10));
+            var waitSw = Stopwatch.StartNew();
+            StartupDiagnostics.Log($"WaitForVisible START (timeout={timeout.TotalSeconds}s) [Stopwatch]");
+            bool visible = await _wallpaperVisibility.WaitForVisibleAsync(timeout);
+            StartupDiagnostics.Log($"WaitForVisible END in {waitSw.ElapsedMilliseconds}ms: visible={visible} (budget={timeout.TotalSeconds}s) [Stopwatch]");
             if (!visible)
             {
                 IsEngineStartupTimedOut = true;
@@ -103,6 +118,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 EngineStartupMessage = string.Empty;
             }
 
+            StartupDiagnostics.LogWithMemory($"RunWallpaperTransitionAsync END in {sw.ElapsedMilliseconds}ms: visible={visible} [Stopwatch]");
             return visible;
         }
         finally

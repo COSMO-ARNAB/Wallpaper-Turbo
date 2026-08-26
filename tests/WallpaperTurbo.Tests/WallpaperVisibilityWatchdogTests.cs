@@ -1,4 +1,4 @@
-using WallpaperTurbo.UI.Services;
+using WallpaperTurbo.Core.Services.Watchdog;
 
 namespace WallpaperTurbo.Tests;
 

@@ -11,6 +11,7 @@ using Microsoft.Win32;
 using WallpaperTurbo.Core.Display;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
+using WallpaperTurbo.UI.Services.Power;
 
 namespace WallpaperTurbo.UI.ViewModels;
 
@@ -61,6 +62,7 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _frameSyncText = "Optimized";
 
     private readonly ISettingsStore _settingsStore;
+    private readonly IBatterySaverPolicy _batterySaverPolicy;
     private bool _isSyncing = false;
 
     // Quick Controls properties (switches)
@@ -133,14 +135,16 @@ public partial class DashboardViewModel : ObservableObject
     }
 
     public DashboardViewModel(
-        WallpaperService wallpaperService, 
+        WallpaperService wallpaperService,
         DiagnosticsService diagnosticsService,
-        ISettingsStore settingsStore)
+        ISettingsStore settingsStore,
+        IBatterySaverPolicy? batterySaverPolicy = null)
     {
         StartupDiagnostics.Log("DashboardViewModel constructor ENTRY");
         _wallpaperService = wallpaperService;
         Diagnostics = diagnosticsService;
         _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
+        _batterySaverPolicy = batterySaverPolicy ?? new BatterySaverPolicy();
 
         // Hydrate from settings store
         var settings = _settingsStore.Load();
@@ -233,7 +237,9 @@ public partial class DashboardViewModel : ObservableObject
     {
         if (_isSyncing) return;
 
-        _wallpaperService.ActivePauseProfile = value ? "Maximized" : "Disabled";
+        string profile = value ? "Maximized" : "Disabled";
+        _wallpaperService.ActivePauseProfile = profile;
+        _ = _wallpaperService.UpdatePauseProfileAsync(profile);
 
         var settings = _settingsStore.Load();
         settings.PauseOnMaximized = value;
@@ -397,9 +403,17 @@ public partial class DashboardViewModel : ObservableObject
         if (AutoStartEngine && !_wallpaperService.IsEngineRunning())
         {
             var settings = _settingsStore.Load();
-            bool onBattery = PowerManagementService.IsOnBatteryPower();
 
-            if (settings.BatterySaverEnabled && onBattery)
+            // Same predicate the startup coordinator and PowerManagementService use — this used to
+            // be an inline copy of the condition, which is how the coordinator's path came to be
+            // missing the check entirely.
+            var powerInputs = new PowerInputs(
+                OnBattery: PowerManagementService.IsOnBatteryPower(),
+                BatterySaverEnabled: settings.BatterySaverEnabled,
+                EngineRunning: false,
+                SuppressedByBatterySaver: false);
+
+            if (_batterySaverPolicy.SuppressesPlayback(powerInputs))
             {
                 System.Diagnostics.Debug.WriteLine("[DashboardViewModel] Engine auto-start suppressed because system is running on battery power and Battery Saver is enabled.");
             }

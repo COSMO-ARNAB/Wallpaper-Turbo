@@ -17,6 +17,7 @@ using WallpaperTurbo.Core.Rendering.Host;
 using WallpaperTurbo.Core.Wallpaper;
 using WallpaperTurbo.Core.Services.Stability;
 using WallpaperTurbo.Core.Services.Performance;
+using WallpaperTurbo.Core.Services.Watchdog;
 
 namespace WallpaperTurbo.AppRunner;
 
@@ -35,6 +36,18 @@ internal static class Program
     private static int _uiPid = 0;
     private static ForegroundWindowWatcher? _foregroundWatcher;
     private static bool _muteAudio = true;
+
+    /// <summary>
+    /// True while the UI has explicitly frozen playback over IPC (battery saver, or the user
+    /// pressing pause), as opposed to the automatic freeze the foreground watcher performs.
+    /// </summary>
+    /// <remarks>
+    /// The two pause sources used to be unable to collide, because battery saver killed this whole
+    /// process instead of pausing it. Now that it freezes us, they overlap: closing a maximized
+    /// window while on battery would fire the watcher's resume and start decoding again behind the
+    /// UI's back. Volatile because the watcher raises its events off a thread of its own.
+    /// </remarks>
+    private static volatile bool _pausedByHost;
 
     // Snapshot of a wallpaper session's state, captured before teardown so
     // recovery can restore per-monitor wallpaper assignments after shell restart.
@@ -1192,7 +1205,12 @@ internal static class Program
             {
                 if (isObscured)
                 {
-                    string reason = pauseMode == PauseMode.Focused 
+                    if (_pauseMode == PauseMode.None)
+                    {
+                        return;
+                    }
+
+                    string reason = _pauseMode == PauseMode.Focused 
                         ? "application focused" 
                         : "fullscreen/maximized window";
                     Console.WriteLine($"[Performance] Desktop obscured by {reason}. Suspending playback...");
@@ -1200,7 +1218,7 @@ internal static class Program
                     {
                         foreach (var s in _sessionManager.Sessions)
                         {
-                            if (pauseMode == PauseMode.Maximized)
+                            if (_pauseMode == PauseMode.Maximized)
                             {
                                 s.Suspend();
                             }
@@ -1215,12 +1233,20 @@ internal static class Program
                 }
                 else
                 {
+                    // A host freeze outranks the watcher: while battery saver (or the user) holds
+                    // playback down, the desktop becoming visible must not start decoding again.
+                    if (_pausedByHost)
+                    {
+                        Console.WriteLine("[Performance] Desktop is now visible, but playback is frozen by the app. Staying paused.");
+                        return;
+                    }
+
                     Console.WriteLine("[Performance] Desktop is now visible. Resuming playback...");
                     if (_sessionManager != null)
                     {
                         foreach (var s in _sessionManager.Sessions)
                         {
-                            if (pauseMode == PauseMode.Maximized)
+                            if (_pauseMode == PauseMode.Maximized || _pauseMode == PauseMode.None)
                             {
                                 s.Resume();
                             }
@@ -1676,6 +1702,7 @@ internal static class Program
             case "pause":
                 if (sessionManager != null)
                 {
+                    _pausedByHost = true;
                     foreach (var s in sessionManager.Sessions)
                     {
                         s.Pause();
@@ -1687,6 +1714,11 @@ internal static class Program
                         activeTitle = wallpapers[_finalWallpaperIndex - 1].Title;
                     }
                     UpdateActiveStateFile(_finalWallpaperIndex, activeTitle, false);
+
+                    // A host pause lasts as long as the user stays on battery, so give back the
+                    // working set the decoder no longer needs. Same trim the watcher's pause does.
+                    TrimProcessMemory(runEmptyWorkingSet: false);
+                    LogMemory("ipc.paused");
                     return "success";
                 }
                 return "error: session manager not initialized";
@@ -1694,6 +1726,7 @@ internal static class Program
             case "play":
                 if (sessionManager != null)
                 {
+                    _pausedByHost = false;
                     foreach (var s in sessionManager.Sessions)
                     {
                         s.Play();
@@ -1742,6 +1775,13 @@ internal static class Program
                         _foregroundWatcher.PauseMode = newMode;
                         Console.WriteLine($"[IPC] Performance pause mode updated in real-time to: {newMode}");
                     }
+                    if (newMode == PauseMode.None && !_pausedByHost && sessionManager != null)
+                    {
+                        foreach (var s in sessionManager.Sessions)
+                        {
+                            s.Resume();
+                        }
+                    }
                     return "success";
                 }
                 else
@@ -1766,6 +1806,27 @@ internal static class Program
                 else
                 {
                     return $"error: invalid mute argument: {args}";
+                }
+
+            // Re-points the foreground watcher's own-window exclusion at a new UI process.
+            // Needed because --ui-pid is only ever read from our command line: when a UI restarts
+            // and adopts this already-running engine, nothing relaunches us, so without this we
+            // keep excluding the dead UI's pid — and every window the live UI opens then counts as
+            // obscuring the desktop and pauses the wallpaper.
+            case "ui-pid":
+                if (int.TryParse(args, out int announcedUiPid) && announcedUiPid > 0)
+                {
+                    _uiPid = announcedUiPid;
+                    if (_foregroundWatcher != null)
+                    {
+                        _foregroundWatcher.ExcludedPid = announcedUiPid;
+                    }
+                    Console.WriteLine($"[IPC] UI process id updated in real-time to: {announcedUiPid}");
+                    return "success";
+                }
+                else
+                {
+                    return $"error: invalid ui pid: {args}";
                 }
 
             default:

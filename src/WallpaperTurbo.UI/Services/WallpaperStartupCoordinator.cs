@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
+using WallpaperTurbo.UI.Services.Power;
 using WallpaperTurbo.UI.ViewModels;
 
 namespace WallpaperTurbo.UI.Services;
@@ -16,32 +17,100 @@ public class StartupResult
     public WallpaperEntry? ActiveWallpaper { get; init; }
     public bool TimedOut { get; init; }
     public string? ErrorMessage { get; init; }
+
+    /// <summary>
+    /// True when startup deliberately did not launch the engine because Battery Saver is on and
+    /// the machine is unplugged. <see cref="ActiveWallpaper"/> still carries the wallpaper that
+    /// would have been launched, so the UI can say what is deferred.
+    /// </summary>
+    public bool SuppressedByBatterySaver { get; init; }
 }
 
 public class WallpaperStartupCoordinator
 {
+    /// <summary>Gap between readiness polls while waiting for the engine to come up.</summary>
+    internal const int ReadinessPollIntervalMs = 100;
+
+    /// <summary>Number of readiness polls before giving up.</summary>
+    internal const int ReadinessMaxAttempts = 100;
+
+    /// <summary>
+    /// Total readiness budget, derived from the poll interval and attempt count so the value used
+    /// in logs can never drift from the value actually waited.
+    /// </summary>
+    internal static readonly TimeSpan ReadinessTimeout =
+        TimeSpan.FromMilliseconds((long)ReadinessPollIntervalMs * ReadinessMaxAttempts);
+
     private readonly IWallpaperLibraryService _libraryService;
     private readonly WallpaperService _wallpaperService;
     private readonly ISettingsStore _settingsStore;
+    private readonly IBatterySaverPolicy _batterySaverPolicy;
     private readonly object _startupLock = new();
     private Task<StartupResult>? _startupTask;
+
+    /// <summary>
+    /// Reads the live AC/battery state. Overridable so the battery-saver gate can be tested
+    /// without depending on whether the test machine happens to be plugged in.
+    /// </summary>
+    internal Func<bool> OnBatteryProbe { get; set; } = PowerManagementService.IsOnBatteryPower;
+
+    /// <summary>
+    /// Returns the PIDs of live AppRunner processes. Overridable for the same reason as
+    /// <see cref="WallpaperService.AppRunnerProcessProbe"/>: a real AppRunner is usually alive on a
+    /// dev machine, and adoption would then decide the outcome of tests that are about something
+    /// else entirely.
+    /// </summary>
+    internal Func<HashSet<int>> AppRunnerPidProbe { get; set; } = static () =>
+    {
+        var processes = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
+        var pids = processes.Select(p => p.Id).ToHashSet();
+        foreach (var p in processes)
+        {
+            p.Dispose();
+        }
+        return pids;
+    };
+
+    /// <summary>
+    /// Location of the engine's active-state file. Overridable because the real path is
+    /// machine-global: a test exercising adoption would otherwise adopt — or fail to adopt —
+    /// whichever engine happens to be running on the developer's machine.
+    /// </summary>
+    internal Func<string> StateFilePathProvider { get; set; } = static () => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "WallpaperTurbo",
+        "active_state.json");
+
+    /// <summary>
+    /// Starts playback for a 1-based AppRunner index. Overridable because the real launch path is
+    /// not inert: before it checks whether the AppRunner exe exists, it sends an IPC
+    /// <c>swap {index}</c> to whatever engine is live on the machine — which would change the
+    /// developer's visible wallpaper while running tests that are only about the decisions taken
+    /// *before* a launch.
+    /// </summary>
+    internal Func<int, Task<bool>> LaunchPlayback { get; set; }
 
     public WallpaperStartupCoordinator(
         IWallpaperLibraryService libraryService,
         WallpaperService wallpaperService,
-        ISettingsStore settingsStore)
+        ISettingsStore settingsStore,
+        IBatterySaverPolicy? batterySaverPolicy = null)
     {
         _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
         _wallpaperService = wallpaperService ?? throw new ArgumentNullException(nameof(wallpaperService));
         _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
+        _batterySaverPolicy = batterySaverPolicy ?? new BatterySaverPolicy();
+        LaunchPlayback = index => _wallpaperService.LaunchWallpaperAsync(index);
     }
 
     public Task<StartupResult> EnsureWallpaperRunningAsync(CancellationToken ct = default)
     {
+        StartupDiagnostics.LogWithMemory("EnsureWallpaperRunningAsync START");
         lock (_startupLock)
         {
             if (_startupTask != null)
             {
+                StartupDiagnostics.LogWithMemory("EnsureWallpaperRunningAsync returning cached task");
                 return _startupTask;
             }
 
@@ -52,7 +121,10 @@ public class WallpaperStartupCoordinator
 
     private async Task<StartupResult> RunStartupAndCacheResultAsync(CancellationToken ct)
     {
+        var swEnsure = Stopwatch.StartNew();
+        StartupDiagnostics.LogWithMemory("RunStartupAndCacheResultAsync START");
         var result = await RunStartupAsync(ct);
+        StartupDiagnostics.LogWithMemory($"RunStartupAndCacheResultAsync END in {swEnsure.ElapsedMilliseconds}ms: running={result.IsEngineRunning}, timeout={result.TimedOut}");
 
         // Only cache a healthy result. On timeout/failure, clear the cached task so a
         // later call (e.g. the UI's Retry button) actually re-runs the startup sequence.
@@ -64,6 +136,7 @@ public class WallpaperStartupCoordinator
             }
         }
 
+        StartupDiagnostics.LogWithMemory($"EnsureWallpaperRunningAsync END in {swEnsure.ElapsedMilliseconds}ms");
         return result;
     }
 
@@ -100,10 +173,16 @@ public class WallpaperStartupCoordinator
 
             // 3. If AppRunner is already running and valid, always adopt it — reflecting a
             // genuinely-running engine is not "starting" it, so this ignores the auto-start gate.
+            // H1 cold-start gate fix: instrument TryAdopt so 30s budget is measurable; already-running
+            // path skips LaunchWithReadinessCheck entirely (no double 10s).
+            var tryAdoptSw = Stopwatch.StartNew();
+            StartupDiagnostics.LogWithMemory("TryAdoptExistingSession START");
             var existingSession = await TryAdoptExistingSessionAsync(wallpapers, ct);
+            StartupDiagnostics.LogWithMemory($"TryAdoptExistingSession END in {tryAdoptSw.ElapsedMilliseconds}ms: {(existingSession != null ? "adopted " + existingSession.Title : "no session")}");
             if (existingSession != null)
             {
                 Log($"Adopted existing session: {existingSession.Title} in {sw.ElapsedMilliseconds}ms");
+                StartupDiagnostics.LogWithMemory($"Startup coordinator adopted existing session in {sw.ElapsedMilliseconds}ms");
                 return new StartupResult
                 {
                     IsEngineRunning = true,
@@ -133,7 +212,39 @@ public class WallpaperStartupCoordinator
                 wallpapers, lastActiveId, rememberLast, GetRecentHistoryPath());
             Log($"Launching wallpaper: {wallpaperToLaunch.Title} (ID: {wallpaperToLaunch.Id})");
 
+            // 6. Battery saver: decline to launch rather than launching and immediately stopping.
+            // PowerManagementService would otherwise see the session go active and stop it ~500ms
+            // later, after we had already paid for a process spawn, GPU init and a decoded first
+            // frame — on battery — and shown the user a visible flash of wallpaper.
+            var powerInputs = new PowerInputs(
+                OnBattery: OnBatteryProbe(),
+                BatterySaverEnabled: settings.BatterySaverEnabled,
+                EngineRunning: false,          // step 3 established there is no adoptable engine
+                SuppressedByBatterySaver: false);
+
+            if (_batterySaverPolicy.SuppressesPlayback(powerInputs))
+            {
+                // Hand the resolved index to the resume path: nothing will play, so
+                // StopPlaybackAsync never runs and LastActiveWallpaperIndex would stay -1.
+                _wallpaperService.SetDeferredWallpaperIndex(ResolveLaunchIndex(wallpapers, wallpaperToLaunch));
+
+                Log($"Auto-start suppressed by Battery Saver (on battery) — deferring {wallpaperToLaunch.Title}");
+                StartupDiagnostics.LogWithMemory("Startup coordinator suppressed launch: Battery Saver active on battery");
+
+                return new StartupResult
+                {
+                    IsEngineRunning = false,
+                    ActiveWallpaper = wallpaperToLaunch,
+                    TimedOut = false,
+                    SuppressedByBatterySaver = true,
+                    ErrorMessage = "Paused by Battery Saver — the wallpaper will resume when you plug in."
+                };
+            }
+
+            var launchSw = Stopwatch.StartNew();
+            StartupDiagnostics.LogWithMemory($"LaunchWithReadinessCheck START: {wallpaperToLaunch.Title} (ID: {wallpaperToLaunch.Id})");
             var launchResult = await LaunchWithReadinessCheckAsync(wallpaperToLaunch, wallpapers, ct);
+            StartupDiagnostics.LogWithMemory($"LaunchWithReadinessCheck END in {launchSw.ElapsedMilliseconds}ms: running={launchResult.IsEngineRunning}, timeout={launchResult.TimedOut}");
             Log($"Launch completed in {sw.ElapsedMilliseconds}ms: running={launchResult.IsEngineRunning}, timeout={launchResult.TimedOut}");
 
             return launchResult;
@@ -167,9 +278,7 @@ public class WallpaperStartupCoordinator
         CancellationToken ct)
     {
         // Check if AppRunner process exists
-        var runnerProcesses = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
-        var runnerPids = runnerProcesses.Select(p => p.Id).ToHashSet();
-        foreach (var p in runnerProcesses) p.Dispose();
+        var runnerPids = AppRunnerPidProbe();
 
         if (runnerPids.Count == 0)
         {
@@ -197,6 +306,28 @@ public class WallpaperStartupCoordinator
             return null;
         }
 
+        // This engine was launched by an earlier UI, so the PID on its command line is that dead
+        // UI's. Correct it now the pipe has answered, otherwise its foreground watcher stops
+        // recognising our windows and maximizing the app pauses the wallpaper.
+        if (!await _wallpaperService.AnnounceUiProcessIdAsync())
+        {
+            // Not fatal: the engine is playing and adoption should still succeed. The cost is only
+            // that our own windows count as obscuring the desktop until the next relaunch.
+            Log("Engine did not accept the UI process id — its own-window exclusion may be stale");
+        }
+
+        // Synchronize persisted pause and mute settings with the adopted engine in case settings changed.
+        try
+        {
+            var currentSettings = _settingsStore.Load();
+            await _wallpaperService.UpdatePauseProfileAsync(currentSettings.PauseOnMaximized ? "Maximized" : "Disabled");
+            await _wallpaperService.SetMuteAsync(currentSettings.MuteAudio);
+        }
+        catch (Exception ex)
+        {
+            Log($"Failed to synchronize settings with adopted engine: {ex.Message}");
+        }
+
         // Find the wallpaper by index from state
         if (state.ActiveWallpaperIndex > 0 && state.ActiveWallpaperIndex <= wallpapers.Count)
         {
@@ -214,10 +345,7 @@ public class WallpaperStartupCoordinator
     {
         try
         {
-            var appDataDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "WallpaperTurbo");
-            var stateFilePath = Path.Combine(appDataDir, "active_state.json");
+            var stateFilePath = StateFilePathProvider();
 
             if (!File.Exists(stateFilePath))
             {
@@ -285,20 +413,25 @@ public class WallpaperStartupCoordinator
         }
     }
 
+    /// <summary>
+    /// AppRunner indices are 1-based. Shared by the launch path and the battery-saver deferral so
+    /// the index recorded for a later resume is exactly the one that would have been launched.
+    /// </summary>
+    private static int ResolveLaunchIndex(IReadOnlyList<WallpaperEntry> wallpapers, WallpaperEntry wallpaper)
+    {
+        var index = wallpapers.ToList().IndexOf(wallpaper) + 1;
+        return index > 0 ? index : 1; // fallback to first
+    }
+
     private async Task<StartupResult> LaunchWithReadinessCheckAsync(
         WallpaperEntry wallpaperToLaunch,
         IReadOnlyList<WallpaperEntry> wallpapers,
         CancellationToken ct)
     {
-        // Find index (1-based for AppRunner)
-        var index = wallpapers.ToList().IndexOf(wallpaperToLaunch) + 1;
-        if (index <= 0)
-        {
-            index = 1; // fallback to first
-        }
+        var index = ResolveLaunchIndex(wallpapers, wallpaperToLaunch);
 
         // Launch the wallpaper
-        var launched = await _wallpaperService.LaunchWallpaperAsync(index);
+        var launched = await LaunchPlayback(index);
         if (!launched)
         {
             return new StartupResult
@@ -310,16 +443,13 @@ public class WallpaperStartupCoordinator
             };
         }
 
-        // Poll for readiness up to 10 seconds
-        const int maxAttempts = 100; // 100 * 100ms = 10s
-        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        // Poll for readiness (kept at 100*100ms for reliability; cold-start budget saved elsewhere via offloading).
+        for (int attempt = 0; attempt < ReadinessMaxAttempts; attempt++)
         {
             ct.ThrowIfCancellationRequested();
 
             // Check if process exists
-            var processes = Process.GetProcessesByName("WallpaperTurbo.AppRunner");
-            var pids = processes.Select(p => p.Id).ToHashSet();
-            foreach (var p in processes) p.Dispose();
+            var pids = AppRunnerPidProbe();
 
             if (pids.Count > 0)
             {
@@ -342,11 +472,12 @@ public class WallpaperStartupCoordinator
                 }
             }
 
-            await Task.Delay(100, ct);
+            await Task.Delay(ReadinessPollIntervalMs, ct);
         }
 
         // Timeout — engine is still starting
-        Log("Readiness timeout after 10s");
+        Log($"Readiness timeout after {ReadinessTimeout.TotalSeconds:0}s");
+        StartupDiagnostics.LogWithMemory($"LaunchWithReadinessCheck TIMEOUT after {ReadinessTimeout.TotalSeconds:0}s");
         return new StartupResult
         {
             IsEngineRunning = false,

@@ -1,9 +1,9 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using WallpaperTurbo.UI.Services;
+using WallpaperTurbo.UI.Services.Theme;
 using WallpaperTurbo.UI.ViewModels;
 
 namespace WallpaperTurbo.UI;
@@ -13,29 +13,39 @@ namespace WallpaperTurbo.UI;
 /// </summary>
 public partial class MainWindow : Window
 {
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
-
     private readonly IWallpaperPreviewService _previewService;
     private readonly DiagnosticsService _diagnostics;
     private readonly PresentationManager _presentation;
+    private readonly IDwmApplier _dwmApplier;
 
     public MainWindow(MainViewModel viewModel, IWallpaperPreviewService previewService, DiagnosticsService diagnostics, PresentationManager presentation)
+        : this(viewModel, previewService, diagnostics, presentation, new DwmBackdropApplier())
+    {
+    }
+
+    public MainWindow(MainViewModel viewModel, IWallpaperPreviewService previewService, DiagnosticsService diagnostics, PresentationManager presentation, IDwmApplier dwmApplier)
     {
         Services.StartupDiagnostics.Log("MainWindow constructor ENTRY");
+#if DEBUG
         Console.WriteLine("DEBUG: MainWindow constructor ENTRY");
+#endif
         _previewService = previewService;
         _diagnostics = diagnostics;
         _presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
+        _dwmApplier = dwmApplier ?? throw new ArgumentNullException(nameof(dwmApplier));
         _presentation.PropertyChanged += OnPresentationPropertyChanged;
 
         // Inject and set resolved Viewmodel context
         DataContext = viewModel;
 
         Services.StartupDiagnostics.StartTimer("MainWindow InitializeComponent");
+#if DEBUG
         Console.WriteLine("DEBUG: MainWindow calling InitializeComponent");
+#endif
         InitializeComponent();
+#if DEBUG
         Console.WriteLine("DEBUG: MainWindow InitializeComponent finished");
+#endif
         Services.StartupDiagnostics.StopTimerWithMemory("MainWindow InitializeComponent");
 
         // Hard safety guard: force-cancel any active preview when window loses focus or minimizes.
@@ -45,7 +55,26 @@ public partial class MainWindow : Window
         StateChanged += OnWindowStateChanged;
         SourceInitialized += OnSourceInitialized;
 
-        // Load the highest quality frame from the .ico file for the Taskbar Icon and crop any transparent padding
+        Loaded += OnWindowLoaded;
+        ContentRendered += OnWindowContentRendered;
+
+        // H2 cold-start: offload icon decode + CopyPixels + alpha scan off UI thread.
+        // Previously 50-250ms synchronous work before Loaded delayed first frame.
+        // Now fire-and-forget on thread-pool and marshal Icon assignment back at Background priority.
+        _ = Task.Run(TryLoadIconInBackground);
+
+        Services.StartupDiagnostics.LogWithMemory("MainWindow constructor EXIT");
+    }
+
+    /// <summary>
+    /// H2 cold-start helper: runs fully on thread-pool (invoked via Task.Run in ctor).
+    /// Decodes largest ICO frame, converts to BGRA32, copies pixels and scans alpha
+    /// to compute minimal opaque bounding box (+2% padding), then freezes the
+    /// resulting ImageSource and marshals Icon assignment back at Background priority.
+    /// Keeps original try/catch and visual result (cropped icon vs fallback frame).
+    /// </summary>
+    private void TryLoadIconInBackground()
+    {
         try
         {
             var uri = new Uri("pack://application:,,,/Assets/Branding/wallpaper-turbo.ico", UriKind.Absolute);
@@ -61,60 +90,60 @@ public partial class MainWindow : Window
                     largestFrame = frame;
                 }
             }
-            if (largestFrame != null)
-            {
-                // Ensure the frame is 32-bit BGRA so we can safely read the alpha channel
-                var converted = new System.Windows.Media.Imaging.FormatConvertedBitmap(largestFrame, System.Windows.Media.PixelFormats.Bgra32, null, 0);
-                
-                int width = converted.PixelWidth;
-                int height = converted.PixelHeight;
-                int stride = width * 4;
-                byte[] pixels = new byte[height * stride];
-                converted.CopyPixels(pixels, stride, 0);
+            if (largestFrame == null) return;
 
-                int minX = width, minY = height, maxX = 0, maxY = 0;
-                for (int y = 0; y < height; y++)
+            var converted = new System.Windows.Media.Imaging.FormatConvertedBitmap(largestFrame, System.Windows.Media.PixelFormats.Bgra32, null, 0);
+            int width = converted.PixelWidth;
+            int height = converted.PixelHeight;
+            int stride = width * 4;
+            byte[] pixels = new byte[height * stride];
+            converted.CopyPixels(pixels, stride, 0);
+
+            int minX = width, minY = height, maxX = 0, maxY = 0;
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
                 {
-                    for (int x = 0; x < width; x++)
+                    byte alpha = pixels[(y * stride) + (x * 4) + 3]; // BGRA
+                    if (alpha > 10)
                     {
-                        byte alpha = pixels[(y * stride) + (x * 4) + 3]; // BGRA
-                        if (alpha > 10)
-                        {
-                            if (x < minX) minX = x;
-                            if (x > maxX) maxX = x;
-                            if (y < minY) minY = y;
-                            if (y > maxY) maxY = y;
-                        }
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
                     }
                 }
-
-                if (minX <= maxX && minY <= maxY)
-                {
-                    // Add a small 2% padding around the cropped bounds so it doesn't hit the absolute edges
-                    int padding = (int)(width * 0.02);
-                    minX = Math.Max(0, minX - padding);
-                    minY = Math.Max(0, minY - padding);
-                    maxX = Math.Min(width - 1, maxX + padding);
-                    maxY = Math.Min(height - 1, maxY + padding);
-
-                    var rect = new Int32Rect(minX, minY, maxX - minX + 1, maxY - minY + 1);
-                    var cropped = new System.Windows.Media.Imaging.CroppedBitmap(converted, rect);
-                    this.Icon = cropped;
-                }
-                else
-                {
-                    this.Icon = largestFrame;
-                }
             }
+
+            System.Windows.Media.ImageSource? iconSource;
+            if (minX <= maxX && minY <= maxY)
+            {
+                int padding = (int)(width * 0.02);
+                minX = Math.Max(0, minX - padding);
+                minY = Math.Max(0, minY - padding);
+                maxX = Math.Min(width - 1, maxX + padding);
+                maxY = Math.Min(height - 1, maxY + padding);
+                var rect = new Int32Rect(minX, minY, maxX - minX + 1, maxY - minY + 1);
+                var cropped = new System.Windows.Media.Imaging.CroppedBitmap(converted, rect);
+                cropped.Freeze();
+                iconSource = cropped;
+            }
+            else
+            {
+                var clone = largestFrame.Clone();
+                clone.Freeze();
+                iconSource = clone;
+            }
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try { Icon = iconSource; } catch { }
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to load high-res icon: {ex.Message}");
         }
-
-        Loaded += OnWindowLoaded;
-        ContentRendered += OnWindowContentRendered;
-        Services.StartupDiagnostics.LogWithMemory("MainWindow constructor EXIT");
     }
 
     private void OnWindowDeactivated(object? sender, EventArgs e)
@@ -176,11 +205,10 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Authoritative DWM backdrop applicator — preserves all existing colors/features.
-    /// Order matters: DWMWA_USE_IMMERSIVE_DARK_MODE (20) must be set before
-    /// DWMWA_SYSTEMBACKDROP_TYPE (38) so Mica/Tabbed renders with the dark tint
-    /// instead of a light-grey fallback ("mica acts odd").
-    /// Also checks HRESULTs — previous code swallowed failures, leaving a grey frame.
+    /// Delegates to IDwmApplier but retains hwnd==0 Dispatcher deferral in MainWindow.
+    /// The applier itself is dumb (pure P/Invoke, early-returns on 0) so deferral must live here
+    /// to cover the case where PresentationManager fires before SourceInitialized.
+    /// Keeps SourceInitialized/Activated/StateChanged re-apply hooks for DWM reset recovery.
     /// </summary>
     private void ApplyBackdropAttributes()
     {
@@ -196,21 +224,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // 1) Immersive dark mode first — affects how Mica/Tabbed tints.
-            int darkMode = 1; // DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            int hrDark = DwmSetWindowAttribute(hwnd, 20, ref darkMode, sizeof(int));
-            if (hrDark != 0)
-            {
-                System.Diagnostics.Debug.WriteLine($"[MainWindow] DwmSetWindowAttribute(20, darkMode) failed hr=0x{hrDark:X8}");
-            }
-
-            // 2) System backdrop — no color change, just re-assert current mode.
-            int backdropType = (int)_presentation.BackdropMode; // DWMWA_SYSTEMBACKDROP_TYPE = 38
-            int hrBackdrop = DwmSetWindowAttribute(hwnd, 38, ref backdropType, sizeof(int));
-            if (hrBackdrop != 0)
-            {
-                System.Diagnostics.Debug.WriteLine($"[MainWindow] DwmSetWindowAttribute(38, backdrop={backdropType}) failed hr=0x{hrBackdrop:X8} — window may appear grey");
-            }
+            _dwmApplier.Apply(hwnd, _presentation.BackdropMode);
         }
         catch (Exception ex)
         {

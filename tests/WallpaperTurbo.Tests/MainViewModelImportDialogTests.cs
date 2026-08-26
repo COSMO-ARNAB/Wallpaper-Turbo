@@ -9,6 +9,7 @@ using WallpaperTurbo.Core.Updates.Interfaces;
 using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
+using WallpaperTurbo.Core.Services.Watchdog;
 using WallpaperTurbo.UI.ViewModels;
 using WallpaperTurbo.Updater;
 using WallpaperTurbo.Updater.Services;
@@ -341,7 +342,7 @@ public class MainViewModelImportDialogTests
 
         fixture.WallpaperVisibility.RaiseWallpaperLost();
 
-        await WaitUntilAsync(() => fixture.MainViewModel.ActiveWallpaperTitle == "Last", TimeSpan.FromSeconds(5));
+        await WaitUntilAsync(() => !fixture.MainViewModel.IsApplyingWallpaper && fixture.MainViewModel.ActiveWallpaperTitle == "Last", TimeSpan.FromSeconds(5));
 
         Assert.Equal(1, fixture.MainViewModel.RecoveryAttempts);
         Assert.False(fixture.MainViewModel.IsApplyingWallpaper);

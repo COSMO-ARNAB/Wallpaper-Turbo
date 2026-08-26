@@ -34,8 +34,6 @@ public sealed class HardwareDecodePipeline
 
     private IntPtr _parentWindowHandle = IntPtr.Zero;
 
-    private long _suspendedTime = -1;
-
     private readonly object _sync =
         new();
 
@@ -331,60 +329,62 @@ public sealed class HardwareDecodePipeline
         }
     }
 
+    /// <summary>
+    /// Freezes playback, leaving the current frame on screen.
+    /// </summary>
+    /// <remarks>
+    /// Uses <c>SetPause(true)</c> rather than <c>Pause()</c>, because the underlying
+    /// <c>libvlc_media_player_pause</c> *toggles*: a second pause request while already paused
+    /// starts playback again. Every caller here is edge-triggered by an external event (a window
+    /// went fullscreen, the machine went on battery) and can legitimately fire twice, so the
+    /// explicit form is the only safe one.
+    /// </remarks>
     public void Pause()
     {
         lock (_sync)
         {
-            _mediaPlayer?.Pause();
+            _mediaPlayer?.SetPause(true);
         }
     }
 
+    /// <summary>
+    /// Stops all decoding without tearing down the video output, so the last decoded frame stays
+    /// on the desktop.
+    /// </summary>
+    /// <remarks>
+    /// This used to call <c>Stop()</c> to hand back the decoder and GPU surfaces. Stopping also
+    /// destroys the video output, which had two visible consequences: the desktop went blank for
+    /// the entire pause — reading as a crashed wallpaper rather than a paused one — and
+    /// <see cref="Resume"/> had to re-open the media, rebuild the output and seek back to the
+    /// stored position, flashing every time a maximized or fullscreen window was closed.
+    ///
+    /// Freezing spends no CPU or GPU decode time. It does retain the decoder's allocated memory,
+    /// which is the deliberate trade for keeping the frame and losing the flash; callers pair this
+    /// with a working-set trim.
+    /// </remarks>
     public void Suspend()
     {
         lock (_sync)
         {
-            if (_mediaPlayer != null && _mediaPlayer.IsPlaying)
+            if (_mediaPlayer == null)
             {
-                _suspendedTime = _mediaPlayer.Time;
-                _mediaPlayer.Stop();
-                Console.WriteLine($"[Pipeline] Suspended playback at {_suspendedTime}ms to reclaim system and GPU resources.");
+                return;
             }
+
+            _mediaPlayer.SetPause(true);
+            Console.WriteLine("[Pipeline] Froze playback: decoding stopped, last frame left on screen.");
         }
     }
 
+    /// <summary>Unfreezes playback suspended by <see cref="Suspend"/>.</summary>
+    /// <remarks>
+    /// No seek is needed: freezing preserves the playback position, unlike the stop this replaced.
+    /// </remarks>
     public void Resume()
     {
         lock (_sync)
         {
-            if (_mediaPlayer != null)
-            {
-                _mediaPlayer.Play();
-                if (_suspendedTime >= 0)
-                {
-                    long targetTime = _suspendedTime;
-                    _suspendedTime = -1;
-
-                    // Set time after a brief delay to ensure VLC has opened the media and decoder is active
-                    System.Threading.Tasks.Task.Run(async () =>
-                    {
-                        for (int i = 0; i < 20; i++) // Try up to 2 seconds (20 * 100ms)
-                        {
-                            await System.Threading.Tasks.Task.Delay(100);
-                            lock (_sync)
-                            {
-                                if (_mediaPlayer == null) break;
-                                // If the media player is actively playing or reports a valid time, apply the seek
-                                if (_mediaPlayer.IsPlaying || _mediaPlayer.Time > 0)
-                                {
-                                    _mediaPlayer.Time = targetTime;
-                                    Console.WriteLine($"[Pipeline] Resumed and seeked to {targetTime}ms successfully.");
-                                    break;
-                                }
-                            }
-                        }
-                    });
-                }
-            }
+            _mediaPlayer?.SetPause(false);
         }
     }
 

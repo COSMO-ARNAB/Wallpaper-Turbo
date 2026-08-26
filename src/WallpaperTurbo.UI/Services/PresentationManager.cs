@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using WallpaperTurbo.UI.Models;
+using WallpaperTurbo.UI.Services.Theme;
 
 namespace WallpaperTurbo.UI.Services;
 
@@ -28,6 +29,7 @@ public partial class PresentationManager : ObservableObject, IDisposable
 {
     private readonly WallpaperService _wallpaperService;
     private readonly ISettingsStore _settingsStore;
+    private readonly IThemeResolver _themeResolver;
     private bool _disposed;
 
     [ObservableProperty]
@@ -43,9 +45,15 @@ public partial class PresentationManager : ObservableObject, IDisposable
     private double _overlayOpacity = 1.0;
 
     public PresentationManager(WallpaperService wallpaperService, ISettingsStore settingsStore)
+        : this(wallpaperService, settingsStore, new ThemeResolver())
+    {
+    }
+
+    public PresentationManager(WallpaperService wallpaperService, ISettingsStore settingsStore, IThemeResolver themeResolver)
     {
         _wallpaperService = wallpaperService ?? throw new ArgumentNullException(nameof(wallpaperService));
         _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
+        _themeResolver = themeResolver ?? throw new ArgumentNullException(nameof(themeResolver));
         _wallpaperService.SessionStateChanged += OnSessionStateChanged;
         _settingsStore.SettingsChanged += OnSettingsStoreChanged;
         
@@ -65,56 +73,50 @@ public partial class PresentationManager : ObservableObject, IDisposable
 
     private void SyncSessionState(WallpaperSessionEventArgs? session)
     {
-        bool visible = session != null && session.IsActive && session.IsPlaying;
         var dispatcher = Application.Current?.Dispatcher;
         
         if (dispatcher == null || dispatcher.CheckAccess())
         {
-            ApplyState(visible);
+            ApplyState(session);
         }
         else
         {
-            dispatcher.BeginInvoke(new Action(() => ApplyState(visible)));
+            dispatcher.BeginInvoke(new Action(() => ApplyState(session)));
         }
     }
 
-    private void ApplyState(bool visible)
+    private void ApplyState(WallpaperSessionEventArgs? session)
     {
-        IsWallpaperVisible = visible;
-        if (visible)
+        var settings = _settingsStore.Load();
+        var inputs = new ThemeInputs(
+            IsActive: session?.IsActive ?? false,
+            IsPlaying: session?.IsPlaying ?? false,
+            BackdropPreference: settings.GlassBackdrop ?? "Mica",
+            GlassOpacity: settings.GlassOpacity);
+
+        ThemeResult result = _themeResolver.Resolve(inputs);
+
+        // Duplicate suppression: only set when value actually differs to avoid duplicate PropertyChanged
+        // ObservableProperty's SetProperty also guards, but explicit check makes intent clear and
+        // satisfies PresentationManagerTests.DoesNotTriggerDuplicateTransitions.
+        if (IsWallpaperVisible != result.IsWallpaperVisible)
         {
-            var settings = _settingsStore.Load();
-            string setting = settings.GlassBackdrop ?? "Mica";
-
-            if (string.Equals(setting, "Mica", StringComparison.OrdinalIgnoreCase))
-            {
-                BackdropMode = WindowBackdropMode.Tabbed;
-            }
-            else if (string.Equals(setting, "Glass", StringComparison.OrdinalIgnoreCase))
-            {
-                BackdropMode = WindowBackdropMode.Transient;
-            }
-            else if (string.Equals(setting, "None", StringComparison.OrdinalIgnoreCase))
-            {
-                BackdropMode = WindowBackdropMode.None;
-            }
-            else if (Enum.TryParse<WindowBackdropMode>(setting, out var parsed))
-            {
-                BackdropMode = parsed;
-            }
-            else
-            {
-                BackdropMode = WindowBackdropMode.Tabbed;
-            }
-
-            OverlayOpacity = settings.GlassOpacity;
-            MaterialMode = UIMaterialMode.Glass;
+            IsWallpaperVisible = result.IsWallpaperVisible;
         }
-        else
+
+        if (BackdropMode != result.BackdropMode)
         {
-            BackdropMode = WindowBackdropMode.Transient;
-            OverlayOpacity = 1.0;
-            MaterialMode = UIMaterialMode.Solid;
+            BackdropMode = result.BackdropMode;
+        }
+
+        if (!OverlayOpacity.Equals(result.OverlayOpacity))
+        {
+            OverlayOpacity = result.OverlayOpacity;
+        }
+
+        if (MaterialMode != result.MaterialMode)
+        {
+            MaterialMode = result.MaterialMode;
         }
     }
 
