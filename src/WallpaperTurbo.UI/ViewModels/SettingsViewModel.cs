@@ -194,6 +194,7 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         _wallpaperService.ActivePauseProfile = profile;
+        _ = _wallpaperService.UpdatePauseProfileAsync(profile);
 
         var settings = _settingsStore.Load();
         settings.PauseOnMaximized = value;

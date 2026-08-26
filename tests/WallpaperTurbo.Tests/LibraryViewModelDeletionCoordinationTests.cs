@@ -10,6 +10,7 @@ using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.UI;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
+using WallpaperTurbo.Core.Services.Watchdog;
 using WallpaperTurbo.UI.ViewModels;
 using WallpaperTurbo.Updater;
 using WallpaperTurbo.Updater.Services;

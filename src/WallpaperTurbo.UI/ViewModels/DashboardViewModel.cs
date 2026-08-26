@@ -237,7 +237,9 @@ public partial class DashboardViewModel : ObservableObject
     {
         if (_isSyncing) return;
 
-        _wallpaperService.ActivePauseProfile = value ? "Maximized" : "Disabled";
+        string profile = value ? "Maximized" : "Disabled";
+        _wallpaperService.ActivePauseProfile = profile;
+        _ = _wallpaperService.UpdatePauseProfileAsync(profile);
 
         var settings = _settingsStore.Load();
         settings.PauseOnMaximized = value;

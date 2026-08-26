@@ -11,9 +11,8 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Threading;
 
-namespace WallpaperTurbo.UI.Services;
+namespace WallpaperTurbo.Core.Services.Watchdog;
 
 /// <summary>Screen-space rectangle (left/top inclusive, right/bottom exclusive).</summary>
 public readonly record struct WindowRectInfo(int Left, int Top, int Right, int Bottom);
@@ -31,7 +30,7 @@ public sealed record RenderWindowCandidate(
     IReadOnlyList<WindowRectInfo> MonitorRects);
 
 /// <summary>Testable seam: produces render-window candidates for a poll.</summary>
-internal interface IWindowEnumerationSource
+public interface IWindowEnumerationSource
 {
     IReadOnlyList<RenderWindowCandidate> GetCandidates();
 }
@@ -69,12 +68,12 @@ public interface IWallpaperVisibilityMonitor
 
 public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, IDisposable
 {
-    internal const string RenderWindowClassPrefix = "WallpaperTurbo_RenderWindow_Class";
+    public const string RenderWindowClassPrefix = "WallpaperTurbo_RenderWindow_Class";
 
-    internal static readonly IReadOnlySet<string> DesktopParentClasses =
+    public static readonly IReadOnlySet<string> DesktopParentClasses =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Progman", "WorkerW" };
 
-    internal const double MinMonitorCoverage = 0.9;
+    public const double MinMonitorCoverage = 0.9;
 
     /// <summary>
     /// Number of consecutive "not visible" polls (while the engine is expected to
@@ -82,8 +81,9 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
     /// prevents a relaunch storm during transient gaps such as the AppRunner's own
     /// Explorer-restart window recreation (~2s) or a momentary perf-pause.
     /// </summary>
-    internal const int LostPollThreshold = 3;
+    public const int LostPollThreshold = 3;
 
+    private readonly Action<Action>? _marshalCallback;
     private readonly IWindowEnumerationSource _source;
     private readonly int _pollIntervalMs;
     private readonly object _lock = new();
@@ -127,14 +127,20 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
 
     /// <summary>DI constructor — real Win32 enumeration.</summary>
     public WallpaperVisibilityWatchdog()
-        : this(new Win32WindowEnumerator())
+        : this(new Win32WindowEnumerator(), 1000, null)
     {
     }
 
-    internal WallpaperVisibilityWatchdog(IWindowEnumerationSource source, int pollIntervalMs = 1000)
+    public WallpaperVisibilityWatchdog(IWindowEnumerationSource source, int pollIntervalMs = 1000)
+        : this(source, pollIntervalMs, null)
+    {
+    }
+
+    public WallpaperVisibilityWatchdog(IWindowEnumerationSource source, int pollIntervalMs, Action<Action>? marshalCallback)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _pollIntervalMs = pollIntervalMs;
+        _marshalCallback = marshalCallback;
     }
 
     public void Start()
@@ -189,7 +195,7 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
     /// Single poll cycle. Internal so tests can drive the state machine
     /// deterministically; the background loop just calls this repeatedly.
     /// </summary>
-    internal void PollOnce()
+    public void PollOnce()
     {
         bool visible = false;
         try
@@ -257,13 +263,13 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
     public async Task<bool> WaitForVisibleAsync(TimeSpan timeout, CancellationToken ct = default)
     {
         var sw = Stopwatch.StartNew();
-        StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible START timeout={timeout.TotalSeconds}s");
+        Debug.WriteLine($"[WallpaperVisibilityWatchdog] WaitForVisible START timeout={timeout.TotalSeconds}s");
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
             if (ct.IsCancellationRequested)
             {
-                StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible CANCELLED after {sw.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"[WallpaperVisibilityWatchdog] WaitForVisible CANCELLED after {sw.ElapsedMilliseconds}ms");
                 return false;
             }
 
@@ -275,7 +281,7 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
                 // + plain user32 calls, not Screen.AllScreens) so Task.Run is fine.
                 if (await Task.Run(() => IsOnScreen(_source.GetCandidates())).ConfigureAwait(false))
                 {
-                    StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible SUCCESS in {sw.ElapsedMilliseconds}ms");
+                    Debug.WriteLine($"[WallpaperVisibilityWatchdog] WaitForVisible SUCCESS in {sw.ElapsedMilliseconds}ms");
                     return true;
                 }
             }
@@ -290,12 +296,12 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
             }
             catch (OperationCanceledException)
             {
-                StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible CANCELLED after {sw.ElapsedMilliseconds}ms");
+                Debug.WriteLine($"[WallpaperVisibilityWatchdog] WaitForVisible CANCELLED after {sw.ElapsedMilliseconds}ms");
                 return false;
             }
         }
 
-        StartupDiagnostics.LogWithMemory($"WallpaperVisibilityWatchdog WaitForVisible TIMEOUT after {sw.ElapsedMilliseconds}ms (budget={timeout.TotalSeconds}s)");
+        Debug.WriteLine($"[WallpaperVisibilityWatchdog] WaitForVisible TIMEOUT after {sw.ElapsedMilliseconds}ms (budget={timeout.TotalSeconds}s)");
         return false;
     }
 
@@ -304,7 +310,7 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
     /// shell (Progman/WorkerW), and covering ≥90% of any monitor counts as
     /// "wallpaper on screen".
     /// </summary>
-    internal static bool IsOnScreen(IReadOnlyList<RenderWindowCandidate> candidates)
+    public static bool IsOnScreen(IReadOnlyList<RenderWindowCandidate> candidates)
     {
         foreach (var candidate in candidates)
         {
@@ -358,7 +364,7 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
         }
     }
 
-    private static void RaiseMarshaled<T>(EventHandler<T>? handler, T args)
+    private void RaiseMarshaled<T>(EventHandler<T>? handler, T args)
     {
         if (handler == null)
         {
@@ -377,14 +383,14 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
             }
         }
 
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher == null || dispatcher.CheckAccess())
+        if (_marshalCallback != null)
+        {
+            _marshalCallback(Invoke);
+        }
+        else
         {
             Invoke();
-            return;
         }
-
-        dispatcher.BeginInvoke(Invoke, DispatcherPriority.Background);
     }
 
     private void RaiseWallpaperLostMarshaled()
@@ -407,19 +413,19 @@ public sealed class WallpaperVisibilityWatchdog : IWallpaperVisibilityMonitor, I
             }
         }
 
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher == null || dispatcher.CheckAccess())
+        if (_marshalCallback != null)
+        {
+            _marshalCallback(Invoke);
+        }
+        else
         {
             Invoke();
-            return;
         }
-
-        dispatcher.BeginInvoke(Invoke, DispatcherPriority.Background);
     }
 }
 
 /// <summary>Real Win32 implementation: enumerates top-level + child windows by class prefix.</summary>
-internal sealed class Win32WindowEnumerator : IWindowEnumerationSource
+public sealed class Win32WindowEnumerator : IWindowEnumerationSource
 {
     public IReadOnlyList<RenderWindowCandidate> GetCandidates()
     {

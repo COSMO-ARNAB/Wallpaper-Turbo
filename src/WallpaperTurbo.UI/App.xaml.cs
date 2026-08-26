@@ -92,7 +92,11 @@ public partial class App : Application
         services.AddSingleton<Services.WallpaperStartupCoordinator>();
 
         // Wallpaper visibility watchdog (desktop window truth)
-        services.AddSingleton<Services.IWallpaperVisibilityMonitor, Services.WallpaperVisibilityWatchdog>();
+        services.AddSingleton<WallpaperTurbo.Core.Services.Watchdog.IWallpaperVisibilityMonitor>(sp =>
+            new WallpaperTurbo.Core.Services.Watchdog.WallpaperVisibilityWatchdog(
+                new WallpaperTurbo.Core.Services.Watchdog.Win32WindowEnumerator(),
+                1000,
+                action => Application.Current?.Dispatcher?.BeginInvoke(action, System.Windows.Threading.DispatcherPriority.Background)));
 
         // Theme resolution & DWM backdrop application (must precede PresentationManager/MainWindow)
         services.AddSingleton<IThemeResolver, ThemeResolver>();

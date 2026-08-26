@@ -344,8 +344,8 @@ public class PowerManagementServiceTests
         WaitForCommands(ipc, 1);
 
         // No "play" first: asking a dead engine to unfreeze would waste a pipe timeout on every
-        // plug-in. The launch is visible here as its live-swap attempt, which the fake accepts.
-        Assert.Equal(new[] { "swap 2" }, ipc.Commands);
+        // plug-in. The launch is visible here as its live-swap attempt with pause mode sync, which the fake accepts.
+        Assert.Equal(new[] { "swap 2", "pause-mode Maximized" }, ipc.Commands);
     }
 
     [Fact]

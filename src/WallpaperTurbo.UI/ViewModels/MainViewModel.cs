@@ -8,6 +8,7 @@ using WallpaperTurbo.Core.Display;
 using WallpaperTurbo.Core.Updates.Models;
 using WallpaperTurbo.UI.Models;
 using WallpaperTurbo.UI.Services;
+using WallpaperTurbo.Core.Services.Watchdog;
 
 namespace WallpaperTurbo.UI.ViewModels;
 
