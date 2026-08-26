@@ -18,6 +18,7 @@ jobs:
     - name: Resolve and validate release tag
       shell: pwsh
       run: |
+        $PSNativeCommandUseErrorActionPreference = $false
         $version = $env:GITHUB_REF_NAME -replace '^v', ''
         if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') { throw "Invalid release tag: $env:GITHUB_REF_NAME" }
         $sourceVersion = .\scripts\get-release-version.ps1
