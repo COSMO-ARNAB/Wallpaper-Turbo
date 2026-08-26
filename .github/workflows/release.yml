@@ -26,6 +26,7 @@ jobs:
         "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
         $existing = gh release view $env:GITHUB_REF_NAME 2>$null
         if ($LASTEXITCODE -eq 0) { throw "Release $env:GITHUB_REF_NAME already exists; refusing to overwrite release assets." }
+        $LASTEXITCODE = 0
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
