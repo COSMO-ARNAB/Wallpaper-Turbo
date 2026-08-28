@@ -3,199 +3,119 @@
 import { useState } from "react";
 import { Reveal } from "./Reveal";
 
-const engines = [
-  {
-    name: "LibVLC Core",
-    formats: "MP4, MKV, WebM, AVI",
-    detail: "Hardware decode via NVDEC / QuickSync / DXVA2",
-  },
-  {
-    name: "WebView2 Runtime",
-    formats: "HTML5, CSS, WebGL",
-    detail: "Interactive shader and canvas wallpapers",
-  },
-];
-
 export function Features() {
   const [monitorMode, setMonitorMode] = useState<"span" | "clone" | "independent">("span");
 
   return (
-    <section
-      id="features"
-      className="mx-auto max-w-[1840px] px-6 py-24 lg:px-8"
-      aria-labelledby="features-heading"
-    >
-      <Reveal>
-        <div className="max-w-2xl">
-          <h2
-            id="features-heading"
-            className="font-display text-4xl font-bold tracking-tighter text-foreground sm:text-5xl"
-          >
-            Engineered to disappear.
+    <section id="features" className="border-t border-[rgba(138,147,166,0.18)] bg-panel-off" aria-labelledby="features-heading">
+      <div className="grid-shell py-16">
+        <Reveal>
+          <h2 id="features-heading" className="font-display text-[clamp(2.5rem,5vw,4rem)] font-bold uppercase tracking-tight text-backlight">
+            You should not notice it.
           </h2>
-          <p className="mt-4 max-w-[65ch] text-base leading-relaxed text-foreground-muted">
-            Every architectural decision serves one goal: you should never notice it running.
-          </p>
-        </div>
-      </Reveal>
+        </Reveal>
 
-      {/* Asymmetrical Bento */}
-      <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-6">
-        {/* 01 - Gaming Suspension - large */}
-        <Reveal delay={80} className="lg:col-span-7">
-          <div className="bezel-shell h-full">
-            <div className="bezel-core flex h-full flex-col p-6 sm:p-7">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">01 - GAMING</span>
-                  <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-foreground">
-                    Automatic Gaming Suspension
-                  </h3>
-                  <p className="mt-2 max-w-[46ch] text-sm leading-relaxed text-foreground-muted">
-                    Detects full-screen 3D games across any monitor and suspends decoding + WebGL instantly. Zero FPS tax while you play.
-                  </p>
-                </div>
-                <span className="hidden h-8 w-8 items-center justify-center rounded-full border border-border bg-surface-sunken font-mono text-xs font-bold text-foreground-muted sm:flex">
-                  01
-                </span>
+        <div className="mt-10 border-t border-[rgba(138,147,166,0.18)]">
+          {/* Row 1 — Suspends when you play */}
+          <div className="grid grid-cols-1 gap-6 border-b border-[rgba(138,147,166,0.18)] py-8 lg:grid-cols-12 lg:gap-8">
+            <div className="lg:col-span-5">
+              <h3 className="font-sans text-[22px] font-semibold leading-tight text-backlight">Suspends when you play</h3>
+              <p className="mt-2 max-w-[60ch] font-sans text-sm leading-relaxed text-standby">
+                Detects full-screen games and pauses decoding. Your frames stay yours.
+              </p>
+            </div>
+            <div className="lg:col-span-7 flex items-center gap-6 font-mono text-xs">
+              <div className="flex-1 border border-[rgba(138,147,166,0.18)] bg-black-level p-4">
+                <div className="text-[11px] text-standby">desktop idle</div>
+                <div className="mt-1 font-mono text-2xl text-backlight">11.9% <span className="text-xs text-standby">GPU</span></div>
               </div>
-
-              <div className="mt-6 rounded-xl border border-border bg-surface-sunken p-4">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="border-r border-border pr-6">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-foreground-muted">Desktop Idle</span>
-                    <p className="mt-1.5 font-mono text-3xl font-bold text-foreground">
-                      11.9<span className="text-sm font-normal text-foreground-muted">% GPU</span>
-                    </p>
-                    <p className="mt-1 font-mono text-[11px] text-foreground-muted">Hardware decode active</p>
-                  </div>
-                  <div>
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-accent-bright">In-Game State</span>
-                    <p className="mt-1.5 font-mono text-3xl font-bold text-accent-bright">
-                      0.0<span className="text-sm font-normal text-accent-bright/70">% GPU</span>
-                    </p>
-                    <p className="mt-1 font-mono text-[11px] text-foreground-muted">Rendering fully halted</p>
-                  </div>
-                </div>
+              <span className="text-standby">→</span>
+              <div className="flex-1 border border-[rgba(138,147,166,0.18)] bg-black-level p-4">
+                <div className="text-[11px] text-signal">in game</div>
+                <div className="mt-1 font-mono text-2xl text-signal">0.0% <span className="text-xs text-signal/70">GPU</span></div>
               </div>
             </div>
           </div>
-        </Reveal>
 
-        {/* 02 - Multi-Monitor */}
-        <Reveal delay={140} className="lg:col-span-5">
-          <div className="bezel-shell h-full">
-            <div className="bezel-core flex h-full flex-col p-6 sm:p-7">
-              <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">02 - MULTI-MONITOR</span>
-              <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-foreground">Multi-Monitor & High Refresh</h3>
-              <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
-                Mixed refresh up to 240 Hz, independent DPI, three topologies.
+          {/* Row 2 — Stays under your icons */}
+          <div className="grid grid-cols-1 gap-6 border-b border-[rgba(138,147,166,0.18)] py-8 lg:grid-cols-12 lg:gap-8">
+            <div className="lg:col-span-5">
+              <h3 className="font-sans text-[22px] font-semibold leading-tight text-backlight">Stays under your icons</h3>
+              <p className="mt-2 max-w-[60ch] font-sans text-sm leading-relaxed text-standby">
+                Rendered into WorkerW behind SHELLDLL_DefView. Icons, selection and menus keep their layer.
               </p>
+            </div>
+            <div className="lg:col-span-7 border border-[rgba(138,147,166,0.18)] bg-black-level p-4 font-mono text-xs">
+              <div className="flex justify-between text-standby"><span>icons</span><span>SHELLDLL_DefView</span></div>
+              <div className="my-2 h-px bg-[rgba(138,147,166,0.18)]" />
+              <div className="flex justify-between text-signal"><span>wallpaper layer</span><span>WorkerW</span></div>
+            </div>
+          </div>
 
-              <div className="mt-5 flex h-24 items-center overflow-hidden rounded-xl border border-border bg-surface-sunken p-2">
+          {/* Row 3 — One wallpaper per monitor */}
+          <div className="grid grid-cols-1 gap-6 border-b border-[rgba(138,147,166,0.18)] py-8 lg:grid-cols-12 lg:gap-8">
+            <div className="lg:col-span-5">
+              <h3 className="font-sans text-[22px] font-semibold leading-tight text-backlight">One wallpaper per monitor</h3>
+              <p className="mt-2 max-w-[60ch] font-sans text-sm leading-relaxed text-standby">
+                Span one scene, mirror it, or run something different on each. Mixed refresh and DPI handled.
+              </p>
+            </div>
+            <div className="lg:col-span-7">
+              <div className="flex h-20 items-center overflow-hidden border border-[rgba(138,147,166,0.18)] bg-black-level p-2">
                 {monitorMode === "span" && (
                   <div className="flex h-full w-full gap-1.5">
-                    <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-accent/20 font-mono text-[11px] font-semibold text-accent-bright">
-                      Display 1 - Span
-                    </div>
-                    <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-accent/20 font-mono text-[11px] font-semibold text-accent-bright">
-                      Display 2 - Span
-                    </div>
+                    <div className="flex h-full flex-1 items-center justify-center bg-[rgba(96,205,255,0.14)] font-mono text-[11px] text-signal">Display 1 - span</div>
+                    <div className="flex h-full flex-1 items-center justify-center bg-[rgba(96,205,255,0.14)] font-mono text-[11px] text-signal">Display 2 - span</div>
                   </div>
                 )}
                 {monitorMode === "clone" && (
                   <div className="flex h-full w-full gap-1.5">
-                    <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-accent/25 font-mono text-[11px] font-semibold text-accent-bright">
-                      Display 1 - Mirrored
-                    </div>
-                    <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-accent/25 font-mono text-[11px] font-semibold text-accent-bright">
-                      Display 2 - Mirrored
-                    </div>
+                    <div className="flex h-full flex-1 items-center justify-center bg-[rgba(96,205,255,0.18)] font-mono text-[11px] text-signal">Display 1 - mirrored</div>
+                    <div className="flex h-full flex-1 items-center justify-center bg-[rgba(96,205,255,0.18)] font-mono text-[11px] text-signal">Display 2 - mirrored</div>
                   </div>
                 )}
                 {monitorMode === "independent" && (
                   <div className="flex h-full w-full gap-1.5">
-                    <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-sky-950 font-mono text-[11px] font-semibold text-sky-400">
-                      Wallpaper A
-                    </div>
-                    <div className="flex h-full flex-1 items-center justify-center rounded-lg bg-amber-950 font-mono text-[11px] font-semibold text-amber-400">
-                      Wallpaper B
-                    </div>
+                    <div className="flex h-full flex-1 items-center justify-center bg-signal font-mono text-[11px] text-panel-off">Wallpaper A</div>
+                    <div className="flex h-full flex-1 items-center justify-center bg-tungsten font-mono text-[11px] text-panel-off">Wallpaper B</div>
                   </div>
                 )}
               </div>
-
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex gap-1.5">
-                  {(["span", "clone", "independent"] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setMonitorMode(mode)}
-                      className={`rounded-full border px-3 py-1 font-mono text-xs capitalize transition-all duration-300 ${monitorMode === mode ? "border-accent-bright bg-accent/20 text-accent-bright" : "border-border bg-surface text-foreground-muted hover:text-foreground hover:border-border-bright"}`}
-                    >
-                      {mode === "independent" ? "Separate" : mode}
-                    </button>
-                  ))}
-                </div>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-foreground-muted">Multi-DPI Ready</span>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-
-        {/* 03 - Process Isolation */}
-        <Reveal delay={100} className="lg:col-span-5">
-          <div className="bezel-shell h-full">
-            <div className="bezel-core flex h-full flex-col p-6 sm:p-7">
-              <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">03 - ISOLATION</span>
-              <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-foreground">Isolated Process Architecture</h3>
-              <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
-                Render engine lives in AppRunner. Close the UI - wallpaper never blinks.
-              </p>
-
-              <div className="mt-6 space-y-2.5 font-mono text-xs">
-                <div className="flex items-center justify-between rounded-xl border border-dashed border-border bg-surface-sunken/40 px-4 py-3">
-                  <span className="text-foreground-muted">WallpaperTurbo.UI.exe</span>
-                  <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-foreground-muted">Config - Closed</span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl border border-accent-bright/30 bg-accent/10 px-4 py-3 shadow-[inset_0_1px_1px_rgba(56,189,248,0.15)]">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-accent-bright shadow-[0_0_8px_rgba(56,189,248,0.6)]" />
-                    <span className="font-semibold text-foreground">AppRunner.exe</span>
-                  </div>
-                  <span className="font-semibold text-accent-bright">Active Render Host</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-
-        {/* 04 - Dual Pipeline - large */}
-        <Reveal delay={160} className="lg:col-span-7">
-          <div className="bezel-shell h-full">
-            <div className="bezel-core flex h-full flex-col p-6 sm:p-7">
-              <span className="font-mono text-xs font-bold tracking-widest text-accent-bright">04 - PIPELINE</span>
-              <h3 className="mt-2 font-display text-xl font-semibold tracking-tight text-foreground">Dual Render Pipeline</h3>
-              <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
-                Two engines, one roof: LibVLC for hardware video, WebView2 for HTML5, CSS and WebGL shaders.
-              </p>
-
-              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {engines.map((engine) => (
-                  <div
-                    key={engine.name}
-                    className="group rounded-xl border border-border bg-surface-sunken p-4 transition-colors hover:border-border-bright hover:bg-surface"
+              <div className="mt-3 flex gap-2">
+                {(["span", "clone", "independent"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setMonitorMode(mode)}
+                    className={`rounded-[2px] border px-3 py-1 font-mono text-xs capitalize ${monitorMode === mode ? "border-signal bg-[rgba(96,205,255,0.12)] text-signal" : "border-[rgba(138,147,166,0.18)] text-standby hover:text-backlight"}`}
                   >
-                    <p className="font-mono text-xs font-semibold text-foreground">{engine.name}</p>
-                    <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-accent-bright">{engine.formats}</p>
-                    <p className="mt-2 text-xs leading-relaxed text-foreground-muted">{engine.detail}</p>
-                  </div>
+                    {mode === "independent" ? "separate" : mode}
+                  </button>
                 ))}
               </div>
             </div>
           </div>
-        </Reveal>
+
+          {/* Row 4 — Keeps running when you close the app */}
+          <div className="grid grid-cols-1 gap-6 py-8 lg:grid-cols-12 lg:gap-8">
+            <div className="lg:col-span-5">
+              <h3 className="font-sans text-[22px] font-semibold leading-tight text-backlight">Keeps running when you close the app</h3>
+              <p className="mt-2 max-w-[60ch] font-sans text-sm leading-relaxed text-standby">
+                The render host lives in AppRunner. Close the config window and the wallpaper does not blink.
+              </p>
+            </div>
+            <div className="lg:col-span-7 space-y-2 font-mono text-xs">
+              <div className="flex items-center justify-between border border-dashed border-[rgba(138,147,166,0.18)] bg-black-level/60 px-4 py-3">
+                <span className="text-standby">WallpaperTurbo.UI.exe</span>
+                <span className="text-standby">closed</span>
+              </div>
+              <div className="flex items-center justify-between border border-signal/30 bg-black-level px-4 py-3">
+                <span className="flex items-center gap-2 text-backlight"><span className="h-1.5 w-1.5 rounded-full bg-tungsten" /> AppRunner.exe</span>
+                <span className="text-signal">running</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );

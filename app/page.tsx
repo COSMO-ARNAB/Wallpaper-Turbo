@@ -2,6 +2,7 @@ import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { Ticker } from "@/components/Ticker";
 import { Features } from "@/components/Features";
+import { Aperture } from "@/components/Aperture";
 import { Gallery } from "@/components/Gallery";
 import { Engine } from "@/components/Engine";
 import { Download } from "@/components/Download";
@@ -21,6 +22,7 @@ export default async function Home() {
         />
         <Ticker />
         <Features />
+        <Aperture />
         <Gallery />
         <Engine />
         <Download release={release} />

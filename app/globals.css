@@ -1,44 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  --background: #09090b;
-  --surface-sunken: #050507;
-  --surface: #121215;
-  --surface-raised: #18181d;
-  --surface-overlay: #22222a;
-  --foreground: #f4f4f6;
-  --foreground-muted: #94949e;
-  --border: #26262e;
-  --border-subtle: #1a1a20;
-  --border-bright: #3a3a46;
-  --accent: #0369a1;
-  --accent-bright: #38bdf8;
-  --accent-foreground: #ffffff;
-  --focus-ring: #38bdf8;
+  --panel-off: #05070d;
+  --black-level: #0c1220;
+  --backlight: #e9edf3;
+  --standby: #8a93a6;
+  --signal: #60cdff;
+  --tungsten: #ffc98b;
+
+  --background: var(--panel-off);
+  --surface: var(--black-level);
+  --surface-sunken: var(--black-level);
+  --surface-raised: var(--panel-off);
+  --foreground: var(--backlight);
+  --foreground-muted: var(--standby);
+  --border: rgba(138, 147, 166, 0.18);
+  --border-strong: rgba(138, 147, 166, 0.28);
+  --focus-ring: var(--signal);
+
+  --radius: 2px;
 
   color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-surface-sunken: var(--surface-sunken);
-  --color-surface: var(--surface);
-  --color-surface-raised: var(--surface-raised);
-  --color-surface-overlay: var(--surface-overlay);
+  --color-panel-off: var(--panel-off);
+  --color-black-level: var(--black-level);
+  --color-backlight: var(--backlight);
+  --color-standby: var(--standby);
+  --color-signal: var(--signal);
+  --color-tungsten: var(--tungsten);
   --color-foreground: var(--foreground);
   --color-foreground-muted: var(--foreground-muted);
   --color-border: var(--border);
-  --color-border-subtle: var(--border-subtle);
-  --color-border-bright: var(--border-bright);
-  --color-accent: var(--accent);
-  --color-accent-bright: var(--accent-bright);
-  --color-accent-foreground: var(--accent-foreground);
   --color-focus-ring: var(--focus-ring);
 
-  --font-sans: var(--font-sans-main), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display-main), var(--font-sans-main), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-mono-main), ui-monospace, SFMono-Regular, Menlo,
-    Monaco, Consolas, monospace;
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-big-shoulders), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 html {
@@ -46,173 +46,125 @@ html {
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--panel-off);
+  color: var(--backlight);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: 2px solid var(--signal);
   outline-offset: 2px;
 }
 
 ::selection {
-  background-color: var(--accent);
-  color: var(--accent-foreground);
+  background-color: var(--backlight);
+  color: var(--panel-off);
 }
 
-/* --- High-performance Tactile Surfaces ---------------------------------
-   Replaces expensive backdrop blurs with precision solid contrast & subtle 
-   hairline specular highlights for 120fps fluid scrolling. */
-.tactile-card {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+/* --- Hairlines --------------------------------------------------------- */
+.hairline {
+  border-color: var(--border);
+}
+.hairline-strong {
+  border-color: var(--border-strong);
 }
 
-.tactile-raised {
-  background-color: var(--surface-raised);
-  border: 1px solid var(--border);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+/* --- Power-on ramp ----------------------------------------------------- */
+@keyframes power-on {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.power-on {
+  animation: power-on 300ms ease-out;
 }
 
-.tactile-nav {
-  background-color: rgba(9, 9, 11, 0.88);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-/* Backward compatibility for .glass with lightweight, crisp rendering */
-.glass {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
-}
-
-/* --- Double-Bezel (Doppelrand) — machined hardware depth --------------- */
-.bezel-shell {
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 6px;
-  border-radius: 2rem;
-}
-.bezel-core {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: calc(2rem - 6px);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
-}
-
-/* --- Film grain — fixed, pointer-events-none, never on scroll --------- */
-.grain-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 50;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
-}
-
-/* --- Eyebrow pill ------------------------------------------------------ */
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 9999px;
-  border: 1px solid var(--border);
-  background-color: var(--surface-sunken);
-  padding: 4px 12px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--foreground-muted);
-}
-
-/* --- Scroll reveal — IntersectionObserver, GPU only --------------------- */
+/* --- Reveal — opacity only, 240ms ------------------------------------- */
 .reveal {
   opacity: 0;
-  transform: translateY(20px);
-  filter: blur(4px);
-  transition: opacity 750ms cubic-bezier(0.32, 0.72, 0, 1), transform 750ms cubic-bezier(0.32, 0.72, 0, 1), filter 750ms cubic-bezier(0.32, 0.72, 0, 1);
-  will-change: transform, opacity;
+  transition: opacity 240ms ease-out;
 }
 .reveal-visible {
   opacity: 1;
-  transform: translateY(0);
-  filter: blur(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transition: none; }
 }
 
-/* --- Status indicator (live engine dot) --------------------------------- */
-@keyframes status-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4);
-  }
-  50% {
-    opacity: 0.6;
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0);
-  }
+/* --- Wallpaper layer — fixed z-0 -------------------------------------- */
+.wallpaper-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  object-fit: cover;
+  transition: opacity 1200ms ease-out;
 }
 
-.status-indicator {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 9999px;
-  background-color: var(--accent-bright);
-  animation: status-pulse 2.4s ease-in-out infinite;
+/* --- OSD — fixed bottom-left, Black Level, hairline, 2px radius ------- */
+.osd {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 40;
+  background: var(--black-level);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--backlight);
+}
+@media (min-width: 768px) {
+  .osd { left: 24px; bottom: 24px; }
 }
 
-/* --- Spec ticker marquee (Right-to-Left) ------------------------------ */
+/* --- Ticker — Black Level strip, hairline separators ------------------- */
 @keyframes ticker-scroll {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
 }
-
 .ticker-track {
-  animation: ticker-scroll 32s linear infinite;
+  animation: ticker-scroll 60s linear infinite;
   will-change: transform;
 }
-
-.ticker:hover .ticker-track {
-  animation-play-state: paused;
-}
-
-/* --- Reduced motion ------------------------------------------------------ */
+.ticker-paused .ticker-track { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  .status-indicator {
-    animation: none;
-  }
+  .ticker-track { animation: none; }
 }
 
-/* --- Scrollbar ----------------------------------------------------------- */
-::-webkit-scrollbar {
-  width: 8px;
+/* --- Hover — lightness only ------------------------------------------- */
+.btn-primary {
+  background: var(--backlight);
+  color: var(--panel-off);
+  border-radius: 2px;
+  transition: background 120ms ease-out;
+}
+.btn-primary:hover { background: color-mix(in srgb, var(--backlight) 90%, black); }
+.btn-primary:active { background: color-mix(in srgb, var(--backlight) 85%, black); }
+
+/* --- Grid — 12-col, left-anchored, outer margins clamp -------------- */
+.grid-shell {
+  max-width: 1440px;
+  margin-left: clamp(24px, 5vw, 120px);
+  margin-right: clamp(24px, 5vw, 120px);
+}
+@media (min-width: 1536px) {
+  .grid-shell { margin-left: clamp(24px, 5vw, 120px); margin-right: auto; }
 }
 
-::-webkit-scrollbar-track {
-  background: var(--background);
+/* --- Reduced motion ---------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .power-on { animation: none; }
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--border-bright);
-}
-
+/* --- Scrollbar --------------------------------------------------------- */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--panel-off); }
+::-webkit-scrollbar-thumb { background: rgba(138,147,166,0.28); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(138,147,166,0.42); }

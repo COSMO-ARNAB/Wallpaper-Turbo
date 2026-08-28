@@ -2,67 +2,31 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-surface-sunken">
-      <div className="mx-auto flex max-w-[1840px] flex-col items-start justify-between gap-6 px-6 py-12 sm:flex-row sm:items-center lg:px-8">
+    <footer className="border-t border-[rgba(138,147,166,0.18)] bg-panel-off">
+      <div className="grid-shell flex flex-col gap-8 py-8 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-medium text-foreground">
-            © {new Date().getFullYear()} Wallpaper Turbo
-          </p>
-          <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-foreground-muted">
-            .NET 8 Native | Open Source | Zero Telemetry | Windows 10 / 11
+          <p className="font-mono text-xs font-medium text-backlight">Wallpaper Turbo</p>
+          <p className="mt-1 font-mono text-xs text-standby">
+            Model WT-1 · Windows 10/11 · Open source
           </p>
         </div>
 
-        <nav aria-label="Footer">
-          <ul className="flex flex-wrap items-center gap-6 font-mono text-xs text-foreground-muted">
-            <li>
-              <Link
-                href="/privacy"
-                className="transition-colors hover:text-foreground"
-              >
-                Privacy
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/terms"
-                className="transition-colors hover:text-foreground"
-              >
-                Terms
-              </Link>
-            </li>
-            <li>
-              <a
-                href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="transition-colors hover:text-foreground"
-              >
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a
-                href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo#readme"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="transition-colors hover:text-foreground"
-              >
-                Docs
-              </a>
-            </li>
-            <li>
-              <a
-                href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo/blob/main/LICENSE"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="transition-colors hover:text-foreground"
-              >
-                License
-              </a>
-            </li>
-          </ul>
-        </nav>
+        <div className="flex flex-col gap-6 lg:flex-row lg:gap-12">
+          <nav aria-label="Footer">
+            <ul className="flex flex-wrap gap-4 font-mono text-xs text-standby">
+              <li><a href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo" target="_blank" rel="noopener noreferrer" className="hover:text-backlight">GitHub</a></li>
+              <li><a href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases" target="_blank" rel="noopener noreferrer" className="hover:text-backlight">Releases</a></li>
+              <li><Link href="/privacy" className="hover:text-backlight">Privacy</Link></li>
+              <li><Link href="/terms" className="hover:text-backlight">Terms</Link></li>
+            </ul>
+          </nav>
+
+          <div className="border border-[rgba(138,147,166,0.18)] bg-black-level px-3 py-2 font-mono text-[11px] leading-relaxed text-standby">
+            <div>EDID · WT-1 · 1440 · Big Shoulders / Archivo / Spline Mono</div>
+            <div>#05070D #0C1220 #E9EDF3 #8A93A6 #60CDFF #FFC98B</div>
+            <div>build 2026-08-28 · Panel Off</div>
+          </div>
+        </div>
       </div>
     </footer>
   );
