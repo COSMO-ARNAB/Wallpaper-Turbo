@@ -14,10 +14,10 @@ export function Footer() {
         <div className="flex flex-col gap-6 lg:flex-row lg:gap-12">
           <nav aria-label="Footer">
             <ul className="flex flex-wrap gap-4 font-mono text-xs text-standby">
-              <li><a href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo" target="_blank" rel="noopener noreferrer" className="hover:text-backlight">GitHub</a></li>
-              <li><a href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases" target="_blank" rel="noopener noreferrer" className="hover:text-backlight">Releases</a></li>
-              <li><Link href="/privacy" className="hover:text-backlight">Privacy</Link></li>
-              <li><Link href="/terms" className="hover:text-backlight">Terms</Link></li>
+              <li><a href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo" target="_blank" rel="noopener noreferrer" className="hover:text-backlight hover:underline hover:decoration-signal hover:underline-offset-2">GitHub</a></li>
+              <li><a href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases" target="_blank" rel="noopener noreferrer" className="hover:text-backlight hover:underline hover:decoration-signal hover:underline-offset-2">Releases</a></li>
+              <li><Link href="/privacy" className="hover:text-backlight hover:underline hover:decoration-signal hover:underline-offset-2">Privacy</Link></li>
+              <li><Link href="/terms" className="hover:text-backlight hover:underline hover:decoration-signal hover:underline-offset-2">Terms</Link></li>
             </ul>
           </nav>
 

@@ -14,12 +14,9 @@ export default async function Home() {
 
   return (
     <>
-      <Navbar />
-      <main id="main-content" suppressHydrationWarning>
-        <Hero
-          version={release?.version ?? null}
-          releaseUrl={release?.releaseUrl}
-        />
+      <Navbar version={release?.version ?? null} />
+      <main id="main-content" className="pb-16 md:pb-20" suppressHydrationWarning>
+        <Hero />
         <Ticker />
         <Features />
         <Aperture />

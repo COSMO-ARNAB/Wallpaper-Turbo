@@ -19,6 +19,8 @@ function formatDate(iso: string): string {
 
 export function Download({ release }: DownloadProps) {
   const version = release?.version ?? "v1.5.1";
+  const cleanVersion = version.replace(/^v/, "");
+  const filename = `WallpaperTurbo-${cleanVersion}.exe`;
   const published = release?.publishedAt ? formatDate(release.publishedAt) : null;
   const checksum = release?.checksum;
   const releasesPage = release?.releaseUrl ?? "https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases";
@@ -44,7 +46,7 @@ export function Download({ release }: DownloadProps) {
               Download for Windows
             </a>
             <span className="font-mono text-xs text-standby">
-              WallpaperTurbo-1.4.0.exe · {version} {published && `· ${published}`}
+              {filename} · {version} {published && `· ${published}`}
             </span>
           </div>
         </Reveal>
@@ -53,7 +55,7 @@ export function Download({ release }: DownloadProps) {
           <div className="mt-8 border border-[rgba(138,147,166,0.18)] bg-black-level p-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="font-mono text-xs text-standby">WallpaperTurbo-1.4.0.exe</p>
+                <p className="font-mono text-xs text-standby">{filename}</p>
                 <p className="mt-1 font-mono text-xs">
                   <span className="border border-[rgba(138,147,166,0.18)] bg-panel-off px-2 py-0.5 text-signal">{version}</span>
                   {published && <span className="ml-2 text-standby">{published}</span>}

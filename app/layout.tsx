@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Big_Shoulders, Archivo, Spline_Sans_Mono } from "next/font/google";
 import "./globals.css";
 import { OSD } from "@/components/OSD";
@@ -111,11 +112,13 @@ export default function RootLayout({
             FORM: left-anchored 12-col 1440 clamp(24px,5vw,120px) hairline-separated rows, wallpapers bleed edge-to-edge, OSD signature, seed v2-display-field
             FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md */}
         <div aria-hidden="true" className="wallpaper-layer">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/gallery-aurora.png"
             alt=""
-            className="h-full w-full object-cover"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
             style={{ opacity: 0.9 }}
           />
         </div>

@@ -11,11 +11,13 @@ export function OSD() {
   useEffect(() => {
     const updateRes = () => setRes(`${window.innerWidth}×${window.innerHeight}`);
     updateRes();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     window.addEventListener("resize", updateRes);
     return () => window.removeEventListener("resize", updateRes);
   }, []);
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let frames = 0;
     let start = performance.now();
     let raf = 0;
@@ -34,6 +36,7 @@ export function OSD() {
   }, []);
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const sections = ["hero", "features", "gallery", "engine", "download"];
     const obs = new IntersectionObserver(
       (entries) => {
@@ -52,6 +55,7 @@ export function OSD() {
   }, []);
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const onScroll = () => {
       const hero = document.getElementById("hero");
       const aperture = document.getElementById("aperture");
@@ -86,14 +90,14 @@ export function OSD() {
         <div className="flex justify-between gap-6"><span className="text-standby">hz</span><span>{hz}</span></div>
         <div className="flex justify-between gap-6 items-center">
           <span className="text-standby">layer</span>
-          <span className="flex items-center gap-1.5">
-            <span className={`h-1.5 w-1.5 rounded-full ${layer === "running" ? "bg-tungsten" : "bg-standby"}`} />
+          <span className="flex items-center gap-1.5" aria-live="polite">
+            <span className={`h-1.5 w-1.5 rounded-full ${layer === "running" ? "bg-tungsten" : "bg-standby"}`} aria-hidden="true" />
             {layer}
           </span>
         </div>
       </div>
       <div className="md:hidden font-mono text-xs">
-        {res} · {hz} hz
+        {res} · {hz === "—" ? "—" : `${hz} Hz`}
       </div>
     </div>
   );

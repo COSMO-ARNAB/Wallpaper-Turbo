@@ -8,7 +8,11 @@ const links = [
   { href: "#engine", label: "Engine" },
 ];
 
-export function Navbar() {
+interface NavbarProps {
+  version?: string | null;
+}
+
+export function Navbar({ version }: NavbarProps = {}) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -49,14 +53,9 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <a
-            href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden rounded-[2px] border border-[rgba(138,147,166,0.18)] bg-black-level px-2.5 py-1 font-mono text-xs text-signal md:inline-flex"
-          >
-            v1.5.1
-          </a>
+          <span className="hidden rounded-[2px] border border-[rgba(138,147,166,0.18)] bg-black-level px-2.5 py-1 font-mono text-xs text-signal md:inline-flex">
+            {version ?? "v1.5.1"}
+          </span>
           <a
             href="#download"
             className="btn-primary inline-flex h-8 items-center justify-center px-4 font-sans text-sm font-semibold"

@@ -2,15 +2,7 @@
 
 import { Reveal } from "./Reveal";
 
-interface HeroProps {
-  version?: string | null;
-  releaseUrl?: string;
-}
-
-export function Hero({
-  version = null,
-  releaseUrl = "https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases",
-}: HeroProps = {}) {
+export function Hero() {
   return (
     <section
       id="hero"

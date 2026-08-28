@@ -58,6 +58,10 @@ body {
   outline: 2px solid var(--signal);
   outline-offset: 2px;
 }
+.bg-signal:focus-visible,
+.bg-tungsten:focus-visible {
+  outline-color: var(--panel-off);
+}
 
 ::selection {
   background-color: var(--backlight);
@@ -133,8 +137,13 @@ body {
   will-change: transform;
 }
 .ticker-paused .ticker-track { animation-play-state: paused; }
+@media (max-width: 768px) {
+  .ticker { overflow: visible; }
+  .ticker-track { animation: none; flex-wrap: wrap; justify-content: center; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .ticker-track { animation: none; }
+  .ticker { overflow: visible; }
+  .ticker-track { animation: none; flex-wrap: wrap; justify-content: center; }
 }
 
 /* --- Hover — lightness only ------------------------------------------- */
@@ -151,10 +160,10 @@ body {
 .grid-shell {
   max-width: 1440px;
   margin-left: clamp(24px, 5vw, 120px);
-  margin-right: clamp(24px, 5vw, 120px);
+  margin-right: auto;
 }
-@media (min-width: 1536px) {
-  .grid-shell { margin-left: clamp(24px, 5vw, 120px); margin-right: auto; }
+@media (max-width: 767px) {
+  .grid-shell { margin-right: clamp(24px, 5vw, 120px); }
 }
 
 /* --- Reduced motion ---------------------------------------------------- */
