@@ -1,5 +1,5 @@
 import { CopyButton } from "./CopyButton";
-import type { ReleaseInfo } from "@/lib/github";
+import { INSTALLER_FILENAME, type ReleaseInfo } from "@/lib/github";
 import { Reveal } from "./Reveal";
 
 interface DownloadProps {
@@ -18,21 +18,20 @@ function formatDate(iso: string): string {
 }
 
 export function Download({ release }: DownloadProps) {
-  const version = release?.version ?? "v1.5.1";
-  const cleanVersion = version.replace(/^v/, "");
-  const filename = `WallpaperTurbo-${cleanVersion}.exe`;
+  const version = release?.version ?? "v1.5.2";
+  const filename = INSTALLER_FILENAME;
   const published = release?.publishedAt ? formatDate(release.publishedAt) : null;
   const checksum = release?.checksum;
   const releasesPage = release?.releaseUrl ?? "https://github.com/COSMO-ARNAB/Wallpaper-Turbo/releases";
 
   return (
-    <section id="download" className="bg-panel-off" aria-labelledby="download-heading">
-      <div className="grid-shell py-16">
+    <section id="download" className="border-t border-engraved bg-plate" aria-labelledby="download-heading">
+      <div className="grid-shell py-16 lg:py-24">
         <Reveal>
-          <h2 id="download-heading" className="font-display text-[clamp(2.5rem,5vw,4rem)] font-bold uppercase text-backlight">
-            Download Wallpaper Turbo.
+          <h2 id="download-heading" className="font-display text-[clamp(2.5rem,5vw,4rem)] font-bold uppercase leading-[0.95] text-off-white">
+            Take the installer.
           </h2>
-          <p className="mt-4 max-w-[60ch] font-sans text-sm leading-relaxed text-standby">
+          <p className="mt-4 max-w-[60ch] font-sans text-[17px] leading-[1.55] text-machine-grey">
             One installer. Windows 10/11, 64-bit. No telemetry, no account.
           </p>
         </Reveal>
@@ -45,49 +44,49 @@ export function Download({ release }: DownloadProps) {
             >
               Download for Windows
             </a>
-            <span className="font-mono text-xs text-standby">
-              {filename} · {version} {published && `· ${published}`}
+            <span className="font-mono text-xs text-machine-grey">
+              {filename} ({version}{published && `, ${published}`})
             </span>
           </div>
         </Reveal>
 
         <Reveal delay={160}>
-          <div className="mt-8 border border-[rgba(138,147,166,0.18)] bg-black-level p-4">
+          <div className="plate-frame mt-8 p-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="font-mono text-xs text-standby">{filename}</p>
+                <p className="font-mono text-xs text-machine-grey">{filename}</p>
                 <p className="mt-1 font-mono text-xs">
-                  <span className="border border-[rgba(138,147,166,0.18)] bg-panel-off px-2 py-0.5 text-signal">{version}</span>
-                  {published && <span className="ml-2 text-standby">{published}</span>}
+                  <span className="rounded-[2px] border border-engraved bg-graphite px-2 py-0.5 text-amber">{version}</span>
+                  {published && <span className="ml-2 text-machine-grey">{published}</span>}
                 </p>
               </div>
               {checksum && (
                 <div className="flex items-center gap-3">
-                  <code className="max-w-[36ch] truncate font-mono text-xs text-backlight">{checksum}</code>
+                  <code className="max-w-[36ch] truncate font-mono text-xs text-off-white">{checksum}</code>
                   <CopyButton text={checksum} />
                 </div>
               )}
             </div>
             {!checksum && (
-              <p className="mt-3 font-mono text-xs text-standby">
-                Verify on <a href={releasesPage} target="_blank" rel="noopener noreferrer" className="text-signal underline">GitHub Releases</a>
+              <p className="mt-3 font-mono text-xs text-machine-grey">
+                Verify on <a href={releasesPage} target="_blank" rel="noopener noreferrer" className="text-amber underline">GitHub Releases</a>
               </p>
             )}
           </div>
         </Reveal>
 
-        <div className="mt-8 grid grid-cols-1 gap-8 border-t border-[rgba(138,147,166,0.18)] pt-8 md:grid-cols-2">
+        <div className="mt-8 grid grid-cols-1 gap-8 border-t border-engraved pt-8 md:grid-cols-2">
           <div>
-            <h3 className="font-mono text-xs font-medium text-standby">System requirements</h3>
-            <ul className="mt-3 space-y-1 font-sans text-sm text-standby">
+            <h3 className="font-mono text-[11px] font-medium tracking-[0.12em] text-machine-grey">SYSTEM REQUIREMENTS</h3>
+            <ul className="mt-3 space-y-1 font-sans text-sm text-off-white">
               <li>Windows 10 (Build 19041+) or Windows 11</li>
               <li>GPU with hardware video decoding</li>
             </ul>
           </div>
           <div>
-            <h3 className="font-mono text-xs font-medium text-standby">GitHub</h3>
-            <p className="mt-3 font-sans text-sm text-standby">
-              Source and releases on <a href={releasesPage} target="_blank" rel="noopener noreferrer" className="text-signal underline">GitHub</a>. 100% open source.
+            <h3 className="font-mono text-[11px] font-medium tracking-[0.12em] text-machine-grey">SOURCE</h3>
+            <p className="mt-3 font-sans text-sm text-off-white">
+              Source and releases on <a href={releasesPage} target="_blank" rel="noopener noreferrer" className="text-amber underline">GitHub</a>. 100% open source.
             </p>
           </div>
         </div>

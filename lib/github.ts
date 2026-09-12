@@ -29,9 +29,9 @@ const DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases
 const RELEASES_PAGE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
 
 const FALLBACK_RELEASE: ReleaseInfo = {
-  version: "v1.5.1",
-  publishedAt: "2026-08-06T17:26:55Z",
-  checksum: "076d567392c98c5bd9df30ee3b3d0c8b104975db5adcd464da37f4e8279c4d2c",
+  version: "v1.5.2",
+  publishedAt: "2026-08-26T02:23:32Z",
+  checksum: "ca784030902b53dcceba92451b65c4055a878abd7739885dabc3d8591fdbab5f",
   downloadUrl: DOWNLOAD_URL,
   releaseUrl: RELEASES_PAGE_URL,
 };

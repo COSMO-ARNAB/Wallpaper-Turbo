@@ -8,13 +8,14 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "WallpaperTurbo",
     description:
       "Lightweight, hardware-accelerated live wallpapers for Windows 10 and Windows 11.",
-    start_url: "/",
+    start_url: "/Wallpaper-Turbo/",
+    scope: "/Wallpaper-Turbo/",
     display: "standalone",
     background_color: "#0c0c0e",
     theme_color: "#0c0c0e",
     icons: [
       {
-        src: "/icon.svg",
+        src: "/Wallpaper-Turbo/icon.svg",
         sizes: "any",
         type: "image/svg+xml",
       },

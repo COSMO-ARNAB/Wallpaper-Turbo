@@ -20,10 +20,10 @@ function TickerRow({ ariaHidden }: { ariaHidden?: boolean }) {
       {specs.map((spec) => (
         <span
           key={spec}
-          className="flex items-center whitespace-nowrap font-mono text-xs text-standby"
+          className="flex items-center whitespace-nowrap font-mono text-xs text-machine-grey"
         >
           <span className="px-6">{spec}</span>
-          <span aria-hidden="true" className="h-4 w-px bg-[rgba(138,147,166,0.18)]" />
+          <span aria-hidden="true" className="h-4 w-px bg-engraved" />
         </span>
       ))}
     </div>
@@ -51,7 +51,7 @@ export function Ticker() {
   return (
     <div
       ref={ref}
-      className={`ticker overflow-hidden border-y border-[rgba(138,147,166,0.18)] bg-black-level py-3 ${paused ? "ticker-paused" : ""}`}
+      className={`ticker overflow-hidden border-y border-engraved bg-plate py-3 ${paused ? "ticker-paused" : ""}`}
       aria-label="Technical specifications"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

@@ -1,22 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --panel-off: #05070d;
-  --black-level: #0c1220;
-  --backlight: #e9edf3;
-  --standby: #8a93a6;
-  --signal: #60cdff;
-  --tungsten: #ffc98b;
+  /* v3 — Capability Plate: graphite, warm off-white, amber readout */
+  --graphite: #101214;
+  --plate: #16181b;
+  --engraved: #2a2e33;
+  --off-white: #f2f0e9;
+  --machine-grey: #6e7681;
+  --amber: #ffb454;
 
-  --background: var(--panel-off);
-  --surface: var(--black-level);
-  --surface-sunken: var(--black-level);
-  --surface-raised: var(--panel-off);
-  --foreground: var(--backlight);
-  --foreground-muted: var(--standby);
-  --border: rgba(138, 147, 166, 0.18);
-  --border-strong: rgba(138, 147, 166, 0.28);
-  --focus-ring: var(--signal);
+  --background: var(--graphite);
+  --surface: var(--plate);
+  --surface-sunken: var(--plate);
+  --surface-raised: var(--graphite);
+  --foreground: var(--off-white);
+  --foreground-muted: var(--machine-grey);
+  --border: var(--engraved);
+  --border-strong: var(--engraved);
+  --focus-ring: var(--amber);
 
   --radius: 2px;
 
@@ -25,12 +26,12 @@
 
 @theme inline {
   --color-background: var(--background);
-  --color-panel-off: var(--panel-off);
-  --color-black-level: var(--black-level);
-  --color-backlight: var(--backlight);
-  --color-standby: var(--standby);
-  --color-signal: var(--signal);
-  --color-tungsten: var(--tungsten);
+  --color-graphite: var(--graphite);
+  --color-plate: var(--plate);
+  --color-engraved: var(--engraved);
+  --color-off-white: var(--off-white);
+  --color-machine-grey: var(--machine-grey);
+  --color-amber: var(--amber);
   --color-foreground: var(--foreground);
   --color-foreground-muted: var(--foreground-muted);
   --color-border: var(--border);
@@ -46,8 +47,8 @@ html {
 }
 
 body {
-  background-color: var(--panel-off);
-  color: var(--backlight);
+  background-color: var(--graphite);
+  color: var(--off-white);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -55,25 +56,29 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--signal);
+  outline: 2px solid var(--amber);
   outline-offset: 2px;
 }
-.bg-signal:focus-visible,
-.bg-tungsten:focus-visible {
-  outline-color: var(--panel-off);
+.bg-amber:focus-visible {
+  outline-color: var(--graphite);
 }
 
 ::selection {
-  background-color: var(--backlight);
-  color: var(--panel-off);
+  background-color: var(--off-white);
+  color: var(--graphite);
 }
 
-/* --- Hairlines --------------------------------------------------------- */
+/* --- Hairlines / frames ------------------------------------------------ */
 .hairline {
-  border-color: var(--border);
+  border-color: var(--engraved);
 }
 .hairline-strong {
-  border-color: var(--border-strong);
+  border-color: var(--engraved);
+}
+.plate-frame {
+  border: 1px solid var(--engraved);
+  background: var(--plate);
+  border-radius: 2px;
 }
 
 /* --- Power-on ramp ----------------------------------------------------- */
@@ -97,37 +102,7 @@ body {
   .reveal { opacity: 1; transition: none; }
 }
 
-/* --- Wallpaper layer — fixed z-0 -------------------------------------- */
-.wallpaper-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  object-fit: cover;
-  transition: opacity 1200ms ease-out;
-}
-
-/* --- OSD — fixed bottom-left, Black Level, hairline, 2px radius ------- */
-.osd {
-  position: fixed;
-  left: 16px;
-  bottom: 16px;
-  z-index: 40;
-  background: var(--black-level);
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  padding: 10px 12px;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.5;
-  font-variant-numeric: tabular-nums;
-  color: var(--backlight);
-}
-@media (min-width: 768px) {
-  .osd { left: 24px; bottom: 24px; }
-}
-
-/* --- Ticker — Black Level strip, hairline separators ------------------- */
+/* --- Ticker — Plate strip, Engraved separators ------------------------- */
 @keyframes ticker-scroll {
   from { transform: translate3d(0, 0, 0); }
   to { transform: translate3d(-50%, 0, 0); }
@@ -148,13 +123,13 @@ body {
 
 /* --- Hover — lightness only ------------------------------------------- */
 .btn-primary {
-  background: var(--backlight);
-  color: var(--panel-off);
+  background: var(--off-white);
+  color: var(--graphite);
   border-radius: 2px;
   transition: background 120ms ease-out;
 }
-.btn-primary:hover { background: color-mix(in srgb, var(--backlight) 90%, black); }
-.btn-primary:active { background: color-mix(in srgb, var(--backlight) 85%, black); }
+.btn-primary:hover { background: color-mix(in srgb, var(--off-white) 90%, black); }
+.btn-primary:active { background: color-mix(in srgb, var(--off-white) 85%, black); }
 
 /* --- Grid — 12-col, left-anchored, outer margins clamp -------------- */
 .grid-shell {
@@ -174,6 +149,6 @@ body {
 
 /* --- Scrollbar --------------------------------------------------------- */
 ::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--panel-off); }
-::-webkit-scrollbar-thumb { background: rgba(138,147,166,0.28); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(138,147,166,0.42); }
+::-webkit-scrollbar-track { background: var(--graphite); }
+::-webkit-scrollbar-thumb { background: var(--engraved); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--machine-grey); }

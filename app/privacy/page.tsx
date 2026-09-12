@@ -15,7 +15,7 @@ export default function PrivacyPage() {
             href="/"
             className="flex items-center gap-2 font-semibold tracking-tight text-foreground transition-opacity hover:opacity-80"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-border-bright bg-surface-raised font-mono text-xs font-bold text-accent-bright">
+            <span className="flex h-7 w-7 items-center justify-center rounded-[2px] border border-engraved bg-plate font-mono text-xs font-bold text-amber">
               WT
             </span>
             <span>Wallpaper Turbo</span>
@@ -30,8 +30,8 @@ export default function PrivacyPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-6 py-16">
-        <div className="tactile-card rounded-xl p-8 sm:p-10">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+        <div className="plate-frame p-8 sm:p-10">
+          <h1 className="font-display text-3xl font-bold uppercase tracking-tight text-off-white sm:text-4xl">
             Privacy Policy
           </h1>
           <p className="mt-2 font-mono text-xs text-foreground-muted">
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
                 3. Network Activity (Updates Only)
               </h2>
               <p>
-                The optional Auto-Updater connects strictly to GitHub Releases API (<code className="rounded bg-surface-sunken px-1.5 py-0.5 font-mono text-xs text-foreground">api.github.com</code>) to check for the latest version tag and verify cryptographic SHA-256 signatures. No user identifiers or machine IDs are transmitted.
+                The optional Auto-Updater connects strictly to GitHub Releases API (<code className="rounded-[2px] bg-graphite px-1.5 py-0.5 font-mono text-xs text-off-white">api.github.com</code>) to check for the latest version tag and verify cryptographic SHA-256 signatures. No user identifiers or machine IDs are transmitted.
               </p>
             </section>
 
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
                   href="https://github.com/COSMO-ARNAB/Wallpaper-Turbo"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-foreground underline underline-offset-2 hover:text-accent-bright"
+                  className="font-medium text-off-white underline underline-offset-2 hover:text-amber"
                 >
                   GitHub
                 </a>

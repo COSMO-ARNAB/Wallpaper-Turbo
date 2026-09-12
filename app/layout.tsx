@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { Big_Shoulders, Archivo, Spline_Sans_Mono } from "next/font/google";
 import "./globals.css";
-import { OSD } from "@/components/OSD";
 
 const displayFont = Big_Shoulders({
   variable: "--font-big-shoulders",
@@ -55,14 +53,6 @@ export const metadata: Metadata = {
       "Lightweight, hardware-accelerated live wallpaper engine for Windows 10 and Windows 11.",
     url: "https://cosmo-arnab.github.io/Wallpaper-Turbo",
     siteName: "Wallpaper Turbo",
-    images: [
-      {
-        url: "/screenshot.png",
-        width: 1920,
-        height: 1080,
-        alt: "Wallpaper Turbo Windows Application",
-      },
-    ],
     locale: "en_US",
     type: "website",
   },
@@ -71,7 +61,6 @@ export const metadata: Metadata = {
     title: "Wallpaper Turbo · Lightweight Live Wallpapers for Windows",
     description:
       "Lightweight, hardware-accelerated live wallpaper engine for Windows 10 and Windows 11.",
-    images: ["/screenshot.png"],
   },
   robots: {
     index: true,
@@ -85,8 +74,8 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/Wallpaper-Turbo/icon.svg",
+    apple: "/Wallpaper-Turbo/icon.svg",
   },
 };
 
@@ -104,28 +93,11 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen bg-panel-off text-backlight antialiased" suppressHydrationWarning>
-        {/* THESIS: page is a display, wallpaper layer fixed at z-0 beneath all content, page demonstrates disappearing by disappearing itself
-            OWN-WORLD: Panel Off #05070D / Black Level #0C1220 / Backlight #E9EDF3 / Standby #8A93A6 / Signal #60CDFF / Tungsten #FFC98B, hairlines 18% Standby, 2px radius, Big Shoulders 700-800 + Archivo 400-600 + Spline Sans Mono tabular-nums, no blur/shadow/gradient
-            STORY: visitor sees wallpaper under icons in hero, understands it renders under SHELLDLL_DefView, believes zero FPS tax via live GPU readout, downloads from left-aligned block
-            FIRST VIEWPORT: full viewport wallpaper layer fixed z-0, left-anchored Big Shoulders H1 Live wallpapers Set one It renders under your icons, two CTAs Download for Windows + See how it works, bottom-left real icons + layer readout icons > SHELLDLL_DefView > wallpaper layer, nav 56px Panel Off hairline, OSD fixed bottom-left
-            FORM: left-anchored 12-col 1440 clamp(24px,5vw,120px) hairline-separated rows, wallpapers bleed edge-to-edge, OSD signature, seed v2-display-field
-            FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md */}
-        <div aria-hidden="true" className="wallpaper-layer">
-          <Image
-            src="/gallery-aurora.png"
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-            style={{ opacity: 0.9 }}
-          />
-        </div>
-        <div className="relative z-10">
-          {children}
-        </div>
-        <OSD />
+      <body className="min-h-screen bg-graphite text-off-white antialiased" suppressHydrationWarning>
+        {/* THESIS v3 — capability plate: the raw capability list is the design itself.
+            OWN-WORLD: Graphite #101214 / Plate #16181B / Engraved #2A2E33 / Off-White #F2F0E9 / Machine Grey #6E7681 / Amber #FFB454, 2px radius, no blur/shadow/gradient
+            RULE: amber means "this number was measured"; every frame is a nameplate; no AI imagery — empty feeds say NO SIGNAL */}
+        {children}
       </body>
     </html>
   );

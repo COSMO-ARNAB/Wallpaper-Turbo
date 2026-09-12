@@ -1,10 +1,8 @@
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { Ticker } from "@/components/Ticker";
-import { Features } from "@/components/Features";
-import { Aperture } from "@/components/Aperture";
-import { Gallery } from "@/components/Gallery";
 import { Engine } from "@/components/Engine";
+import { Features } from "@/components/Features";
 import { Download } from "@/components/Download";
 import { Footer } from "@/components/Footer";
 import { getLatestRelease } from "@/lib/github";
@@ -15,13 +13,11 @@ export default async function Home() {
   return (
     <>
       <Navbar version={release?.version ?? null} />
-      <main id="main-content" className="pb-16 md:pb-20" suppressHydrationWarning>
+      <main id="main-content" suppressHydrationWarning>
         <Hero />
         <Ticker />
-        <Features />
-        <Aperture />
-        <Gallery />
         <Engine />
+        <Features />
         <Download release={release} />
       </main>
       <Footer />

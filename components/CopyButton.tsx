@@ -27,8 +27,8 @@ export function CopyButton({ text }: CopyButtonProps) {
       aria-live="polite"
       className={`inline-flex h-9 min-w-[5rem] items-center justify-center gap-1.5 rounded-[2px] border font-mono text-xs font-semibold transition-colors ${
         copied
-          ? "border-signal bg-[rgba(96,205,255,0.12)] text-signal"
-          : "border-[rgba(138,147,166,0.18)] bg-black-level text-standby hover:bg-panel-off hover:text-backlight"
+          ? "border-amber bg-plate text-amber"
+          : "border-engraved bg-graphite text-machine-grey hover:bg-plate hover:text-off-white"
       }`}
     >
       {copied ? (

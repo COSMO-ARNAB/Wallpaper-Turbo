@@ -1,86 +1,104 @@
-"use client";
-
-import { useState } from "react";
 import { Reveal } from "./Reveal";
 
-export function Engine() {
-  const [active, setActive] = useState<"libvlc" | "webview2" | null>(null);
+const pipelines = [
+  {
+    name: "VIDEO",
+    formats: "mp4, mkv, webm",
+    path: "NVDEC / QuickSync / DXVA2",
+    engine: "LibVLC",
+  },
+  {
+    name: "WEB",
+    formats: "html5, css, webgl",
+    path: "Chromium renderer",
+    engine: "WebView2",
+  },
+  {
+    name: "FX",
+    formats: "shaders",
+    path: "feature level 11_0",
+    engine: "DirectX 11",
+  },
+];
 
+const stages = ["fetch", "decode", "composite", "scan-out"];
+
+export function Engine() {
   return (
-    <section id="engine" className="border-y border-[rgba(138,147,166,0.18)] bg-black-level" aria-labelledby="engine-heading">
-      <div className="grid-shell py-16">
+    <section
+      id="engine"
+      className="border-y border-engraved bg-plate"
+      aria-labelledby="engine-heading"
+    >
+      <div className="grid-shell py-16 lg:py-24">
         <Reveal>
-          <h2 id="engine-heading" className="font-display text-[clamp(2.5rem,5vw,4rem)] font-bold uppercase text-backlight">
-            Two paths, one layer.
+          <h2
+            id="engine-heading"
+            className="font-display text-[clamp(2.5rem,5vw,4rem)] font-bold uppercase leading-[0.95] text-off-white"
+          >
+            Three pipelines.
+            <br />
+            One layer.
           </h2>
-          <p className="mt-4 max-w-[60ch] font-sans text-sm leading-relaxed text-standby">
-            Video and web converge on the same wallpaper layer. Four stages, one output.
+          <p className="mt-4 max-w-[60ch] font-sans text-[17px] leading-[1.55] text-machine-grey">
+            Video, web pages, and shaders all converge on the same wallpaper
+            layer. Four stages, one output.
           </p>
         </Reveal>
 
-        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-12">
-          <div className="lg:col-span-5 font-mono text-xs">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center border border-[rgba(138,147,166,0.18)] bg-panel-off text-backlight">1</span>
-                <span className="text-standby">fetch</span>
-              </div>
-              <div className="ml-3 h-4 w-px bg-[rgba(138,147,166,0.18)]" />
-              <div className="flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center border border-[rgba(138,147,166,0.18)] bg-panel-off text-backlight">2</span>
-                <span className="text-standby">decode</span>
-              </div>
-              <div className="ml-3 h-4 w-px bg-[rgba(138,147,166,0.18)]" />
-              <div className="flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center border border-[rgba(138,147,166,0.18)] bg-panel-off text-backlight">3</span>
-                <span className="text-standby">composite</span>
-              </div>
-              <div className="ml-3 h-4 w-px bg-[rgba(138,147,166,0.18)]" />
-              <div className="flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center border border-[rgba(138,147,166,0.18)] bg-panel-off text-backlight">4</span>
-                <span className="text-standby">scan-out</span>
-              </div>
-              <div className="ml-3 h-4 w-px bg-[rgba(138,147,166,0.18)]" />
-              <div className="font-sans text-sm font-semibold text-signal">wallpaper layer</div>
+        <div className="mt-12 grid grid-cols-1 gap-12 lg:grid-cols-12">
+          <Reveal delay={100} className="lg:col-span-7">
+            <div className="plate-frame overflow-hidden">
+              <p className="border-b border-engraved px-5 py-3 font-mono text-[11px] font-medium tracking-[0.12em] text-machine-grey">
+                PIPELINE SPECIFICATION
+              </p>
+              <table className="w-full font-mono text-[13px]">
+                <thead className="sr-only">
+                  <tr>
+                    <th scope="col">Pipeline</th>
+                    <th scope="col">Formats</th>
+                    <th scope="col">Engine</th>
+                    <th scope="col">Decode path</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pipelines.map((p) => (
+                    <tr key={p.name} className="border-b border-engraved last:border-b-0">
+                      <th scope="row" className="px-5 py-4 text-left align-top font-medium tracking-[0.08em] text-machine-grey">
+                        {p.name}
+                      </th>
+                      <td className="px-5 py-4 align-top text-off-white">{p.formats}</td>
+                      <td className="hidden px-5 py-4 align-top text-off-white sm:table-cell">{p.engine}</td>
+                      <td className="px-5 py-4 align-top text-machine-grey">{p.path}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
+          </Reveal>
 
-          <div className="lg:col-span-7 space-y-3">
-            <button
-              type="button"
-              onClick={() => setActive(active === "libvlc" ? null : "libvlc")}
-              className={`w-full border px-4 py-4 text-left font-mono text-xs ${active === "libvlc" || active === null ? "border-signal bg-[rgba(96,205,255,0.08)] text-signal" : "border-[rgba(138,147,166,0.18)] bg-panel-off text-standby"}`}
-            >
-              <div className="font-semibold">LibVLC</div>
-              <div className="mt-1 text-[11px]">MP4 · MKV · WebM — NVDEC / QuickSync / DXVA2</div>
-            </button>
-
-            <div className="flex justify-center">
-              <span className="h-6 w-px bg-[rgba(138,147,166,0.18)]" />
+          <Reveal delay={180} className="lg:col-span-5">
+            <div className="plate-frame p-5">
+              <p className="font-mono text-[11px] font-medium tracking-[0.12em] text-machine-grey">
+                STAGES
+              </p>
+              <ol className="mt-4 font-mono text-[13px]">
+                {stages.map((stage, i) => (
+                  <li key={stage} className="flex items-center gap-3 border-b border-engraved py-2.5 last:border-b-0">
+                    <span className="w-6 text-machine-grey">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="text-off-white">{stage}</span>
+                  </li>
+                ))}
+                <li className="flex items-center gap-3 py-2.5">
+                  <span className="w-6 text-machine-grey">→</span>
+                  <span className="font-medium text-amber">wallpaper layer</span>
+                </li>
+              </ol>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setActive(active === "webview2" ? null : "webview2")}
-              className={`w-full border px-4 py-4 text-left font-mono text-xs ${active === "webview2" || active === null ? "border-signal bg-[rgba(96,205,255,0.08)] text-signal" : "border-[rgba(138,147,166,0.18)] bg-panel-off text-standby"}`}
-            >
-              <div className="font-semibold">WebView2</div>
-              <div className="mt-1 text-[11px]">HTML5 · CSS · WebGL</div>
-            </button>
-
-            <div className="flex justify-center">
-              <span className="h-6 w-px bg-[rgba(138,147,166,0.18)]" />
-            </div>
-
-            <div className="border border-[rgba(138,147,166,0.18)] bg-panel-off px-4 py-3 text-center font-mono text-xs text-backlight">
-              wallpaper layer
-            </div>
-
-            <div className="mt-6 border border-tungsten/30 bg-[rgba(255,201,139,0.08)] p-4">
-              <p className="font-mono text-xs text-tungsten">Color temperature — night light demo</p>
-              <p className="mt-1 font-sans text-xs text-standby">The only Tungsten field outside the OSD.</p>
-            </div>
-          </div>
+            <p className="mt-4 font-mono text-xs text-machine-grey">
+              z-order: below SHELLDLL_DefView · above desktop background
+            </p>
+          </Reveal>
         </div>
       </div>
     </section>
