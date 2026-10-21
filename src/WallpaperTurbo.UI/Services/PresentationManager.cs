@@ -92,7 +92,7 @@ public partial class PresentationManager : ObservableObject, IDisposable
             IsActive: session?.IsActive ?? false,
             IsPlaying: session?.IsPlaying ?? false,
             BackdropPreference: settings.GlassBackdrop ?? "Mica",
-            GlassOpacity: settings.GlassOpacity);
+            GlassOpacity: settings.GlassOpacity > 1.0 ? settings.GlassOpacity / 100.0 : settings.GlassOpacity);
 
         ThemeResult result = _themeResolver.Resolve(inputs);
 

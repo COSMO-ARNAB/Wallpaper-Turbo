@@ -606,6 +606,9 @@
                             
                             <UniformGrid Grid.Column="0" Columns="4">
                                 <Border Style="{StaticResource NeonCardStyle}" Height="64" Margin="0,0,8,0" Padding="12" Cursor="Hand">
+                                    <Border.InputBindings>
+                                        <MouseBinding Gesture="LeftClick" Command="{Binding OpenPlaylistCommand}" CommandParameter="Favorites" />
+                                    </Border.InputBindings>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -621,6 +624,9 @@
                                 </Border>
 
                                 <Border Style="{StaticResource NeonCardStyle}" Height="64" Margin="4,0,4,0" Padding="12" Cursor="Hand">
+                                    <Border.InputBindings>
+                                        <MouseBinding Gesture="LeftClick" Command="{Binding OpenPlaylistCommand}" CommandParameter="Anime Vibes" />
+                                    </Border.InputBindings>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -636,6 +642,9 @@
                                 </Border>
 
                                 <Border Style="{StaticResource NeonCardStyle}" Height="64" Margin="4,0,4,0" Padding="12" Cursor="Hand">
+                                    <Border.InputBindings>
+                                        <MouseBinding Gesture="LeftClick" Command="{Binding OpenPlaylistCommand}" CommandParameter="Cars &amp; Drives" />
+                                    </Border.InputBindings>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -651,6 +660,9 @@
                                 </Border>
 
                                 <Border Style="{StaticResource NeonCardStyle}" Height="64" Margin="8,0,0,0" Padding="12" Cursor="Hand">
+                                    <Border.InputBindings>
+                                        <MouseBinding Gesture="LeftClick" Command="{Binding OpenPlaylistCommand}" CommandParameter="Dark Aesthetic" />
+                                    </Border.InputBindings>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />

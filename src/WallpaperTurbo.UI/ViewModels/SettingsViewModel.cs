@@ -1,6 +1,8 @@
+using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,7 +14,7 @@ using WallpaperTurbo.UI.Services;
 
 namespace WallpaperTurbo.UI.ViewModels;
 
-public partial class SettingsViewModel : ObservableObject
+public partial class SettingsViewModel : ObservableObject, IDisposable
 {
     private readonly WallpaperService _wallpaperService;
     private readonly UpdaterViewModel _updaterViewModel;
@@ -23,6 +25,7 @@ public partial class SettingsViewModel : ObservableObject
     private bool _suppressChannelUpdate;
     private bool _isSyncing = false;
     private int _gpuSwitchPendingCount = 0;
+    private bool _disposed;
 
     [ObservableProperty] private bool _useHardwareAcceleration = true;
     [ObservableProperty] private string _activePauseProfile = "Maximized";
@@ -80,7 +83,7 @@ public partial class SettingsViewModel : ObservableObject
             _selectedTheme = settings.Theme;
             _selectedLayout = settings.Layout;
             _selectedGlassBackdrop = settings.GlassBackdrop == "Acrylic" ? "Glass" : settings.GlassBackdrop;
-            _selectedGlassOpacityPercent = (int)Math.Round(settings.GlassOpacity * 100);
+            _selectedGlassOpacityPercent = (int)Math.Round(AppSettings.NormalizeGlassOpacity(settings.GlassOpacity));
             _useHardwareAcceleration = settings.UseHardwareAcceleration;
             _pauseOnFullscreen = settings.PauseOnMaximized;
             _muteWallpaperAudio = settings.MuteAudio;
@@ -120,7 +123,7 @@ public partial class SettingsViewModel : ObservableObject
                 if (SelectedTheme != newSettings.Theme) SelectedTheme = newSettings.Theme;
                 if (SelectedLayout != newSettings.Layout) SelectedLayout = newSettings.Layout;
                 if (SelectedGlassBackdrop != newSettings.GlassBackdrop) SelectedGlassBackdrop = newSettings.GlassBackdrop;
-                int newPercent = (int)Math.Round(newSettings.GlassOpacity * 100);
+                int newPercent = (int)Math.Round(AppSettings.NormalizeGlassOpacity(newSettings.GlassOpacity));
                 if (SelectedGlassOpacityPercent != newPercent) SelectedGlassOpacityPercent = newPercent;
                 if (PauseOnFullscreen != newSettings.PauseOnMaximized) PauseOnFullscreen = newSettings.PauseOnMaximized;
                 if (MuteWallpaperAudio != newSettings.MuteAudio) MuteWallpaperAudio = newSettings.MuteAudio;
@@ -281,12 +284,23 @@ public partial class SettingsViewModel : ObservableObject
         _settingsStore.Save(settings);
     }
 
+    public double GlassOpacity
+    {
+        get => _settingsStore.Load().GlassOpacity;
+        set
+        {
+            var normalized = AppSettings.NormalizeGlassOpacity(value);
+            SelectedGlassOpacityPercent = (int)Math.Round(normalized);
+        }
+    }
+
     partial void OnSelectedGlassOpacityPercentChanged(int value)
     {
         if (_isSyncing) return;
 
+        var normalized = AppSettings.NormalizeGlassOpacity(value);
         var settings = _settingsStore.Load();
-        settings.GlassOpacity = value / 100.0;
+        settings.GlassOpacity = normalized;
         _settingsStore.Save(settings);
     }
 
@@ -559,5 +573,16 @@ public partial class SettingsViewModel : ObservableObject
         {
             IsDetectingGpus = false;
         }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _settingsStore.SettingsChanged -= OnSettingsStoreChanged;
+        _gpuSwitchCts?.Cancel();
+        _gpuSwitchCts?.Dispose();
+        _gpuSwitchCts = null;
     }
 }

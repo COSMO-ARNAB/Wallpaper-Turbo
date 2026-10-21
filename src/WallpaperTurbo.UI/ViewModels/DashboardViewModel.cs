@@ -23,8 +23,19 @@ public class MonitorTopologyItem
     public string DisplayString => $"{Resolution}\n{Type}";
 }
 
-public partial class DashboardViewModel : ObservableObject
+public partial class DashboardViewModel : ObservableObject, IDisposable
 {
+    public const string CanonicalDefaultWallpaperId = AppSettings.CanonicalDefaultWallpaperId;
+    public static string NormalizeWallpaperId(string? id) => AppSettings.NormalizeWallpaperId(id);
+
+    public event EventHandler<string>? ApplyRollbackError;
+
+    private readonly System.Threading.Timer? _greetingTimer;
+    private bool _disposed;
+
+    [ObservableProperty] private bool _isPlaying = true;
+    [ObservableProperty] private bool _isApplying;
+
     private readonly WallpaperService _wallpaperService;
     private List<WallpaperEntry> _allWallpapers = new();
 
@@ -187,6 +198,7 @@ public partial class DashboardViewModel : ObservableObject
         }
 
         UpdateGreeting();
+        _greetingTimer = new System.Threading.Timer(_ => RunOnUi(UpdateGreeting), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
 
         // Listen to external settings changes
         _settingsStore.SettingsChanged += OnSettingsStoreChanged;
@@ -441,23 +453,27 @@ public partial class DashboardViewModel : ObservableObject
 
     public async Task LoadFeaturedWallpapersAsync()
     {
+        var defaultWallpaper = _allWallpapers.FirstOrDefault(w => w.Id == CanonicalDefaultWallpaperId) 
+            ?? _allWallpapers.FirstOrDefault(w => string.Equals(w.Id, "crimson-blind", StringComparison.OrdinalIgnoreCase))
+            ?? (_allWallpapers.Count > 0 ? _allWallpapers[0] : null);
+
         if (_allWallpapers.Count >= 4)
         {
-            HeroWallpaper = _allWallpapers[0]; // Astral Horizon / Crimson Blind
+            HeroWallpaper = defaultWallpaper ?? _allWallpapers[0]; // Astral Horizon
             SubHero1 = _allWallpapers[1];      // Retrowave Drive / Red Leaves
             SubHero2 = _allWallpapers[2];      // Forest Serenity / Rapi Red
             SubHero3 = _allWallpapers[3];      // Sukuna Madness
         }
         else if (_allWallpapers.Count >= 3)
         {
-            HeroWallpaper = _allWallpapers[0];
+            HeroWallpaper = defaultWallpaper ?? _allWallpapers[0];
             SubHero1 = _allWallpapers[1];
             SubHero2 = _allWallpapers[2];
             SubHero3 = _allWallpapers[0];
         }
         else if (_allWallpapers.Count > 0)
         {
-            HeroWallpaper = _allWallpapers[0];
+            HeroWallpaper = defaultWallpaper ?? _allWallpapers[0];
             SubHero1 = _allWallpapers[0];
             SubHero2 = _allWallpapers[0];
             SubHero3 = _allWallpapers[0];
@@ -629,24 +645,121 @@ public partial class DashboardViewModel : ObservableObject
             return;
         }
 
-        await mainVm.RunWallpaperTransitionAsync(async () =>
+        await ApplyWallpaperAsync(wp);
+    }
+
+    public async Task<bool> ApplyWallpaperAsync(WallpaperEntry? target, TimeSpan? timeout = null)
+    {
+        if (target == null || IsApplying) return false;
+
+        var mainVm = App.GetService<MainViewModel>();
+        var previousWallpaper = ActiveWallpaper;
+        var previousPlaying = IsPlaying;
+
+        try
         {
-            var list = await _wallpaperService.GetWallpapersAsync();
-            int index = list.IndexOf(wp) + 1;
-            if (index <= 0)
+            IsApplying = true;
+            using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(5));
+
+            bool success = false;
+            if (mainVm != null)
             {
-                return false;
+                success = await mainVm.RunWallpaperTransitionAsync(async () =>
+                {
+                    var list = await _wallpaperService.GetWallpapersAsync();
+                    int index = list.IndexOf(target) + 1;
+                    if (index <= 0)
+                    {
+                        return false;
+                    }
+
+                    RegisterPlayedWallpaper(target);
+                    LastDisplayedWallpaper = target;
+                    await _wallpaperService.LaunchWallpaperAsync(index, PauseOnMaximized ? "Maximized" : "None");
+                    ActiveWallpaper = target;
+                    IsPlaying = true;
+
+                    // Notify MainViewModel of active wallpaper details
+                    mainVm.SetActiveWallpaperInfo(target.Title, $"{target.Resolution} • {target.Fps}");
+                    return true;
+                });
+            }
+            else
+            {
+                var list = await _wallpaperService.GetWallpapersAsync();
+                int index = list.IndexOf(target) + 1;
+                if (index > 0)
+                {
+                    RegisterPlayedWallpaper(target);
+                    LastDisplayedWallpaper = target;
+                    await _wallpaperService.LaunchWallpaperAsync(index, PauseOnMaximized ? "Maximized" : "None");
+                    ActiveWallpaper = target;
+                    IsPlaying = true;
+                    success = true;
+                }
             }
 
-            RegisterPlayedWallpaper(wp);
-            LastDisplayedWallpaper = wp;
-            await _wallpaperService.LaunchWallpaperAsync(index, PauseOnMaximized ? "Maximized" : "None");
-            ActiveWallpaper = wp;
+            if (!success)
+            {
+                throw new InvalidOperationException($"Wallpaper '{target.Title}' could not be launched.");
+            }
 
-            // Notify MainViewModel of active wallpaper details
-            mainVm.SetActiveWallpaperInfo(wp.Title, $"{wp.Resolution} • {wp.Fps}");
             return true;
-        });
+        }
+        catch (Exception ex)
+        {
+            // Roll back to previous active wallpaper and notify UI modal
+            ActiveWallpaper = previousWallpaper;
+            IsPlaying = previousPlaying;
+
+            if (mainVm != null && previousWallpaper != null && previousPlaying)
+            {
+                try
+                {
+                    var list = await _wallpaperService.GetWallpapersAsync();
+                    int prevIndex = list.IndexOf(previousWallpaper) + 1;
+                    if (prevIndex > 0)
+                    {
+                        await _wallpaperService.LaunchWallpaperAsync(prevIndex, PauseOnMaximized ? "Maximized" : "None");
+                        mainVm.SetActiveWallpaperInfo(previousWallpaper.Title, $"{previousWallpaper.Resolution} • {previousWallpaper.Fps}");
+                    }
+                }
+                catch { }
+            }
+
+            string errorMessage = $"Failed to apply \"{target.Title}\" ({ex.Message}). Rolled back to \"{previousWallpaper?.Title ?? "None"}\".";
+            ApplyRollbackError?.Invoke(this, errorMessage);
+
+            if (mainVm != null)
+            {
+                mainVm.DialogTitle = "Apply Wallpaper Failed";
+                mainVm.DialogMessage = errorMessage;
+                mainVm.IsDialogCancelVisible = false;
+                mainVm.DialogConfirmCommand = new RelayCommand(() => mainVm.IsDialogVisible = false);
+                mainVm.IsDialogVisible = true;
+            }
+
+            return false;
+        }
+        finally
+        {
+            IsApplying = false;
+        }
+    }
+
+    [RelayCommand]
+    public void OpenPlaylist(string playlistName)
+    {
+        var mainVm = App.GetService<MainViewModel>();
+        if (mainVm != null)
+        {
+            var libraryVm = App.GetService<LibraryViewModel>();
+            if (libraryVm != null)
+            {
+                libraryVm.SelectedCategory = playlistName;
+            }
+            mainVm.NavigateCommand.Execute("Library");
+        }
     }
 
     [RelayCommand]
@@ -863,6 +976,15 @@ public partial class DashboardViewModel : ObservableObject
         {
             action();
         }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _greetingTimer?.Dispose();
+        _settingsStore.SettingsChanged -= OnSettingsStoreChanged;
     }
 }
 

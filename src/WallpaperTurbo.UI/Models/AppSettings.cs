@@ -7,6 +7,11 @@ namespace WallpaperTurbo.UI.Models;
 
 public class AppSettings
 {
+    public const string CanonicalDefaultWallpaperId = "frieren-astral";
+
+    private string? _lastActiveWallpaperId = CanonicalDefaultWallpaperId;
+    private double _glassOpacity = 40.0;
+
     public string Theme { get; set; } = "Dark";
     public string Layout { get; set; } = "Minimal";
     public bool PauseOnMaximized { get; set; } = true;
@@ -15,20 +20,48 @@ public class AppSettings
 
     public string LastRunVersion { get; set; } = string.Empty;
 
-    public string? LastActiveWallpaperId { get; set; }
+    public string? LastActiveWallpaperId
+    {
+        get => _lastActiveWallpaperId;
+        set => _lastActiveWallpaperId = value != null ? NormalizeWallpaperId(value) : null;
+    }
 
     public bool AutoStartWallpaperEngine { get; set; } = true;
 
     public bool RememberLastWallpaper { get; set; } = true;
 
     public string GlassBackdrop { get; set; } = "Mica";
-    public double GlassOpacity { get; set; } = 0.40;
+    public double GlassOpacity
+    {
+        get => _glassOpacity;
+        set => _glassOpacity = NormalizeGlassOpacity(value);
+    }
 
     public bool UseHardwareAcceleration { get; set; } = true;
     public bool BatterySaverEnabled { get; set; } = false;
 
     [JsonConverter(typeof(GpuPreferenceJsonConverter))]
     public GpuPreference GpuPreference { get; set; } = GpuPreference.Auto;
+
+    public static string NormalizeWallpaperId(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id) ||
+            string.Equals(id, "crimson-blind", StringComparison.OrdinalIgnoreCase))
+        {
+            return CanonicalDefaultWallpaperId;
+        }
+        return id;
+    }
+
+    public static double NormalizeGlassOpacity(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            return 40.0;
+        }
+        var scaled = (value > 0.0 && value <= 1.0) ? Math.Round(value * 100.0) : Math.Round(value);
+        return Math.Clamp(scaled, 0.0, 90.0);
+    }
 }
 
 /// <summary>

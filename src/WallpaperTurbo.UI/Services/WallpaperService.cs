@@ -226,6 +226,14 @@ public class WallpaperEntry : ObservableObject
         set => SetProperty(ref _tags, value);
     }
 
+    private List<string> _playlists = new();
+    [JsonPropertyName("playlists")]
+    public List<string> Playlists
+    {
+        get => _playlists;
+        set => SetProperty(ref _playlists, value);
+    }
+
     private bool _isActive;
     [JsonIgnore]
     public bool IsActive
@@ -538,6 +546,7 @@ public class WallpaperService
                     existing.Video = incoming.Video;
                     existing.Author = incoming.Author;
                     existing.Tags = incoming.Tags;
+                    existing.Playlists = incoming.Playlists;
                     existing.IsFallbackThumbnail = incoming.IsFallbackThumbnail;
 
                     // Only update Thumbnail path if it has actually changed, to avoid re-triggering disk I/O

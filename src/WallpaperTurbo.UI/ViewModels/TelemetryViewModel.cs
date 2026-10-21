@@ -1,10 +1,18 @@
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using WallpaperTurbo.UI.Services;
 
 namespace WallpaperTurbo.UI.ViewModels;
 
-public partial class TelemetryViewModel : ObservableObject
+public partial class TelemetryViewModel : ObservableObject, IDisposable
 {
+    private readonly Action? _unsubscribe;
+    private bool _disposed;
+
+    public TelemetryViewModel(Action? unsubscribe = null)
+    {
+        _unsubscribe = unsubscribe;
+    }
     [ObservableProperty] private bool _isEngineRunning;
     [ObservableProperty] private bool _isCpuAvailable;
     [ObservableProperty] private bool _isGpuAvailable;
@@ -58,5 +66,12 @@ public partial class TelemetryViewModel : ObservableObject
         OnPropertyChanged(nameof(RamText));
         OnPropertyChanged(nameof(VramText));
         OnPropertyChanged(nameof(FpsText));
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _unsubscribe?.Invoke();
     }
 }

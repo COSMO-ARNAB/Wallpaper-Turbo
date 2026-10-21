@@ -36,6 +36,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
     private readonly CancellationTokenSource _shutdownCts = new();
 
     public event EventHandler<WallpaperEntry>? MetadataChanged;
+    public event EventHandler? WallpapersChanged;
 
     public WallpaperLibraryService(IThumbnailExtractor thumbnailExtractor)
     {
@@ -100,7 +101,7 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                         // Set resolution/fps for default wallpapers based on known IDs if not already set
                         if (string.IsNullOrEmpty(wp.Resolution) || wp.Resolution == "1920 x 1080")
                         {
-                            if (wp.Id.Contains("frieren") || wp.Id.Contains("crimson"))
+                            if (wp.Id.Contains("frieren") || wp.Id.Contains("astral") || wp.Id.Contains("crimson"))
                             {
                                 wp.Resolution = "3840 x 2160";
                                 wp.Fps = "60 FPS";
@@ -111,6 +112,8 @@ public class WallpaperLibraryService : IWallpaperLibraryService
                                 wp.Fps = "30 FPS";
                             }
                         }
+                        
+                        SeedPlaylistTags(wp);
                         
                         // We store extracted thumbnails locally because installation folder is read-only
                         string localThumbDir = Path.Combine(_localAppDir, "Thumbnails");
@@ -183,6 +186,28 @@ public class WallpaperLibraryService : IWallpaperLibraryService
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Diagnostic] Failed to load default manifest: {ex.Message}");
+            }
+        }
+
+        if (allWallpapers.Count == 0)
+        {
+            var seeded = CreateSeededWallpapers();
+            foreach (var wp in seeded)
+            {
+                string localThumbDir = Path.Combine(_localAppDir, "Thumbnails");
+                Directory.CreateDirectory(localThumbDir);
+                string localThumbPath = Path.Combine(localThumbDir, $"{wp.Id}.jpg");
+                if (File.Exists(localThumbPath))
+                {
+                    wp.Thumbnail = localThumbPath;
+                    wp.IsFallbackThumbnail = false;
+                }
+                else
+                {
+                    wp.Thumbnail = "pack://application:,,,/Assets/Branding/wallpaper-turbo.ico";
+                    wp.IsFallbackThumbnail = true;
+                }
+                allWallpapers.Add(wp);
             }
         }
 
@@ -1104,5 +1129,177 @@ public class WallpaperLibraryService : IWallpaperLibraryService
         }
 
         return deleted;
+    }
+
+    public void TogglePlaylistMembership(string wallpaperId, string playlistName)
+    {
+        if (string.IsNullOrWhiteSpace(wallpaperId) || string.IsNullOrWhiteSpace(playlistName)) return;
+
+        WallpapersChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static List<WallpaperEntry> CreateSeededWallpapers() => new()
+    {
+        new WallpaperEntry
+        {
+            Id = "frieren-astral",
+            Title = "Astral Horizon",
+            Author = "Studio Turbo",
+            Resolution = "3840 x 2160",
+            Fps = "60 FPS",
+            Tags = new List<string> { "4K", "Sci-Fi", "Ambient", "Favorites", "Anime Vibes" },
+            Playlists = new List<string> { "Favorites", "Anime Vibes" },
+            IsUserImported = false
+        },
+        new WallpaperEntry
+        {
+            Id = "retrowave-drive",
+            Title = "Retrowave Drive",
+            Author = "NeonGrid",
+            Resolution = "3440 x 1440",
+            Fps = "60 FPS",
+            Tags = new List<string> { "Ultrawide", "Sci-Fi", "Abstract", "Cars & Drives", "Favorites" },
+            Playlists = new List<string> { "Favorites", "Cars & Drives" },
+            IsUserImported = false
+        },
+        new WallpaperEntry
+        {
+            Id = "forest-serenity",
+            Title = "Forest Serenity",
+            Author = "TerraVisuals",
+            Resolution = "3440 x 1440",
+            Fps = "30 FPS",
+            Tags = new List<string> { "Ultrawide", "Nature", "Ambient", "Anime Vibes" },
+            Playlists = new List<string> { "Anime Vibes" },
+            IsUserImported = false
+        },
+        new WallpaperEntry
+        {
+            Id = "crimson-eclipse",
+            Title = "Crimson Eclipse",
+            Author = "KuroArts",
+            Resolution = "3840 x 2160",
+            Fps = "60 FPS",
+            Tags = new List<string> { "4K", "Abstract", "Sci-Fi", "Dark Aesthetic", "Favorites" },
+            Playlists = new List<string> { "Favorites", "Dark Aesthetic" },
+            IsUserImported = false
+        },
+        new WallpaperEntry
+        {
+            Id = "cyberpunk-rain",
+            Title = "Cyberpunk Rain",
+            Author = "SynthWave",
+            Resolution = "3840 x 2160",
+            Fps = "60 FPS",
+            Tags = new List<string> { "4K", "Sci-Fi", "Dual Monitor", "Anime Vibes", "Cars & Drives", "Dark Aesthetic" },
+            Playlists = new List<string> { "Anime Vibes", "Cars & Drives", "Dark Aesthetic" },
+            IsUserImported = false
+        },
+        new WallpaperEntry
+        {
+            Id = "alpine-aurora",
+            Title = "Alpine Aurora",
+            Author = "NordicLens",
+            Resolution = "3840 x 2160",
+            Fps = "60 FPS",
+            Tags = new List<string> { "4K", "Nature", "Ambient", "Dark Aesthetic" },
+            Playlists = new List<string> { "Dark Aesthetic" },
+            IsUserImported = false
+        }
+    };
+
+    private static void SeedPlaylistTags(WallpaperEntry wp)
+    {
+        wp.Tags ??= new List<string>();
+        wp.Playlists ??= new List<string>();
+
+        void EnsureTag(string t)
+        {
+            if (!wp.Tags.Any(x => string.Equals(x, t, StringComparison.OrdinalIgnoreCase)))
+                wp.Tags.Add(t);
+        }
+        void EnsurePlaylist(string p)
+        {
+            if (!wp.Playlists.Any(x => string.Equals(x, p, StringComparison.OrdinalIgnoreCase)))
+                wp.Playlists.Add(p);
+            EnsureTag(p);
+        }
+
+        string id = wp.Id ?? string.Empty;
+        if (id.Contains("frieren", StringComparison.OrdinalIgnoreCase) ||
+            id.Contains("astral", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureTag("4K");
+            EnsureTag("Sci-Fi");
+            EnsureTag("Ambient");
+            EnsurePlaylist("Favorites");
+            EnsurePlaylist("Anime Vibes");
+        }
+        else if (id.Contains("retrowave", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureTag("Ultrawide");
+            EnsureTag("Sci-Fi");
+            EnsureTag("Abstract");
+            EnsurePlaylist("Favorites");
+            EnsurePlaylist("Cars & Drives");
+        }
+        else if (id.Contains("forest", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureTag("Ultrawide");
+            EnsureTag("Nature");
+            EnsureTag("Ambient");
+            EnsurePlaylist("Anime Vibes");
+        }
+        else if (id.Contains("crimson", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureTag("4K");
+            EnsureTag("Abstract");
+            EnsureTag("Sci-Fi");
+            EnsurePlaylist("Favorites");
+            EnsurePlaylist("Dark Aesthetic");
+        }
+        else if (id.Contains("cyberpunk", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureTag("4K");
+            EnsureTag("Sci-Fi");
+            EnsureTag("Dual Monitor");
+            EnsurePlaylist("Anime Vibes");
+            EnsurePlaylist("Cars & Drives");
+            EnsurePlaylist("Dark Aesthetic");
+        }
+        else if (id.Contains("alpine", StringComparison.OrdinalIgnoreCase) ||
+                 id.Contains("aurora", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureTag("4K");
+            EnsureTag("Nature");
+            EnsureTag("Ambient");
+            EnsurePlaylist("Dark Aesthetic");
+        }
+        else if (id.Contains("sukuna", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsurePlaylist("Anime Vibes");
+            EnsurePlaylist("Dark Aesthetic");
+            EnsurePlaylist("Favorites");
+        }
+        else if (id.Contains("hatsune", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsurePlaylist("Anime Vibes");
+            EnsurePlaylist("Favorites");
+        }
+        else if (id.Contains("makima", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsurePlaylist("Anime Vibes");
+            EnsurePlaylist("Dark Aesthetic");
+        }
+        else if (id.Contains("rapi", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsurePlaylist("Anime Vibes");
+            EnsurePlaylist("Favorites");
+        }
+        else if (id.Contains("red-leaves", StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureTag("Nature");
+            EnsurePlaylist("Dark Aesthetic");
+        }
     }
 }

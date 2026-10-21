@@ -19,6 +19,8 @@ public class WallpaperEntry
     public string Author { get; init; } = string.Empty;
 
     public string LayoutMode { get; init; } = "Fill";
+    public IReadOnlyList<string> Tags { get; init; } = [];
+    public IReadOnlyList<string> Playlists { get; init; } = [];
 
     public WallpaperLayoutMode GetLayoutMode()
     {

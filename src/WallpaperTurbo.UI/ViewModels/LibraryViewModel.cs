@@ -9,10 +9,11 @@ using WallpaperTurbo.UI.Services;
 
 namespace WallpaperTurbo.UI.ViewModels;
 
-public partial class LibraryViewModel : ObservableObject
+public partial class LibraryViewModel : ObservableObject, IDisposable
 {
     private readonly WallpaperService _wallpaperService;
     private List<WallpaperEntry> _allWallpapers = new();
+    private bool _disposed;
 
     public ObservableCollection<WallpaperEntry> FilteredWallpapers { get; } = new();
 
@@ -24,7 +25,8 @@ public partial class LibraryViewModel : ObservableObject
 
     public List<string> Categories { get; } = new()
     {
-        "All", "4K", "Ultrawide", "Dual Monitor", "Abstract", "Nature", "Sci-Fi", "Ambient"
+        "All", "Favorites", "Anime Vibes", "Cars & Drives", "Dark Aesthetic",
+        "4K", "Ultrawide", "Dual Monitor", "Abstract", "Nature", "Sci-Fi", "Ambient"
     };
 
     public LibraryViewModel(WallpaperService wallpaperService)
@@ -96,21 +98,33 @@ public partial class LibraryViewModel : ObservableObject
                                      w.Tags.Any(t => t.Contains(searchLower, StringComparison.OrdinalIgnoreCase)));
         }
 
-        // 2. Category filter
-        if (!string.Equals(SelectedCategory, "All", StringComparison.OrdinalIgnoreCase))
+        // 2. Category / Playlist filter
+        if (!string.Equals(SelectedCategory, "All", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(SelectedCategory, "All Collections", StringComparison.OrdinalIgnoreCase))
         {
-            string categoryLower = SelectedCategory.ToLowerInvariant();
-            if (categoryLower == "4k")
+            string category = SelectedCategory;
+            if (string.Equals(category, "4K Ultra", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "4K", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(w => w.Resolution.Contains("3840"));
+                query = query.Where(w => w.Resolution.Contains("3840") ||
+                                         w.Tags.Any(t => t.Equals("4K", StringComparison.OrdinalIgnoreCase) || t.Contains("3840")));
             }
-            else if (categoryLower == "ultrawide")
+            else if (string.Equals(category, "Ultrawide", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(w => w.Resolution.Contains("3440"));
+                query = query.Where(w => w.Resolution.Contains("3440") ||
+                                         w.Tags.Any(t => t.Equals("Ultrawide", StringComparison.OrdinalIgnoreCase) || t.Contains("3440")));
+            }
+            else if (string.Equals(category, "Sci-fi", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(category, "Sci-Fi", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(w => w.Tags.Any(t => t.Equals("Sci-Fi", StringComparison.OrdinalIgnoreCase) ||
+                                                         t.Equals("Sci-fi", StringComparison.OrdinalIgnoreCase)));
             }
             else
             {
-                query = query.Where(w => w.Tags.Any(t => t.Equals(categoryLower, StringComparison.OrdinalIgnoreCase)));
+                query = query.Where(w =>
+                    (w.Playlists != null && w.Playlists.Any(p => string.Equals(p, category, StringComparison.OrdinalIgnoreCase))) ||
+                    (w.Tags != null && w.Tags.Any(t => string.Equals(t, category, StringComparison.OrdinalIgnoreCase))));
             }
         }
 
@@ -253,5 +267,41 @@ public partial class LibraryViewModel : ObservableObject
         mainVm.DialogCancelCommand = new RelayCommand(() => mainVm.IsDialogVisible = false);
         mainVm.IsDialogVisible = true;
         await Task.CompletedTask;
+    }
+
+    public void TogglePlaylistMembership(string wallpaperId, string playlistName)
+    {
+        if (string.IsNullOrWhiteSpace(wallpaperId) || string.IsNullOrWhiteSpace(playlistName)) return;
+
+        var wp = _allWallpapers.FirstOrDefault(w => string.Equals(w.Id, wallpaperId, StringComparison.OrdinalIgnoreCase));
+        if (wp == null) return;
+
+        wp.Playlists ??= new List<string>();
+        wp.Tags ??= new List<string>();
+
+        if (wp.Playlists.Any(p => string.Equals(p, playlistName, StringComparison.OrdinalIgnoreCase)))
+        {
+            wp.Playlists.RemoveAll(p => string.Equals(p, playlistName, StringComparison.OrdinalIgnoreCase));
+            wp.Tags.RemoveAll(t => string.Equals(t, playlistName, StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            wp.Playlists.Add(playlistName);
+            if (!wp.Tags.Any(t => string.Equals(t, playlistName, StringComparison.OrdinalIgnoreCase)))
+            {
+                wp.Tags.Add(playlistName);
+            }
+        }
+        ApplyFilter();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        foreach (var wp in _allWallpapers)
+        {
+            wp.PropertyChanged -= OnWallpaperEntryPropertyChanged;
+        }
     }
 }

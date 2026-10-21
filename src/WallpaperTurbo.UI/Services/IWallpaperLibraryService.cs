@@ -16,6 +16,16 @@ public interface IWallpaperLibraryService
     event EventHandler<WallpaperEntry>? MetadataChanged;
 
     /// <summary>
+    /// Raised when wallpapers are added, removed, or playlist memberships change.
+    /// </summary>
+    event EventHandler? WallpapersChanged { add { } remove { } }
+
+    /// <summary>
+    /// Toggles membership of a wallpaper in a given playlist.
+    /// </summary>
+    void TogglePlaylistMembership(string wallpaperId, string playlistName) { }
+
+    /// <summary>
     /// Asynchronously retrieves the merged list of default and user-imported wallpapers.
     /// </summary>
     /// <param name="cancellationToken">Coordinated token for cancel actions.</param>
