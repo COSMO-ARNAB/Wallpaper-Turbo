@@ -73,7 +73,12 @@ public sealed class ForegroundWindowWatcher : IDisposable
                         IntPtr fgHwnd = GetForegroundWindow();
                         if (fgHwnd != IntPtr.Zero)
                         {
-                            isObscured = CheckIfWindowObscuresScreen(fgHwnd);
+                            bool captureReason = !_lastState;
+                            isObscured = CheckIfWindowObscuresScreen(fgHwnd, captureReason, out string? pauseReason);
+                            if (isObscured != _lastState && isObscured)
+                            {
+                                Console.WriteLine($"[Watcher] PAUSED mode={PauseMode} excludedPid={ExcludedPid} {pauseReason}");
+                            }
                         }
                         else
                         {
@@ -111,8 +116,25 @@ public sealed class ForegroundWindowWatcher : IDisposable
         "_cls_desk_"
     };
 
-    private bool CheckIfWindowObscuresScreen(IntPtr hwnd)
+    private static string DescribeWindow(IntPtr hwnd)
     {
+        StringBuilder cls = new StringBuilder(256);
+        GetClassName(hwnd, cls, cls.Capacity);
+        GetWindowThreadProcessId(hwnd, out uint pid);
+        string rect = GetWindowRect(hwnd, out RECT r)
+            ? $"[{r.Left},{r.Top}-{r.Right},{r.Bottom}]"
+            : "[rect-unreadable]";
+        return $"hwnd=0x{hwnd.ToInt64():X} class='{cls}' pid={pid} rect={rect}";
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="hwnd"/> (or a window above the wallpaper on its
+    /// monitor) obscures the desktop. <paramref name="pauseReason"/> names the culprit
+    /// window and the exact check that fired, for pause-misfire diagnosis.
+    /// </summary>
+    private bool CheckIfWindowObscuresScreen(IntPtr hwnd, bool captureReason, out string? pauseReason)
+    {
+        pauseReason = null;
         if (hwnd == IntPtr.Zero)
             return false;
 
@@ -160,6 +182,10 @@ public sealed class ForegroundWindowWatcher : IDisposable
             {
                 return false; // User is on the desktop background, icons, taskbar, start menu, or widgets
             }
+            if (captureReason)
+            {
+                pauseReason = $"focused {DescribeWindow(hwnd)}";
+            }
             return true; // Any non-desktop application focused -> Pause!
         }
 
@@ -195,6 +221,7 @@ public sealed class ForegroundWindowWatcher : IDisposable
                         // Native Win32 maximized check
                         if (IsZoomed(hwnd))
                         {
+                            if (captureReason) pauseReason = $"fast-zoomed {DescribeWindow(hwnd)}";
                             return true;
                         }
 
@@ -207,6 +234,7 @@ public sealed class ForegroundWindowWatcher : IDisposable
                             if (rect.Left <= monRect.Left && rect.Top <= monRect.Top &&
                                 rect.Right >= monRect.Right && rect.Bottom >= monRect.Bottom)
                             {
+                                if (captureReason) pauseReason = $"fast-cover-monitor {DescribeWindow(hwnd)}";
                                 return true;
                             }
 
@@ -214,6 +242,7 @@ public sealed class ForegroundWindowWatcher : IDisposable
                             if (rect.Left <= workRect.Left && rect.Top <= workRect.Top &&
                                 rect.Right >= workRect.Right && rect.Bottom >= workRect.Bottom)
                             {
+                                if (captureReason) pauseReason = $"fast-cover-work {DescribeWindow(hwnd)}";
                                 return true;
                             }
 
@@ -221,6 +250,7 @@ public sealed class ForegroundWindowWatcher : IDisposable
                             long windowArea = (long)w * h;
                             if ((workArea > 0 && windowArea >= workArea * 0.85) || windowArea >= monitorArea * 0.85)
                             {
+                                if (captureReason) pauseReason = $"fast-85pct area={windowArea} work={workArea} mon={monitorArea} {DescribeWindow(hwnd)}";
                                 return true;
                             }
                         }
@@ -264,6 +294,7 @@ public sealed class ForegroundWindowWatcher : IDisposable
                                 {
                                     if (IsZoomed(wnd))
                                     {
+                                        if (captureReason) pauseReason = $"slow-zoomed {DescribeWindow(wnd)}";
                                         return true;
                                     }
 
@@ -277,6 +308,7 @@ public sealed class ForegroundWindowWatcher : IDisposable
                                         if (rect.Left <= monRect.Left && rect.Top <= monRect.Top &&
                                             rect.Right >= monRect.Right && rect.Bottom >= monRect.Bottom)
                                         {
+                                            if (captureReason) pauseReason = $"slow-cover-monitor {DescribeWindow(wnd)}";
                                             return true;
                                         }
 
@@ -284,12 +316,14 @@ public sealed class ForegroundWindowWatcher : IDisposable
                                         if (rect.Left <= workRect.Left && rect.Top <= workRect.Top &&
                                             rect.Right >= workRect.Right && rect.Bottom >= workRect.Bottom)
                                         {
+                                            if (captureReason) pauseReason = $"slow-cover-work {DescribeWindow(wnd)}";
                                             return true;
                                         }
 
                                         // Maximized check on this monitor (>= 85% area)
                                         if ((workArea > 0 && windowArea >= workArea * 0.85) || windowArea >= monitorArea * 0.85)
                                         {
+                                            if (captureReason) pauseReason = $"slow-85pct area={windowArea} work={workArea} mon={monitorArea} {DescribeWindow(wnd)}";
                                             return true;
                                         }
                                     }

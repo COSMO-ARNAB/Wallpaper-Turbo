@@ -200,7 +200,11 @@ public sealed class UpdateCoordinator : IDisposable
         try
         {
             _downloadedFilePath = await _downloadManager.DownloadUpdateAsync(_currentManifest, destinationPath, progress, GetActiveToken());
-            
+
+            // Drop installer files from older versions so the shared temp dir
+            // doesn't accumulate one dead partial per skipped release.
+            CleanupStaleDownloads(tempDir, Path.GetFileName(destinationPath));
+
             await ForceStateAsync(UpdateState.Downloaded);
             
             // Automatic transition to Verification
@@ -208,14 +212,14 @@ public sealed class UpdateCoordinator : IDisposable
         }
         catch (OperationCanceledException)
         {
+            // Keep the partially downloaded file so the next attempt can resume.
             Debug.WriteLine("[UpdateCoordinator] Download was cancelled.");
-            CleanupPartialDownload(destinationPath);
             await ForceStateAsync(UpdateState.UpdateAvailable);
         }
         catch (Exception ex)
         {
+            // Keep the partially downloaded file so the next attempt can resume.
             Debug.WriteLine($"[UpdateCoordinator] Error during download: {ex.Message}");
-            CleanupPartialDownload(destinationPath);
             await HandleErrorAsync("Failed to download update.", ex);
         }
     }
@@ -393,6 +397,46 @@ public sealed class UpdateCoordinator : IDisposable
         catch (Exception ex)
         {
             Debug.WriteLine($"[UpdateCoordinator] Failed to clean up file {path}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Minimum age of an other-version installer file before it counts as stale.
+    /// Production downloads are serialized behind the single-instance mutex, so any
+    /// other-version file is left over from an earlier run; the age floor additionally
+    /// keeps this sweep from touching a file a concurrent writer just created.
+    /// </summary>
+    private static readonly TimeSpan StaleDownloadAge = TimeSpan.FromMinutes(1);
+
+    private void CleanupStaleDownloads(string directory, string currentFileName)
+    {
+        string[] candidates;
+        try
+        {
+            candidates = Directory.GetFiles(directory, "WallpaperTurbo_Update_*.exe");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[UpdateCoordinator] Could not enumerate stale downloads: {ex.Message}");
+            return;
+        }
+
+        var cutoff = DateTime.UtcNow - StaleDownloadAge;
+        foreach (var file in candidates)
+        {
+            if (string.Equals(Path.GetFileName(file), currentFileName, StringComparison.OrdinalIgnoreCase))
+                continue;
+            try
+            {
+                if (File.GetLastWriteTimeUtc(file) >= cutoff)
+                    continue;
+                File.Delete(file);
+                Debug.WriteLine($"[UpdateCoordinator] Removed stale download: {file}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[UpdateCoordinator] Failed to remove stale download {file}: {ex.Message}");
+            }
         }
     }
 }

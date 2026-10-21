@@ -24,6 +24,13 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
     private bool _disposed;
     private DispatcherTimer? _periodicCheckTimer;
 
+    /// <summary>
+    /// Upper bound for the startup update check. The GitHub call has no usable timeout of
+    /// its own on this path, so a stalled network must not stall startup follow-ups forever;
+    /// the check keeps running in the background and applies normally if it finishes late.
+    /// </summary>
+    internal TimeSpan StartupCheckTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
     [ObservableProperty] private string _currentVersion = "1.0.0";
     [ObservableProperty] private string _channelDisplay = "Stable";
     [ObservableProperty] private UpdateState _state = UpdateState.Idle;
@@ -224,7 +231,17 @@ public partial class UpdaterViewModel : ObservableObject, IDisposable
         {
             StartupDiagnostics.StartTimer("UpdateCoordinator startup check");
             UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"Invoking coordinator.CheckForUpdatesAsync(channel={_settings.ReleaseChannel})");
-            await _coordinator.CheckForUpdatesAsync(_settings.ReleaseChannel);
+            using var timeoutCts = new CancellationTokenSource();
+            var checkTask = _coordinator.CheckForUpdatesAsync(_settings.ReleaseChannel);
+            var delayTask = Task.Delay(StartupCheckTimeout, timeoutCts.Token);
+            var finished = await Task.WhenAny(checkTask, delayTask);
+            if (finished != checkTask)
+            {
+                UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"Startup check still running after {StartupCheckTimeout.TotalSeconds:0}s; leaving it in the background.");
+                return;
+            }
+            timeoutCts.Cancel();
+            await checkTask;
             UpdaterDiagnostic.Log("UpdaterViewModel.RunStartupCheck", $"Returned. State={_coordinator.CurrentState} Manifest={_coordinator.CurrentManifest?.Version.ToString() ?? "null"}");
         }
         catch (Exception ex)

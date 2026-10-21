@@ -146,7 +146,10 @@ public sealed class HardwareDecodePipeline
                 //
                 "--no-spu",
                 "--no-sub-autodetect-file",
-                "--direct3d11-hw-blending",
+                // NOTE: no --direct3d11-hw-blending. With SPU/subtitles/OSD all disabled
+                // there is nothing to blend; on Optimus laptops (dGPU decode, iGPU display)
+                // hardware blending forces a per-frame cross-adapter composite that shows up
+                // as chronic 4K stutter on Dedicated while Auto/iGPU stays smooth.
                 "--no-stats",
                 "--no-snapshot-preview",
                 "--deinterlace=0",

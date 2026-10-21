@@ -338,6 +338,38 @@ public class WallpaperService
         private bool _mockEngineRunning = false; // Mock engine status for SafeDebugMode
         private DateTime _lastStateFileWriteTime = DateTime.MinValue;
         private string? _cachedIpcPipeName;
+        // Explicit rendezvous pipe for an engine this instance is spawning. Set just before
+        // Process.Start (and passed to the child via --pipe-name) so readiness pings dial the
+        // new engine deterministically instead of racing whatever a previous run left in
+        // active_state.json. Null = resolve from the state file (adopt path).
+        private string? _explicitIpcPipeName;
+
+        /// <summary>
+        /// Pins (or clears, with null) the explicit rendezvous pipe for a spawned engine.
+        /// Clearing also drops the cached state-file pipe so the next read re-resolves.
+        /// </summary>
+        internal void SetExplicitPipeName(string? pipeName)
+        {
+            _explicitIpcPipeName = string.IsNullOrWhiteSpace(pipeName) ? null : pipeName.Trim();
+            if (_explicitIpcPipeName == null)
+                _cachedIpcPipeName = null;
+        }
+
+        /// <summary>Unique pipe name for a fresh engine launch (passed via --pipe-name).</summary>
+        internal static string CreateLaunchPipeName()
+            => $"WallpaperTurbo_IPC_{Environment.ProcessId}_{Guid.NewGuid():N}";
+
+        /// <summary>
+        /// Builds the AppRunner command line. Extracted as a pure function so the
+        /// rendezvous contract (--pipe-name) is unit-testable without spawning a process.
+        /// </summary>
+        internal static string BuildAppRunnerArguments(int index, string pauseMode, bool softDecode, bool isMuted, int uiPid, string? pipeName)
+        {
+            string decodeArg = softDecode ? " --software-decode" : string.Empty;
+            string muteArg = $" --mute-audio {isMuted.ToString().ToLowerInvariant()}";
+            string pipeArg = string.IsNullOrWhiteSpace(pipeName) ? string.Empty : $" --pipe-name {pipeName.Trim()}";
+            return $"--detach --wallpaper {index} --silent --pause-mode {pauseMode}{decodeArg}{muteArg}{pipeArg} --ui-pid {uiPid}";
+        }
         private readonly SemaphoreSlim _launchGate = new(1, 1); // Single-flight gate for wallpaper launches
         private int _launchGeneration; // Increments on each launch request to discard stale completions
         private DateTime _lastProcessCheck = DateTime.MinValue;
@@ -929,10 +961,12 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
                 {
                     try
                     {
-                        string decodeArg = softDecode ? " --software-decode" : string.Empty;
-                        string muteArg = $" --mute-audio {isMuted.ToString().ToLowerInvariant()}";
                         int currentPid = Environment.ProcessId;
-                        string args = $"--detach --wallpaper {index} --silent --pause-mode {mode}{decodeArg}{muteArg} --ui-pid {currentPid}";
+                        // Deterministic rendezvous: the child serves this pipe, and readiness
+                        // pings (via the explicit name) dial it — no race with the state file.
+                        string launchPipe = CreateLaunchPipeName();
+                        SetExplicitPipeName(launchPipe);
+                        string args = BuildAppRunnerArguments(index, mode, softDecode, isMuted, currentPid, launchPipe);
 
                         DiagnosticsService.SetAction($"Wallpaper Service Starting process: {args}");
 
@@ -952,6 +986,7 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Error launching wallpaper process: {ex.Message}");
+                        SetExplicitPipeName(null);
                         return false;
                     }
                 });
@@ -998,6 +1033,7 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
     public async Task<bool> StopPlaybackAsync()
     {
         DiagnosticsService.SetAction("Wallpaper Service Stopping Playback");
+        SetExplicitPipeName(null);
 
         if (DebugFlags.SafeDebugMode)
         {
@@ -1285,6 +1321,9 @@ public async Task<bool> LaunchWallpaperAsync(int index, string? pauseMode = null
     /// </summary>
     private string GetIpcPipeName()
     {
+        if (!string.IsNullOrEmpty(_explicitIpcPipeName))
+            return _explicitIpcPipeName;
+
         if (!string.IsNullOrEmpty(_cachedIpcPipeName))
             return _cachedIpcPipeName;
 

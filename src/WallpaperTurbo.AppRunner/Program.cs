@@ -34,6 +34,33 @@ internal static class Program
     private static IntPtr _hwnd = IntPtr.Zero;
     private static List<WallpaperEntry> _mergedWallpapers = new();
     private static int _uiPid = 0;
+    // Explicit IPC pipe name supplied by the UI via --pipe-name. When present, both the
+    // pipe server and the state file use it so the spawning UI dials a deterministic
+    // rendezvous instead of racing whatever a previous run left in active_state.json.
+    // Falls back to the PID-based name (previous behavior) when absent or unsafe.
+    private static string? _pipeNameOverride;
+    /// <summary>
+    /// The pipe name this engine serves and advertises in active_state.json.
+    /// </summary>
+    private static string IpcPipeName
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(_pipeNameOverride) && IsSafePipeName(_pipeNameOverride))
+                return _pipeNameOverride;
+            return "WallpaperTurbo_IPC_" + Environment.ProcessId;
+        }
+    }
+
+    private static bool IsSafePipeName(string name)
+    {
+        if (name.Length == 0 || name.Length > 128) return false;
+        foreach (char c in name)
+        {
+            if (!(char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '.')) return false;
+        }
+        return true;
+    }
     private static ForegroundWindowWatcher? _foregroundWatcher;
     private static bool _muteAudio = true;
 
@@ -148,7 +175,10 @@ internal static class Program
             string muteArgument = $" --mute-audio {_muteAudio.ToString().ToLowerInvariant()}";
             string voutArgument = !string.IsNullOrEmpty(_videoOutputModule) ? $" --vout {_videoOutputModule}" : string.Empty;
             string memArgument = _memoryDiagnostics ? " --mem-diagnostics" : string.Empty;
-            string arguments = $"--wallpaper {_finalWallpaperIndex} --silent --pause-mode {_pauseMode}{decodeArgument}{muteArgument}{voutArgument}{memArgument}{(_uiPid > 0 ? $" --ui-pid {_uiPid}" : string.Empty)}";
+            // Preserve the UI-agreed rendezvous pipe across the detach respawn; without it
+            // the respawned engine would fall back to a PID pipe the UI never dials.
+            string pipeArgument = !string.IsNullOrEmpty(_pipeNameOverride) ? $" --pipe-name {_pipeNameOverride}" : string.Empty;
+            string arguments = $"--wallpaper {_finalWallpaperIndex} --silent --pause-mode {_pauseMode}{decodeArgument}{muteArgument}{voutArgument}{memArgument}{pipeArgument}{(_uiPid > 0 ? $" --ui-pid {_uiPid}" : string.Empty)}";
 
             if (string.IsNullOrEmpty(processPath) || 
                 processPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase) || 
@@ -347,6 +377,22 @@ internal static class Program
                     i++;
                 }
             }
+            else if (args[i].Equals("--pipe-name", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 < args.Length && !string.IsNullOrWhiteSpace(args[i + 1]))
+                {
+                    _pipeNameOverride = args[i + 1].Trim();
+                    i++;
+                }
+            }
+            else if (args[i].StartsWith("--pipe-name=", StringComparison.OrdinalIgnoreCase))
+            {
+                string pipeValue = args[i]["--pipe-name=".Length..].Trim();
+                if (!string.IsNullOrEmpty(pipeValue))
+                {
+                    _pipeNameOverride = pipeValue;
+                }
+            }
             else if (args[i].Equals("--mute-audio", StringComparison.OrdinalIgnoreCase))
             {
                 if (i + 1 < args.Length && bool.TryParse(args[i + 1], out bool parsedMute))
@@ -509,10 +555,13 @@ internal static class Program
             string muteArg = $" --mute-audio {muteAudio.ToString().ToLowerInvariant()}";
             string voutArg = !string.IsNullOrEmpty(videoOutputModule) ? $" --vout {videoOutputModule}" : string.Empty;
             string memArg = memoryDiagnostics ? " --mem-diagnostics" : string.Empty;
+            // Carry the UI-agreed rendezvous pipe into the detached child; without it the
+            // long-lived engine falls back to a PID pipe the UI never dials.
+            string pipeArg = !string.IsNullOrEmpty(_pipeNameOverride) ? $" --pipe-name {_pipeNameOverride}" : string.Empty;
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = processPath,
-                Arguments = $"--wallpaper {finalWallpaperIndex} --silent --pause-mode {pauseMode}{decodeArg}{muteArg}{voutArg}{memArg}{(uiPid > 0 ? $" --ui-pid {uiPid}" : string.Empty)}",
+                Arguments = $"--wallpaper {finalWallpaperIndex} --silent --pause-mode {pauseMode}{decodeArg}{muteArg}{voutArg}{memArg}{pipeArg}{(uiPid > 0 ? $" --ui-pid {uiPid}" : string.Empty)}",
                 UseShellExecute = true,
                 CreateNoWindow = true,
                 WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
@@ -1450,7 +1499,7 @@ internal static class Program
                 {
                     try
                     {
-                        string pipeName = "WallpaperTurbo_IPC_" + Environment.ProcessId;
+                        string pipeName = IpcPipeName;
                         using var server = new System.IO.Pipes.NamedPipeServerStream(pipeName, System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
                         await server.WaitForConnectionAsync(cts.Token);
                         using var reader = new System.IO.StreamReader(server);
@@ -2429,7 +2478,7 @@ internal static class Program
                     { "ActiveWallpaperIndex", index },
                     { "ActiveWallpaperTitle", title },
                     { "IsPlaying", isPlaying },
-                    { "IpcPipeName", "WallpaperTurbo_IPC_" + Environment.ProcessId },
+                    { "IpcPipeName", IpcPipeName },
                     { "UpdatedAtUtc", DateTime.UtcNow.ToString("o") }
                 };
 

@@ -183,6 +183,9 @@ public class WallpaperStartupCoordinator
             {
                 Log($"Adopted existing session: {existingSession.Title} in {sw.ElapsedMilliseconds}ms");
                 StartupDiagnostics.LogWithMemory($"Startup coordinator adopted existing session in {sw.ElapsedMilliseconds}ms");
+                // Talk to the adopted engine via its own state-file pipe, not any explicit
+                // launch pipe pinned earlier in this process.
+                _wallpaperService.SetExplicitPipeName(null);
                 return new StartupResult
                 {
                     IsEngineRunning = true,
@@ -443,7 +446,10 @@ public class WallpaperStartupCoordinator
             };
         }
 
-        // Poll for readiness (kept at 100*100ms for reliability; cold-start budget saved elsewhere via offloading).
+        // Poll for readiness. The pings dial the explicit launch pipe agreed with the child
+        // at spawn, so a healthy engine answers within the first attempts; the full sweep
+        // only burns when the engine never serves (each attempt ≈ process probe +
+        // up-to-150ms pipe connect + 100ms delay, i.e. ~30s worst case, not 10s).
         for (int attempt = 0; attempt < ReadinessMaxAttempts; attempt++)
         {
             ct.ThrowIfCancellationRequested();
@@ -478,6 +484,7 @@ public class WallpaperStartupCoordinator
         // Timeout — engine is still starting
         Log($"Readiness timeout after {ReadinessTimeout.TotalSeconds:0}s");
         StartupDiagnostics.LogWithMemory($"LaunchWithReadinessCheck TIMEOUT after {ReadinessTimeout.TotalSeconds:0}s");
+        _wallpaperService.SetExplicitPipeName(null);
         return new StartupResult
         {
             IsEngineRunning = false,
