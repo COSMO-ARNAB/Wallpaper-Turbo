@@ -14,6 +14,8 @@ public class TelemetryMetrics
     public bool IsGpuAvailable { get; set; }
     public double VideoDecodeUsage { get; set; }
     public bool IsVideoDecodeAvailable { get; set; }
+    public double Gpu3DAssistUsage { get; set; }
+    public bool IsGpu3DAssistAvailable { get; set; }
     public double RamUsageGb { get; set; }
     public bool IsRamAvailable { get; set; }
     public double RamTotalGb { get; set; }
@@ -95,6 +97,11 @@ public class TelemetryService
         _provider?.Reset();
     }
 
+    private volatile bool _isPaused;
+    public void Pause() => _isPaused = true;
+    public void Resume() => _isPaused = false;
+    public bool IsPaused => _isPaused;
+
     public TelemetryMetrics CurrentMetrics
     {
         get
@@ -116,6 +123,8 @@ public class TelemetryService
             IsGpuAvailable = source.IsGpuAvailable,
             VideoDecodeUsage = source.VideoDecodeUsage,
             IsVideoDecodeAvailable = source.IsVideoDecodeAvailable,
+            Gpu3DAssistUsage = source.Gpu3DAssistUsage,
+            IsGpu3DAssistAvailable = source.IsGpu3DAssistAvailable,
             RamUsageGb = source.RamUsageGb,
             IsRamAvailable = source.IsRamAvailable,
             RamTotalGb = source.RamTotalGb,
@@ -135,6 +144,8 @@ public class TelemetryService
 
     private async Task PollMetricsAsync()
     {
+        if (_isPaused) return;
+
         if (DebugFlags.SafeDebugMode)
         {
             lock (_metricsLock)

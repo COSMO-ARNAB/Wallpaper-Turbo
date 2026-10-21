@@ -53,6 +53,7 @@ public partial class MainWindow : Window
         Deactivated  += OnWindowDeactivated;
         Activated    += OnWindowActivated;
         StateChanged += OnWindowStateChanged;
+        IsVisibleChanged += OnWindowIsVisibleChanged;
         SourceInitialized += OnSourceInitialized;
 
         Loaded += OnWindowLoaded;
@@ -174,13 +175,27 @@ public partial class MainWindow : Window
         {
             // Force-stop preview when minimized to release decoder and compositor resources
             _ = _previewService.StopPreviewAsync();
-            System.Diagnostics.Debug.WriteLine("[MainWindow] Window minimized → preview force-stopped.");
+            try { App.GetService<TelemetryService>()?.Pause(); } catch { }
+            System.Diagnostics.Debug.WriteLine("[MainWindow] Window minimized → preview force-stopped & telemetry paused.");
         }
         else
         {
+            try { App.GetService<TelemetryService>()?.Resume(); } catch { }
             // Restored from minimized/maximized toggle — DWM may have reset
             // DWMWA_SYSTEMBACKDROP_TYPE to Auto. Re-apply without changing colors.
             ApplyBackdropAttributes();
+        }
+    }
+
+    private void OnWindowIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (!IsVisible)
+        {
+            try { App.GetService<TelemetryService>()?.Pause(); } catch { }
+        }
+        else if (WindowState != WindowState.Minimized)
+        {
+            try { App.GetService<TelemetryService>()?.Resume(); } catch { }
         }
     }
 

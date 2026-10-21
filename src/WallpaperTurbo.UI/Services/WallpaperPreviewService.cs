@@ -131,6 +131,17 @@ public class WallpaperPreviewService : IWallpaperPreviewService
                 return;
             }
 
+            try
+            {
+                var settingsStore = App.GetService<ISettingsStore>();
+                if (settingsStore?.Load().LowPowerStaticPreview == true)
+                {
+                    Debug.WriteLine("[Preview] Skip preview: LowPowerStaticPreview enabled.");
+                    return;
+                }
+            }
+            catch { }
+
             DiagnosticsService.SetAction($"Hover Preview Start dwelling: '{entry.Title}'");
 
             // Fast, non-blocking pre-checks (no locks needed)

@@ -39,6 +39,7 @@ public class AppSettings
 
     public bool UseHardwareAcceleration { get; set; } = true;
     public bool BatterySaverEnabled { get; set; } = false;
+    public bool LowPowerStaticPreview { get; set; } = false;
 
     [JsonConverter(typeof(GpuPreferenceJsonConverter))]
     public GpuPreference GpuPreference { get; set; } = GpuPreference.Auto;

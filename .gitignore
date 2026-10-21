@@ -65,6 +65,7 @@ test_write.txt
 *.tmp
 *.zip
 wallpaper-turbo-argon/
+wallpaper-turbo (1)/
 .venv/
 .gemini/
 .agent/

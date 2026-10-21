@@ -231,4 +231,43 @@ public class SurgicalFixesTests
         var secondException = Record.Exception(() => vm.Dispose());
         Assert.Null(secondException);
     }
+
+    [Fact]
+    public void AppSettings_LowPowerStaticPreview_DefaultsFalse()
+    {
+        var settings = new AppSettings();
+        Assert.False(settings.LowPowerStaticPreview);
+    }
+
+    [Fact]
+    public void TelemetryViewModel_TracksGpu3DAssistSeparately()
+    {
+        var vm = new TelemetryViewModel();
+        var metrics = new TelemetryMetrics
+        {
+            IsGpuAvailable = true,
+            GpuUsage = 8.5,
+            IsVideoDecodeAvailable = true,
+            VideoDecodeUsage = 6.2,
+            IsGpu3DAssistAvailable = true,
+            Gpu3DAssistUsage = 2.3
+        };
+
+        vm.Update(metrics, isEngineRunning: true);
+
+        Assert.True(vm.IsVideoDecodeAvailable);
+        Assert.Equal(6.2, vm.VideoDecodeUsage);
+        Assert.Equal("6.2%", vm.VideoDecodeText);
+
+        Assert.True(vm.IsGpu3DAssistAvailable);
+        Assert.Equal(2.3, vm.Gpu3DAssistUsage);
+        Assert.Equal("2.3%", vm.Gpu3DAssistText);
+    }
+
+    [Fact]
+    public void ThumbnailImageConverter_ExposesExpectedOptimalDimensionsAndCacheBounds()
+    {
+        Assert.Equal(360, WallpaperTurbo.UI.Converters.ThumbnailImageConverter.OptimalCardDecodePixelWidth);
+        Assert.Equal(64, WallpaperTurbo.UI.Converters.ThumbnailImageConverter.MaxCachedThumbnails);
+    }
 }

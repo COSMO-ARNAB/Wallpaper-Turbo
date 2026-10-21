@@ -53,7 +53,21 @@ public partial class PerformanceGraph : UserControl
 
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        IsVisibleChanged += OnIsVisibleChanged;
         SizeChanged += (s, e) => Redraw();
+    }
+
+    private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (IsVisible)
+        {
+            StartInterpolationLoop();
+            Redraw();
+        }
+        else
+        {
+            StopInterpolationLoop();
+        }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -82,6 +96,8 @@ public partial class PerformanceGraph : UserControl
             return;
         }
 
+        if (!IsVisible) return;
+
         if (!_isRenderingHooked && IsLoaded)
         {
             _lastTickTime = DateTime.UtcNow;
@@ -101,6 +117,12 @@ public partial class PerformanceGraph : UserControl
 
     private void OnCompositionTargetRendering(object? sender, EventArgs e)
     {
+        if (!IsVisible)
+        {
+            StopInterpolationLoop();
+            return;
+        }
+
         var now = DateTime.UtcNow;
         if (_lastTickTime == DateTime.MinValue)
         {
@@ -176,16 +198,18 @@ public partial class PerformanceGraph : UserControl
         StartInterpolationLoop();
     }
 
+    private readonly PointCollection _pointsBuffer = new();
+
     private void Redraw()
     {
-        if (WaveLine == null || ActualWidth <= 0 || ActualHeight <= 0) return;
+        if (!IsVisible || WaveLine == null || ActualWidth <= 0 || ActualHeight <= 0) return;
 
-        var points = new PointCollection();
         double w = ActualWidth;
         double h = ActualHeight;
 
         double stepX = w / (MaxPoints - 1);
 
+        _pointsBuffer.Clear();
         for (int i = 0; i < _displayHistory.Count; i++)
         {
             double x = i * stepX;
@@ -193,9 +217,12 @@ public partial class PerformanceGraph : UserControl
             double valueNormalized = Math.Clamp(_displayHistory[i] / 100.0, 0.0, 1.0);
             double y = h - (valueNormalized * (h - 4.0)) - 2.0; // pad slightly to avoid edge cuts
 
-            points.Add(new Point(x, y));
+            _pointsBuffer.Add(new Point(x, y));
         }
 
-        WaveLine.Points = points;
+        if (WaveLine.Points != _pointsBuffer)
+        {
+            WaveLine.Points = _pointsBuffer;
+        }
     }
 }

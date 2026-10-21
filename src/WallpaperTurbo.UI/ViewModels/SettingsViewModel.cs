@@ -49,6 +49,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _rememberLastWallpaper = true;
     [ObservableProperty] private string _performanceMode = "Balanced";
     [ObservableProperty] private bool _batterySaverEnabled = false;
+    [ObservableProperty] private bool _lowPowerStaticPreview = false;
 
     // ── Auto GPU & Driver Detection ─────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<GpuInfo> _detectedGpus = new();
@@ -91,6 +92,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             _autoStartWallpaperEngine = settings.AutoStartWallpaperEngine;
             _rememberLastWallpaper = settings.RememberLastWallpaper;
             _batterySaverEnabled = settings.BatterySaverEnabled;
+            _lowPowerStaticPreview = settings.LowPowerStaticPreview;
         }
         finally
         {
@@ -131,6 +133,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
                 if (AutoStartWallpaperEngine != newSettings.AutoStartWallpaperEngine) AutoStartWallpaperEngine = newSettings.AutoStartWallpaperEngine;
                 if (RememberLastWallpaper != newSettings.RememberLastWallpaper) RememberLastWallpaper = newSettings.RememberLastWallpaper;
                 if (BatterySaverEnabled != newSettings.BatterySaverEnabled) BatterySaverEnabled = newSettings.BatterySaverEnabled;
+                if (LowPowerStaticPreview != newSettings.LowPowerStaticPreview) LowPowerStaticPreview = newSettings.LowPowerStaticPreview;
             }
             finally
             {
@@ -145,6 +148,15 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
 
         var settings = _settingsStore.Load();
         settings.BatterySaverEnabled = value;
+        _settingsStore.Save(settings);
+    }
+
+    partial void OnLowPowerStaticPreviewChanged(bool value)
+    {
+        if (_isSyncing) return;
+
+        var settings = _settingsStore.Load();
+        settings.LowPowerStaticPreview = value;
         _settingsStore.Save(settings);
     }
 
@@ -444,6 +456,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             RememberLastWallpaper = true;
             PerformanceMode = "Balanced";
             BatterySaverEnabled = false;
+            LowPowerStaticPreview = false;
         }
         finally
         {

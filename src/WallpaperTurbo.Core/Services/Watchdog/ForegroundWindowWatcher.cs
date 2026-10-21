@@ -22,6 +22,12 @@ public sealed class ForegroundWindowWatcher : IDisposable
     private bool _disposed;
     private PauseMode _pauseMode = PauseMode.Maximized;
 
+    private IntPtr _lastHwnd = IntPtr.Zero;
+    private RECT _lastRect;
+    private bool _lastResult;
+    private string? _lastPauseReason;
+    private PauseMode _lastCachedPauseMode;
+
     public PauseMode PauseMode
     {
         get => _pauseMode;
@@ -30,6 +36,7 @@ public sealed class ForegroundWindowWatcher : IDisposable
             if (_pauseMode != value)
             {
                 _pauseMode = value;
+                _lastHwnd = IntPtr.Zero;
                 if (value == PauseMode.None && _lastState)
                 {
                     _lastState = false;
@@ -131,12 +138,44 @@ public sealed class ForegroundWindowWatcher : IDisposable
     /// Returns true when <paramref name="hwnd"/> (or a window above the wallpaper on its
     /// monitor) obscures the desktop. <paramref name="pauseReason"/> names the culprit
     /// window and the exact check that fired, for pause-misfire diagnosis.
+    /// Fast-returns cached result if foreground HWND and bounds are unchanged since last check.
     /// </summary>
     private bool CheckIfWindowObscuresScreen(IntPtr hwnd, bool captureReason, out string? pauseReason)
     {
         pauseReason = null;
         if (hwnd == IntPtr.Zero)
             return false;
+
+        bool hasRect = GetWindowRect(hwnd, out RECT currentRect);
+        if (hasRect &&
+            hwnd == _lastHwnd &&
+            currentRect.Left == _lastRect.Left &&
+            currentRect.Top == _lastRect.Top &&
+            currentRect.Right == _lastRect.Right &&
+            currentRect.Bottom == _lastRect.Bottom &&
+            PauseMode == _lastCachedPauseMode)
+        {
+            pauseReason = _lastPauseReason;
+            return _lastResult;
+        }
+
+        bool result = CheckIfWindowObscuresScreenCore(hwnd, captureReason, currentRect, hasRect, out pauseReason);
+
+        if (hasRect)
+        {
+            _lastHwnd = hwnd;
+            _lastRect = currentRect;
+            _lastResult = result;
+            _lastPauseReason = pauseReason;
+            _lastCachedPauseMode = PauseMode;
+        }
+
+        return result;
+    }
+
+    private bool CheckIfWindowObscuresScreenCore(IntPtr hwnd, bool captureReason, RECT fgRect, bool hasRect, out string? pauseReason)
+    {
+        pauseReason = null;
 
         // Skip direct desktop or shell handles
         if (hwnd == GetDesktopWindow() || hwnd == GetShellWindow())
@@ -225,22 +264,22 @@ public sealed class ForegroundWindowWatcher : IDisposable
                             return true;
                         }
 
-                        if (GetWindowRect(hwnd, out RECT rect))
+                        if (hasRect)
                         {
-                            int w = rect.Right - rect.Left;
-                            int h = rect.Bottom - rect.Top;
+                            int w = fgRect.Right - fgRect.Left;
+                            int h = fgRect.Bottom - fgRect.Top;
 
                             // Fullscreen check on this monitor
-                            if (rect.Left <= monRect.Left && rect.Top <= monRect.Top &&
-                                rect.Right >= monRect.Right && rect.Bottom >= monRect.Bottom)
+                            if (fgRect.Left <= monRect.Left && fgRect.Top <= monRect.Top &&
+                                fgRect.Right >= monRect.Right && fgRect.Bottom >= monRect.Bottom)
                             {
                                 if (captureReason) pauseReason = $"fast-cover-monitor {DescribeWindow(hwnd)}";
                                 return true;
                             }
 
                             // Work area maximized check
-                            if (rect.Left <= workRect.Left && rect.Top <= workRect.Top &&
-                                rect.Right >= workRect.Right && rect.Bottom >= workRect.Bottom)
+                            if (fgRect.Left <= workRect.Left && fgRect.Top <= workRect.Top &&
+                                fgRect.Right >= workRect.Right && fgRect.Bottom >= workRect.Bottom)
                             {
                                 if (captureReason) pauseReason = $"fast-cover-work {DescribeWindow(hwnd)}";
                                 return true;

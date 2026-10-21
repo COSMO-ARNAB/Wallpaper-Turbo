@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 using System.Windows.Data;
@@ -8,28 +9,43 @@ namespace WallpaperTurbo.UI.Converters;
 
 /// <summary>
 /// A value converter that loads a dynamic thumbnail from a string path.
-/// Decodes at a limited pixel width (320 for cards, 1280 for hero banners) 
-/// and freezes the bitmap to make it thread-safe and virtualization-friendly.
-/// 
-/// IMPORTANT: Uses BitmapCacheOption.OnLoad (NOT OnDemand) because Freeze() 
-/// forces synchronous decode anyway — OnDemand + Freeze is a contradiction that
-/// causes random stalls when WPF tries to finalize the freeze. OnLoad is explicit
-/// and predictable.
+/// Decodes card thumbnails at DecodePixelWidth = 360 (or 1280 for Hero banners)
+/// with BitmapCacheOption.OnLoad and freezes them in a bounded cache (MaxCachedThumbnails = 64)
+/// to prevent 33 MB full-4K RGBA allocations per card.
 /// </summary>
 public class ThumbnailImageConverter : IValueConverter
 {
+    public const int OptimalCardDecodePixelWidth = 360;
+    public const int MaxCachedThumbnails = 64;
+
+    private static readonly ConcurrentDictionary<string, BitmapImage> _cache = new(StringComparer.OrdinalIgnoreCase);
+
+    public static void ClearCacheIfExceeded()
+    {
+        if (_cache.Count > MaxCachedThumbnails)
+        {
+            _cache.Clear();
+        }
+    }
+
     public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is string path && !string.IsNullOrWhiteSpace(path))
         {
+            int decodeWidth = OptimalCardDecodePixelWidth;
+            if (parameter is string paramStr && paramStr.Equals("Hero", StringComparison.OrdinalIgnoreCase))
+            {
+                decodeWidth = 1280; // High resolution for Hero banners to keep them crisp
+            }
+
+            string cacheKey = $"{path}:{decodeWidth}";
+            if (_cache.TryGetValue(cacheKey, out var cached))
+            {
+                return cached;
+            }
+
             try
             {
-                int decodeWidth = 320;
-                if (parameter is string paramStr && paramStr.Equals("Hero", StringComparison.OrdinalIgnoreCase))
-                {
-                    decodeWidth = 1280; // High resolution for Hero banners to keep them crisp
-                }
-
                 var bitmap = new BitmapImage();
                 bitmap.BeginInit();
                 
@@ -50,13 +66,16 @@ public class ThumbnailImageConverter : IValueConverter
                 }
                 
                 bitmap.DecodePixelWidth = decodeWidth;
-                
-                // Use OnLoad (NOT OnDemand): Freeze() forces a synchronous decode regardless of the cache option,
-                // so OnDemand + Freeze is contradictory and causes unpredictable stalls. OnLoad is explicit.
                 bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                
                 bitmap.EndInit();
                 bitmap.Freeze(); // Freeze to make thread-safe and virtualization-friendly
+
+                if (_cache.Count >= MaxCachedThumbnails)
+                {
+                    _cache.Clear();
+                }
+                _cache.TryAdd(cacheKey, bitmap);
+
                 return bitmap;
             }
             catch (Exception ex)
@@ -65,11 +84,17 @@ public class ThumbnailImageConverter : IValueConverter
             }
         }
 
-        return LoadFallback(320);
+        return LoadFallback(OptimalCardDecodePixelWidth);
     }
 
     private static BitmapImage? LoadFallback(int decodeWidth)
     {
+        string fallbackKey = $"__fallback__:{decodeWidth}";
+        if (_cache.TryGetValue(fallbackKey, out var cachedFallback))
+        {
+            return cachedFallback;
+        }
+
         try
         {
             var fallback = new BitmapImage();
@@ -79,6 +104,8 @@ public class ThumbnailImageConverter : IValueConverter
             fallback.CacheOption = BitmapCacheOption.OnLoad;
             fallback.EndInit();
             fallback.Freeze();
+
+            _cache.TryAdd(fallbackKey, fallback);
             return fallback;
         }
         catch

@@ -35,7 +35,7 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
     public bool Initialize(int pid)
     {
         if (pid == _initializedPid && _isSupported &&
-            DateTime.UtcNow - _lastCounterDiscoveryUtc < TimeSpan.FromSeconds(5))
+            DateTime.UtcNow - _lastCounterDiscoveryUtc < TimeSpan.FromSeconds(30))
             return true;
 
         try
@@ -161,7 +161,7 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
 
         try
         {
-            if (DateTime.UtcNow - _lastCounterDiscoveryUtc >= TimeSpan.FromSeconds(5) && !Initialize(pid))
+            if (DateTime.UtcNow - _lastCounterDiscoveryUtc >= TimeSpan.FromSeconds(30) && !Initialize(pid))
             {
                 return;
             }
@@ -203,15 +203,24 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
                 // after each engine's per-process instances have been summed.
                 double totalGpu = engineValues.Values.Max(value => value.Usage);
                 var decodeEngines = engineValues.Values
-                    .Where(value => value.EngineType == "videodecode")
+                    .Where(value => value.EngineType == "videodecode" || value.EngineType == "videoprocessing")
                     .Select(value => value.Usage)
                     .ToArray();
+                var assist3dEngines = engineValues.Values
+                    .Where(value => value.EngineType == "3d")
+                    .Select(value => value.Usage)
+                    .ToArray();
+
                 metrics.GpuUsage = Math.Round(Math.Clamp(totalGpu, 0, 100), 1);
                 metrics.IsGpuAvailable = true;
                 metrics.VideoDecodeUsage = decodeEngines.Length > 0
                     ? Math.Round(Math.Clamp(decodeEngines.Max(), 0, 100), 1)
                     : 0;
                 metrics.IsVideoDecodeAvailable = decodeEngines.Length > 0;
+                metrics.Gpu3DAssistUsage = assist3dEngines.Length > 0
+                    ? Math.Round(Math.Clamp(assist3dEngines.Max(), 0, 100), 1)
+                    : 0;
+                metrics.IsGpu3DAssistAvailable = assist3dEngines.Length > 0;
 
                 long dedicatedBytes = 0;
                 foreach (var vramInfo in _vramCounters)
@@ -231,6 +240,8 @@ public class PerformanceCounterTelemetryProvider : ITelemetryProvider
                 metrics.IsGpuAvailable = false;
                 metrics.VideoDecodeUsage = 0.0;
                 metrics.IsVideoDecodeAvailable = false;
+                metrics.Gpu3DAssistUsage = 0.0;
+                metrics.IsGpu3DAssistAvailable = false;
                 metrics.VramUsageGb = 0.0;
                 metrics.IsVramAvailable = false;
             }
