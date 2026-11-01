@@ -7,9 +7,7 @@ namespace WallpaperTurbo.UI.Models;
 
 public class AppSettings
 {
-    public const string CanonicalDefaultWallpaperId = "frieren-astral";
-
-    private string? _lastActiveWallpaperId = CanonicalDefaultWallpaperId;
+    private string? _lastActiveWallpaperId = null;
     private double _glassOpacity = 40.0;
 
     public string Theme { get; set; } = "Dark";
@@ -23,7 +21,7 @@ public class AppSettings
     public string? LastActiveWallpaperId
     {
         get => _lastActiveWallpaperId;
-        set => _lastActiveWallpaperId = value != null ? NormalizeWallpaperId(value) : null;
+        set => _lastActiveWallpaperId = NormalizeWallpaperId(value);
     }
 
     public bool AutoStartWallpaperEngine { get; set; } = true;
@@ -44,14 +42,13 @@ public class AppSettings
     [JsonConverter(typeof(GpuPreferenceJsonConverter))]
     public GpuPreference GpuPreference { get; set; } = GpuPreference.Auto;
 
-    public static string NormalizeWallpaperId(string? id)
+    public static string? NormalizeWallpaperId(string? id)
     {
-        if (string.IsNullOrWhiteSpace(id) ||
-            string.Equals(id, "crimson-blind", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(id))
         {
-            return CanonicalDefaultWallpaperId;
+            return null;
         }
-        return id;
+        return id.Trim();
     }
 
     public static double NormalizeGlassOpacity(double value)

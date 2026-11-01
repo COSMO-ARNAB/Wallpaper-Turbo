@@ -25,8 +25,7 @@ public class MonitorTopologyItem
 
 public partial class DashboardViewModel : ObservableObject, IDisposable
 {
-    public const string CanonicalDefaultWallpaperId = AppSettings.CanonicalDefaultWallpaperId;
-    public static string NormalizeWallpaperId(string? id) => AppSettings.NormalizeWallpaperId(id);
+    public static string? NormalizeWallpaperId(string? id) => AppSettings.NormalizeWallpaperId(id);
 
     public event EventHandler<string>? ApplyRollbackError;
 
@@ -453,16 +452,16 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
 
     public async Task LoadFeaturedWallpapersAsync()
     {
-        var defaultWallpaper = _allWallpapers.FirstOrDefault(w => w.Id == CanonicalDefaultWallpaperId) 
-            ?? _allWallpapers.FirstOrDefault(w => string.Equals(w.Id, "crimson-blind", StringComparison.OrdinalIgnoreCase))
+        var savedId = _settingsStore.Load().LastActiveWallpaperId;
+        var defaultWallpaper = (!string.IsNullOrEmpty(savedId) ? _allWallpapers.FirstOrDefault(w => w.Id == savedId) : null)
             ?? (_allWallpapers.Count > 0 ? _allWallpapers[0] : null);
 
         if (_allWallpapers.Count >= 4)
         {
-            HeroWallpaper = defaultWallpaper ?? _allWallpapers[0]; // Astral Horizon
-            SubHero1 = _allWallpapers[1];      // Retrowave Drive / Red Leaves
-            SubHero2 = _allWallpapers[2];      // Forest Serenity / Rapi Red
-            SubHero3 = _allWallpapers[3];      // Sukuna Madness
+            HeroWallpaper = defaultWallpaper ?? _allWallpapers[0];
+            SubHero1 = _allWallpapers[1];
+            SubHero2 = _allWallpapers[2];
+            SubHero3 = _allWallpapers[3];
         }
         else if (_allWallpapers.Count >= 3)
         {

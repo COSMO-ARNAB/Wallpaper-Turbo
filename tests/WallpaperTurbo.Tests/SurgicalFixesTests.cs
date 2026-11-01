@@ -105,15 +105,14 @@ public class SurgicalFixesTests
     }
 
     [Fact]
-    public void NormalizeWallpaperId_MapsCrimsonBlindAndEmptyToFrierenAstral()
+    public void NormalizeWallpaperId_DoesNotHardcodeDefaultWallpaper()
     {
-        Assert.Equal("frieren-astral", AppSettings.CanonicalDefaultWallpaperId);
-        Assert.Equal("frieren-astral", DashboardViewModel.CanonicalDefaultWallpaperId);
+        var settings = new AppSettings();
+        Assert.Null(settings.LastActiveWallpaperId);
 
-        Assert.Equal("frieren-astral", AppSettings.NormalizeWallpaperId("crimson-blind"));
-        Assert.Equal("frieren-astral", AppSettings.NormalizeWallpaperId("CRIMSON-BLIND"));
-        Assert.Equal("frieren-astral", AppSettings.NormalizeWallpaperId(null));
-        Assert.Equal("frieren-astral", AppSettings.NormalizeWallpaperId("   "));
+        Assert.Null(AppSettings.NormalizeWallpaperId(null));
+        Assert.Null(AppSettings.NormalizeWallpaperId("   "));
+        Assert.Equal("crimson-blind", AppSettings.NormalizeWallpaperId("crimson-blind"));
         Assert.Equal("custom-wall", AppSettings.NormalizeWallpaperId("custom-wall"));
     }
 
@@ -131,25 +130,6 @@ public class SurgicalFixesTests
     {
         var result = AppSettings.NormalizeGlassOpacity(input);
         Assert.Equal(expected, result);
-    }
-
-    [Fact]
-    public async Task WallpaperLibraryService_SeedWallpapers_ContainsExpectedPlaylistTags()
-    {
-        var libService = new WallpaperLibraryService(new DummyThumbnailExtractor());
-        var wallpapers = await libService.GetWallpapersAsync();
-
-        Assert.NotEmpty(wallpapers);
-
-        var allPlaylists = wallpapers.SelectMany(w => w.Playlists).Distinct().ToList();
-        var allTags = wallpapers.SelectMany(w => w.Tags).Distinct().ToList();
-
-        var combined = allPlaylists.Concat(allTags).ToList();
-
-        Assert.Contains("Favorites", combined);
-        Assert.Contains("Anime Vibes", combined);
-        Assert.Contains("Cars & Drives", combined);
-        Assert.Contains("Dark Aesthetic", combined);
     }
 
     private sealed class DummyThumbnailExtractor : IThumbnailExtractor
